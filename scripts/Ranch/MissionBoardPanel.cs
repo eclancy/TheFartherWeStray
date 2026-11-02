@@ -152,6 +152,11 @@ public partial class MissionCard : Control
             DrawTexture(Glyphs.Get("star", 2), new Vector2(x - 4, 128));
             DrawString(font, new Vector2(x + 26, 150), $"Main mission  ·  opens {World.Country.Get(World.StoryBook.Get(story).Opens).Name}", HorizontalAlignment.Left, w - 26, 15, gold);
         }
+        else if (m.Roamer != 0)
+        {
+            DrawTexture(Glyphs.Get("paw", 2), new Vector2(x - 4, 128));
+            DrawString(font, new Vector2(x + 26, 150), "Roaming pack  ·  moves on each day; cross its path and it attacks", HorizontalAlignment.Left, w - 26, 15, Color.FromHtml("#ff6a5a"));
+        }
         else if (m.Cup is { } cup)
         {
             DrawTexture(Glyphs.Get("crown", 2), new Vector2(x - 4, 128));

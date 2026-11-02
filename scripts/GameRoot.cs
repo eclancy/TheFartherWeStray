@@ -166,7 +166,12 @@ public partial class GameRoot : Node
                 var m = fights.FirstOrDefault(x => x.Story != null) ?? (wantsDuel ? fights.FirstOrDefault(x => x.Rival != null && x.Cup == null) : null)
                     ?? fights.FirstOrDefault(x => x.Cup != null)
                     ?? fights.Where(x => x.Rival == null).OrderBy(x => World.Country.Days(ranch, x.Location)).ThenBy(x => x.Stars).First();
-                ranch.TravelTo(m.Location);
+                if (ranch.TravelTo(m.Location) is { } met)
+                {
+                    if (met.Id != m.Roamer) GD.Print($"    ambushed at {met.At} by a roaming pack of {met.Size}");
+                    m = World.Roaming.Battle(met);
+                }
+                else if (m.Roamer != 0) m = World.Country.Board(ranch).First(x => x.Dispatch == null && x.Roamer == 0 && x.Location == ranch.Location && x.Cup == null);
                 Tactics.Battle battle;
                 while (true)
                 {
@@ -194,8 +199,9 @@ public partial class GameRoot : Node
             ranch.Save();
             var back = Ranching.Ranch.Load();
             bool kept = back.Location == ranch.Location && back.Day == ranch.Day && back.ContractsWon == ranch.ContractsWon && back.Story.SetEquals(ranch.Story)
-                && back.Cups.SetEquals(ranch.Cups) && back.Away.Count == ranch.Away.Count && back.Away.All(kv => ranch.Away.TryGetValue(kv.Key, out var a) && a.Job == kv.Value.Job && a.BackOn == kv.Value.BackOn);
-            GD.Print($"country: {(kept ? "kept" : "DIFFERENT")} after save and load (at {back.Location}, day {back.Day}, main missions won: {string.Join(", ", back.Story)}; cups: {string.Join(", ", back.Cups)}; away: {back.Away.Count}); stalled: {countryStalls}");
+                && back.Cups.SetEquals(ranch.Cups) && back.Wanderers.Count == ranch.Wanderers.Count
+                && back.Wanderers.All(w => ranch.Wanderers.Any(x => x.Id == w.Id && x.At == w.At && x.Seed == w.Seed)) && back.Away.Count == ranch.Away.Count && back.Away.All(kv => ranch.Away.TryGetValue(kv.Key, out var a) && a.Job == kv.Value.Job && a.BackOn == kv.Value.BackOn);
+            GD.Print($"country: {(kept ? "kept" : "DIFFERENT")} after save and load (at {back.Location}, day {back.Day}, main missions won: {string.Join(", ", back.Story)}; cups: {string.Join(", ", back.Cups)}; away: {back.Away.Count}; packs roaming: {string.Join(", ", back.Wanderers.Select(w => w.At))}); stalled: {countryStalls}");
             GetTree().Quit();
             return;
         }

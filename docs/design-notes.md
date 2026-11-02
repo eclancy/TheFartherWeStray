@@ -87,8 +87,10 @@ fields up to two and fills their three slots each; battles apply the boosts befo
    - **The Grand Coliseum** (opens with the Brass Bridges): Bronze, Silver and Gold Cups, each
      three duels in a row against named contenders; your own squad; prizes 80, 140 and 220 chem.
      Contenders are trained to a set level per cup, so a cup gets easier as you grow.
-4. **Wandering encounters:** wild packs moving along roads each day; walking into one starts a
-   battle on that location's map.
+4. ~~**Wandering encounters**~~ (built 2026-11-02, the user's pick): up to three packs roam the
+   open places, moving on most days; travel is a day a road, and arriving where a pack is starts
+   a rout against it (recruiting allowed). You can also go after one from its place's list. They
+   show on the map as their leader.
 5. **The shop:** a currency (chem, or coin earned alongside it), equipment (a new slot on each
    creature, on top of parts as gear), and catching items (lures for each temper, nets, calming
    incense), all as data.

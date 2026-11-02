@@ -146,6 +146,13 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   three duels in a row with named contenders; `GameRoot` chains the rounds; `Ranch.Cups`). Every
   place has a regular job (`LocationDef.Regular`, `Mission.Regular`). A battle takes a day.
   `--dispatchdemo` opens the map on a dispatch's chooser.
+- **Wandering encounters (2026-11-02, built):** `World/Roaming.cs`. Up to three wild packs roam
+  the open places (never the ranch or the coliseum), saved in `Ranch.Wanderers`; each day
+  (`Roaming.PassDay`, rolled from the day) a pack moves on two days in three and a new one turns
+  up a day in three or so. Travel goes a road at a time (`Ranch.TravelStep`, a day each): arrive
+  where a pack is and it attacks first (`TravelTo` returns it). Packs are on the board as fights
+  to seek out, drawn on the map as their leader's sprite; their creatures come from where they
+  first turned up (`Mission.FaunaMap`). Beaten packs are gone; they don't count as contracts.
 - **Sound (begun 2026-11-02):** `scripts/Audio/`. Every sound is made in code like the sprites:
   `SfxSynth` sums voices (square, triangle, saw, sine, noise; pitch slides, envelopes, low-pass,
   vibrato, tremolo) into 22 kHz mono, and `SoundBook` holds the 40 sounds as data (menus, steps,
@@ -164,8 +171,8 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   match can't be replayed from its commands. `BattleScreen.TurnSeconds` is the turn timer
   (`--timer=N`).
 - Not built yet: story and cutscenes (themes and three endings set by the user, in
-  `docs/story-notes.md`), story flags beyond the main-mission chain, dispatch and coliseum missions,
-  wandering encounters, the shop, traits and augments, music, and the network side of PvP. The
+  `docs/story-notes.md`), story flags beyond the main-mission chain, the shop, traits and
+  augments, music, and the network side of PvP. The
   user's direction and a suggested build order are in `docs/design-notes.md`.
 
 ## Build and check

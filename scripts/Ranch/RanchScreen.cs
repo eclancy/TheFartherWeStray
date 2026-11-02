@@ -157,9 +157,11 @@ public partial class RanchScreen : Control
             // The attract loop plays the story when it can, else the nearest contract.
             var all = World.Country.Board(Ranch).Where(x => x.Dispatch == null).ToList();
             var m = all.FirstOrDefault(x => x.Story != null) ?? all.OrderBy(x => World.Country.Days(Ranch, x.Location)).First();
-            Ranch.TravelTo(m.Location);
+            var met = Ranch.TravelTo(m.Location);
             Ranch.Save();
-            Fight?.Invoke(m);
+            if (met != null) Fight?.Invoke(World.Roaming.Battle(met));
+            else if (m.Roamer == 0) Fight?.Invoke(m);
+            else if (all.FirstOrDefault(x => x.Roamer == 0) is { } other) Fight?.Invoke(other); // the pack moved on
         };
     }
 

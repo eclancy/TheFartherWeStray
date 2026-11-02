@@ -194,6 +194,10 @@ shows its map, difficulty, chem reward and objective:
 | Cup | at the Grand Coliseum: three duels in a row against named contenders; take the cup for a big prize |
 | Dispatch | no battle: send one creature off on a pun-titled job for a few days; the better it suits, the likelier it comes back with chem |
 
+**Roaming packs** wander the country, a few at a time, moving on most days. Each shows on the
+map as its leader. Travel goes a road a day, and arriving where a pack is means fighting it first;
+or go after one on purpose for its creatures.
+
 **Rival tamers** challenge you on some boards: the Brass Baron, the Chem Witch, the Huntress,
 the Occultist and the Wyrm Lord, each breeding toward their own ideal creature and leading it with
 a boost of their own. Every win against one makes their next squad train harder.

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CreatureTactics.Creatures;
 using CreatureTactics.Ranching;
 using CreatureTactics.Tactics;
 using CreatureTactics.UI;
@@ -32,6 +33,7 @@ public partial class CountryScreen : Control
     List<Mission> _board = new();
     MissionBoardPanel _missions;
     PanelContainer _chooser;
+    readonly Dictionary<int, (Texture2D tex, Vector2I anchor)> _packs = new(); // each roaming pack's leader, painted once
     VBoxContainer _place;
     Label _status;
 
@@ -133,7 +135,7 @@ public partial class CountryScreen : Control
         if (Ranch.Squad.Count == 0) { _status.Text = "Pick at least one creature for the squad at the ranch (S)."; return; }
         _travelling = true;
         Audio.Sound.Play("depart");
-        // Walk the token along the roads, a stop at every place on the way.
+        // Walk the token along the roads, a day at every place on the way; a roaming pack there stops you.
         var route = Country.Route(Ranch, Ranch.Location, m.Location) ?? new List<string> { m.Location };
         foreach (var stop in route.Skip(1))
         {
@@ -142,9 +144,29 @@ public partial class CountryScreen : Control
                 .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
             await ToSignal(tween, Tween.SignalName.Finished);
             Audio.Sound.Play("step", 1.2f);
+            if (Ranch.TravelStep(stop) is { } met)
+            {
+                Ranch.Save();
+                if (met.Id != m.Roamer)
+                {
+                    _status.Text = $"A roaming pack at {Country.Get(stop).Name} blocks the road!";
+                    Audio.Sound.Play("gong", 1.4f);
+                    await ToSignal(GetTree().CreateTimer(1.0), SceneTreeTimer.SignalName.Timeout);
+                }
+                Fight?.Invoke(Roaming.Battle(met));
+                return;
+            }
         }
-        Ranch.TravelTo(m.Location);
         Ranch.Save();
+        // Going after a pack that moved on while you travelled finds only its tracks.
+        if (m.Roamer != 0)
+        {
+            _status.Text = "The pack has moved on.";
+            _travelling = false;
+            _board = Country.Board(Ranch);
+            Select(Ranch.Location);
+            return;
+        }
         Fight?.Invoke(m);
     }
 
@@ -281,7 +303,7 @@ public partial class CountryScreen : Control
             if (here.Any(m => m.Cup != null)) { Badge(new Vector2(bx, p.Y - 30), "crown", Gold); bx += 24; }
             else if (here.Any(m => m.Rival != null)) { Badge(new Vector2(bx, p.Y - 30), "slash", Pink); bx += 24; }
             if (here.Any(m => m.Dispatch != null)) { Badge(new Vector2(bx, p.Y - 30), "hand", Cyan); bx += 24; }
-            int contracts = here.Count(m => m.Story == null && m.Rival == null && m.Dispatch == null);
+            int contracts = here.Count(m => m.Story == null && m.Rival == null && m.Dispatch == null && m.Roamer == 0);
             if (contracts > 0)
             {
                 DrawCircle(new Vector2(bx, p.Y - 26), 11, Color.FromHtml("#ff8a3d"));
@@ -289,9 +311,32 @@ public partial class CountryScreen : Control
             }
         }
 
+        // Roaming packs: each one's leader beside the place it's at, on a red ring.
+        foreach (var group in Ranch.Wanderers.GroupBy(w => w.At))
+        {
+            int k = 0;
+            foreach (var w in group)
+            {
+                var (sprite, anchor) = PackSprite(w);
+                var feet = Screen(Country.Get(w.At)) + new Vector2(-46 - k++ * 40, 24);
+                float pulse = 0.6f + 0.4f * MathF.Sin(t * 3 + w.Id);
+                DrawCircle(feet + new Vector2(0, -16), 24, new Color(0.05f, 0.03f, 0.08f, 0.7f));
+                DrawArc(feet + new Vector2(0, -16), 24, 0, MathF.Tau, 36, new Color(1f, 0.35f, 0.3f, pulse), 3);
+                DrawTextureRect(sprite, new Rect2(feet - new Vector2(anchor.X, anchor.Y), sprite.GetSize()), false);
+            }
+        }
+
         // Your party: a crown over where it stands, bobbing.
         var crown = Glyphs.Get("crown", 3);
         DrawTexture(crown, _token + new Vector2(-crown.GetWidth() / 2f, -64 + MathF.Sin(t * 3) * 3));
+    }
+
+    (Texture2D tex, Vector2I anchor) PackSprite(Wanderer w)
+    {
+        if (_packs.TryGetValue(w.Id, out var hit)) return hit;
+        var leader = Roaming.Battle(w).Wild().pack[0];
+        var (img, anchor) = CreatureSculptor.Render(leader, false, View.Front);
+        return _packs[w.Id] = (ImageTexture.CreateFromImage(img), anchor);
     }
 
     void Badge(Vector2 at, string glyph, Color color)
@@ -306,7 +351,8 @@ public partial class CountryScreen : Control
     string NextLine()
     {
         var ready = StoryBook.Ready(Ranch).ToList();
-        string away = Ranch.Away.Count > 0 ? $"   ·   {Ranch.Away.Count} away on dispatches" : "";
+        string away = (Ranch.Away.Count > 0 ? $"   ·   {Ranch.Away.Count} away on dispatches" : "")
+            + (Ranch.Wanderers.Count > 0 ? $"   ·   {Ranch.Wanderers.Count} {(Ranch.Wanderers.Count == 1 ? "pack" : "packs")} roaming" : "");
         if (ready.Count > 0) return $"Main mission ready at {Country.Get(ready[0].Location).Name}: the road to {Country.Get(ready[0].Opens).Name}{(ready.Count > 1 ? $" (and {ready.Count - 1} more)" : "")}.{away}";
         if (StoryBook.Next(Ranch) is not { } next) return "Every road is open. (The story is still to come.)" + away;
         var at = Country.Get(next.Location);

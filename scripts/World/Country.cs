@@ -111,7 +111,7 @@ public static class Country
     /// <summary>
     /// What's on offer everywhere: at each open place with a map, its regular job, one or two
     /// contracts and sometimes a dispatch; a rival's duel (on their home ground if it's open); the
-    /// coliseum's cups; and the main missions whose milestones are met.
+    /// coliseum's cups; the main missions whose milestones are met; and the roaming packs.
     /// </summary>
     public static List<Mission> Board(Ranch r)
     {
@@ -149,6 +149,7 @@ public static class Country
             list.Add(duel);
         }
         list.AddRange(StoryBook.Ready(r).Select(StoryBook.ToMission));
+        list.AddRange(r.Wanderers.Where(w => Roaming.Roams(r, w.At)).Select(Roaming.Battle));
         return list;
     }
 

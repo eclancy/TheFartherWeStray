@@ -82,6 +82,8 @@ public sealed class Ranch
     public HashSet<string> Story = new();
     public Dictionary<int, AwayRecord> Away = new(); // creatures off on dispatches
     public HashSet<string> Cups = new();             // coliseum cups won
+    public List<World.Wanderer> Wanderers = new();   // wild packs roaming the country
+    public int NextWanderer = 1;
 
     readonly Dictionary<int, Creature> _cache = new();
 
@@ -124,6 +126,7 @@ public sealed class Ranch
             r.AddToSquad(id);
         }
         foreach (var rec in r.Creatures) Lab.Learn(r, r.Get(rec.Id));
+        World.Roaming.Spawn(r, new SeededRng(0x60A3)); // a pack is out there from the start
         return r;
     }
 
@@ -200,6 +203,9 @@ public sealed class Ranch
     public void Tidy()
     {
         if (World.Country.Get(Location) is not { } here || !World.Country.IsOpen(this, here)) Location = World.Country.Home;
+        Wanderers.RemoveAll(w => !World.Roaming.Roams(this, w.At));
+        // The first pack is out there from the start (old saves get one too).
+        if (NextWanderer == 1) World.Roaming.Spawn(this, new SeededRng(0x60A3));
         var joined = Party.Select(w => w.Id).ToHashSet();
         Fielded.RemoveAll(w => !joined.Contains(w));
         foreach (var w in Party)
@@ -246,13 +252,23 @@ public sealed class Ranch
         return lines;
     }
 
-    /// <summary>Travels to a place along open roads; each road is a day. Returns the days taken.</summary>
-    public int TravelTo(string location)
+    /// <summary>One road's travel: a day passes (packs roam) and you arrive. Returns the pack waiting there, if any.</summary>
+    public World.Wanderer TravelStep(string next)
     {
-        int days = World.Country.Days(this, location);
-        Day += days;
-        Location = location;
-        return days;
+        Day++;
+        World.Roaming.PassDay(this);
+        Location = next;
+        return Wanderers.FirstOrDefault(w => w.At == next);
+    }
+
+    /// <summary>Travels to a place along open roads, a day a road; stops early where a roaming pack waits, and returns it.</summary>
+    public World.Wanderer TravelTo(string location)
+    {
+        var route = World.Country.Route(this, Location, location);
+        if (route == null) { Location = location; return null; }
+        foreach (var stop in route.Skip(1))
+            if (TravelStep(stop) is { } met) return met;
+        return null;
     }
 
     /// <summary>Gives a creature a name (blank: back to its species' name), up to 14 letters.</summary>
@@ -343,7 +359,7 @@ public sealed class Ranch
                 var opened = World.Country.Get(World.StoryBook.Get(story).Opens);
                 Report.Add($"Main mission won: the road to {opened.Name} is open.");
             }
-            else if (won && mission.Cup == null) ContractsWon++;
+            else if (won && mission.Cup == null && mission.Roamer == 0) ContractsWon++;
             if (mission.Cup is { } cupId)
             {
                 var cup = World.CupBook.Get(cupId);
@@ -387,8 +403,10 @@ public sealed class Ranch
             joined.Add(id);
         }
         foreach (var r in Creatures) r.Rested = true;
-        // A battle takes a day; whoever's dispatch is done comes home.
+        // A beaten pack is gone. A battle takes a day: packs roam on, whoever's dispatch is done comes home.
+        if (battle.Winner == Tactics.Side.Player && mission?.Roamer is > 0 and var roamer) Wanderers.RemoveAll(w => w.Id == roamer);
         Day++;
+        World.Roaming.PassDay(this);
         Report.AddRange(ReturnDispatches());
         var party = Party.Select(w => w.Id).ToHashSet();
         Encounter++;

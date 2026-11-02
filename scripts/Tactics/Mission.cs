@@ -30,6 +30,8 @@ public sealed class Mission
     public World.DispatchDef Dispatch; // not a battle: send a creature off on this job
     public string Cup;            // a coliseum cup's round...
     public int Round;             // ...and which (1 to 3)
+    public int Roamer;            // a roaming pack (its id; 0: none)
+    public string FaunaMap;       // whose region the pack comes from, if not the map it's fought on
     int _sightingIndex = -1;
 
     const int CandidateCount = 24;
@@ -149,7 +151,7 @@ public sealed class Mission
     /// <summary>The wild pack: drawn from the candidates by how well each fits the region.</summary>
     public (List<Creature> pack, Creature target) Wild()
     {
-        var map = BattleMap.ByName(MapName);
+        var map = BattleMap.ByName(FaunaMap ?? MapName);
         var rng = new SeededRng(Seed ^ 0x9AC4);
         var cands = Candidates();
         var chosen = new List<int>();

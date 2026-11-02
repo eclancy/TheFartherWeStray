@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace CreatureTactics.Creatures;
@@ -69,6 +70,24 @@ public static class CreatureNames
             _ => new[] { "ooze", "slime", "mire", "flan" },
         });
         return options.ToArray();
+    }
+
+    /// <summary>A bred name: the front of one parent's name and the back of the other's.</summary>
+    public static string Splice(string a, string b, SeededRng rng)
+    {
+        if (rng.Chance(0.5f)) (a, b) = (b, a);
+        // Front: through the first vowel run that ends at least three letters in.
+        int i = 0;
+        while (i < a.Length && !(i >= 2 && IsVowel(a[i - 1]) && !IsVowel(a[i]))) i++;
+        string front = a[..Math.Max(3, Math.Min(i, a.Length))];
+        // Back: from the last consonant before its final vowel run.
+        int j = b.Length - 1;
+        while (j > 0 && !IsVowel(b[j])) j--;
+        while (j > 0 && IsVowel(b[j])) j--;
+        string back = b[Math.Max(1, j)..].ToLowerInvariant();
+        if (front.Length + back.Length < 5) back = b[(b.Length / 2)..].ToLowerInvariant();
+        string name = front + back;
+        return name.Length > 11 ? name[..11] : name;
     }
 
     static bool IsVowel(char c) => "aeiouyAEIOUY".IndexOf(c) >= 0;

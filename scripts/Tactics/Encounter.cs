@@ -7,12 +7,12 @@ namespace CreatureTactics.Tactics;
 /// <summary>Sets up a battle: your squad against a wild pack generated from a seed.</summary>
 public static class Encounter
 {
-    /// <summary>The starting squad, for now four of the DrawPets cast. There's no ranch yet.</summary>
+    /// <summary>The default squad when there is no ranch (--battle runs): four of the DrawPets cast.</summary>
     static readonly string[] Squad = { "Blaze", "Sprocket", "Tank", "Hoot" };
 
-    public static Battle Create(ulong seed)
+    public static Battle Create(ulong seed, IEnumerable<Creature> squad = null)
     {
-        var squad = Squad.Select(n => Creature.Specimen(DrawPetsCast.All.First(s => s.Name == n), 0));
+        squad ??= Squad.Select(n => Creature.Specimen(DrawPetsCast.All.First(s => s.Name == n), 0));
         var wild = new List<Creature>();
         for (int i = 0; i < 4; i++) wild.Add(Creature.Specimen(SeededRng.Derive(seed, 0xF00D + (ulong)i), 0));
         return new Battle(BattleMap.Foundry(), squad, wild, seed);

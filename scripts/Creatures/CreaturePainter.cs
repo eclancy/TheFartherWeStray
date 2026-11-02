@@ -62,13 +62,23 @@ public sealed class CreaturePainter
             _ => new Vector2(-0.1f, 0.1f),
         };
 
-        var rng = new SeededRng(SeededRng.Derive(_sp.Seed, 0x5EED));
-        _spikeMat = _sp.SpikeMat ?? rng.Pick(new[] { Mat.Accent, Mat.Second, Mat.Accent });
-        _shellMat = _sp.ShellMat ?? rng.Pick(new[] { Mat.Second, Mat.Accent });
-        _featherMat = _sp.FeatherMat ?? rng.Pick(new[] { Mat.Main, Mat.Second });
-        _sailMat = _sp.SailMat ?? rng.Pick(new[] { Mat.Second, Mat.Membrane });
-        _tuftMat = _sp.TuftMat ?? rng.Pick(new[] { Mat.Second, Mat.Main });
-        _crestMat = _sp.CrestMat ?? rng.Pick(new[] { Mat.Second, Mat.Accent, Mat.Main });
+        (_spikeMat, _shellMat, _featherMat, _sailMat, _tuftMat, _crestMat) = StyleOf(_sp);
+    }
+
+    /// <summary>
+    /// Which palette material each of a species' parts is coloured in: pinned on the species, or
+    /// rolled from its seed. Breeding copies these so a child's spikes keep their parent's colour.
+    /// </summary>
+    public static (Mat spike, Mat shell, Mat feather, Mat sail, Mat tuft, Mat crest) StyleOf(Species sp)
+    {
+        var rng = new SeededRng(SeededRng.Derive(sp.Seed, 0x5EED));
+        return (
+            sp.SpikeMat ?? rng.Pick(new[] { Mat.Accent, Mat.Second, Mat.Accent }),
+            sp.ShellMat ?? rng.Pick(new[] { Mat.Second, Mat.Accent }),
+            sp.FeatherMat ?? rng.Pick(new[] { Mat.Main, Mat.Second }),
+            sp.SailMat ?? rng.Pick(new[] { Mat.Second, Mat.Membrane }),
+            sp.TuftMat ?? rng.Pick(new[] { Mat.Second, Mat.Main }),
+            sp.CrestMat ?? rng.Pick(new[] { Mat.Second, Mat.Accent, Mat.Main }));
     }
 
     float Hx(float f) => Lx + S * f;

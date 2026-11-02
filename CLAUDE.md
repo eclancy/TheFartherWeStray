@@ -18,16 +18,24 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
 ## Status
 
 - Sprite Lab (`scripts/SpriteLab/`): the generator prototype.
-- First battle slice (`scripts/Tactics/`): one handmade map, the 4-creature DrawPets squad against
-  a seeded wild pack, speed-order turns, parts as gear, attitude reactions and AI, and recruiting.
-  There's no ranch, breeding or classes yet. There's no human player character on the field
-  (the notes' Option A).
+- Battle slice (`scripts/Tactics/`): one handmade map, your squad against a pack seeded by the
+  encounter number, speed-order turns, parts as gear, attitude reactions and AI, and recruiting.
+- Ranch and breeding (`scripts/Ranch/`, `Creatures/Breeding.cs`): a saved roster, squad picking,
+  two-vat breeding (one child per pair; parents rest until the next battle), and the
+  ranch-battle-ranch loop. Bred species exist only in the save, so `CreatureRecord` stores the
+  whole `Species`.
+- Not built yet: classes and skills (the notes' training disciplines, with part-gated unlocks),
+  and grafting at the lab. There's no human player character on the field (the notes' Option A).
 
 ## Build and check
 
 - `dotnet build CreatureTactics.sln` is the fast check.
 - **Battle rules:** `"$GODOT_BIN" --headless --path . -- --autobattle=N` prints an AI-vs-AI log.
   Run a few seeds after any rules change.
+- **Ranch and save file:** `--ranchtest` (headless) must report every creature identical after a
+  save and load. Run it after touching `Species`, `Creature`, `PaletteSpec` or the painter's
+  inputs. `--breeding=N` writes a sheet of parents and children. Use `--save=NAME` for anything
+  that saves, so the user's `user://ranch.json` is never touched.
 - **Sprites:** `"$GODOT_BIN" --headless --path . -- --export=.shots/x.png --sheet=1`, then look at
   the PNG (`--scale=4 --columns=4 --count=12` for close-ups).
 - **Screens:** `"$GODOT_BIN" --path . -- --shot=40` (add `--autoplay` for mid-battle, `--lab` for

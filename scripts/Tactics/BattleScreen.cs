@@ -15,6 +15,8 @@ public partial class BattleScreen : Control
 {
     public ulong Seed = 1;
     public bool AutoPlay;   // the AI plays your side too (demos and screenshots)
+    public List<Creature> Squad;          // your creatures; null for the default squad
+    public System.Action<Battle> Finished; // set when a ranch is waiting for the result
 
     const int Scale = 2;
     static readonly Color Cyan = Color.FromHtml("#4fe3ff"), Magenta = Color.FromHtml("#ff4f9a"), Gold = Color.FromHtml("#f2c14e");
@@ -99,7 +101,7 @@ public partial class BattleScreen : Control
         _logLines.Clear();
         _banner.Visible = false;
 
-        _battle = Encounter.Create(Seed);
+        _battle = Encounter.Create(Seed, Squad);
         _art = new IsoArt(_battle.Map);
         _board.Position = new Vector2((1480 - _art.Width * Scale) / 2f, (1080 - _art.Height * Scale) / 2f + 60);
         _board.AddChild(new Sprite2D { Texture = ImageTexture.CreateFromImage(_art.PaintBoard()), Centered = false });
@@ -194,7 +196,8 @@ public partial class BattleScreen : Control
             ? $"VICTORY\n{(n == 0 ? "no creatures recruited" : n == 1 ? "1 creature joins you" : $"{n} creatures join you")}"
             : "DEFEAT";
         _banner.Visible = true;
-        AddLog("R: next encounter    Tab: Sprite Lab");
+        AddLog(Finished != null ? "Enter: back to the ranch" : "R: next encounter    Tab: Sprite Lab");
+        if (AutoPlay && Finished != null) GetTree().CreateTimer(2.5).Timeout += () => { if (IsInsideTree()) Finished(_battle); };
         RefreshPanel();
     }
 
@@ -217,7 +220,12 @@ public partial class BattleScreen : Control
     {
         if (e is InputEventKey { Pressed: true, Echo: false } k)
         {
-            if (k.Keycode == Key.R && _mode == Mode.Over) { Seed++; StartBattle(); return; }
+            if (_mode == Mode.Over && k.Keycode is Key.R or Key.Enter or Key.KpEnter)
+            {
+                if (Finished != null) Finished(_battle);
+                else { Seed++; StartBattle(); }
+                return;
+            }
             if (_mode == Mode.Berry && k.Keycode == Key.Escape) { _mode = Mode.Command; _overlay.QueueRedraw(); RefreshPanel(); return; }
             if (_mode != Mode.Command) return;
             switch (k.Keycode)

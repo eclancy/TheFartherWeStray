@@ -165,10 +165,15 @@ public sealed class Creature
     public SizeClass Size;
     public Attitude Attitude;
     public PartSet Parts;
-    public CreaturePalette Palette;
+    public PaletteSpec Spec;          // this individual's colours (species colours plus drift)
+    public CreaturePalette Palette;   // built from Spec
     public bool Shiny;
     public string Mutation; // null, or a short note like "mutant tail"
     public float BodyJitter, LegJitter, HeadJitter;
+
+    // Lineage: 0 for wild-caught, parents' generation + 1 when bred at the ranch.
+    public int Generation;
+    public string ParentA, ParentB;
 
     public static Creature Generate(Species species, ulong seed)
     {
@@ -185,6 +190,7 @@ public sealed class Creature
         var palette = species.Palette.Jitter(rng);
         c.Shiny = rng.Chance(1f / 24f);
         if (c.Shiny) palette = palette.Shiny(rng);
+        c.Spec = palette;
         c.Palette = BuildPalette(palette, species);
 
         if (rng.Chance(1f / 14f)) c.Mutate(rng);
@@ -205,7 +211,7 @@ public sealed class Creature
             return new Creature
             {
                 Species = species, Seed = species.Seed, Parts = species.Parts, Size = species.BaseSize,
-                Attitude = species.CommonAttitude, Palette = BuildPalette(species.Palette, species),
+                Attitude = species.CommonAttitude, Spec = species.Palette, Palette = BuildPalette(species.Palette, species),
                 BodyJitter = 1, LegJitter = 1, HeadJitter = 1,
             };
         }
@@ -298,7 +304,7 @@ public sealed class Creature
         return (weapon, armor, move);
     }
 
-    static CreaturePalette BuildPalette(PaletteSpec spec, Species species)
+    public static CreaturePalette BuildPalette(PaletteSpec spec, Species species)
     {
         var p = spec.Build();
         p.RimStrength = species.RimStrength;

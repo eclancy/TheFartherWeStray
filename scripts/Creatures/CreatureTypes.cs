@@ -23,6 +23,8 @@ public enum Form
     Mantis, Beetle, Spider,                  // insectoids
     Eel, Ray, Kelpie,                        // aquatics
     Wisp, Jelly, Ooze,                       // blobs
+    // Added 2026-11-02; rolled only for some new species, so older ones keep their forms.
+    Hydra, Gargoyle, Naga, Scorpion, Angler, Watcher,
 }
 
 /// <summary>A mystical flourish on top of the body: a halo, floating shards, a sigil, a third eye, trailing wisps.</summary>

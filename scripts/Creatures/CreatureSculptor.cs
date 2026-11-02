@@ -47,6 +47,7 @@ public sealed partial class CreatureSculptor
     Vector3 _tailEnd;                // the far end of whatever tail was drawn
     float _hover;                    // floaters: how high it hangs (they bob instead of breathing)
     bool _faceOnBody;                // no head: the face is on the body (jellies)
+    bool _bigEye;                    // one great eye is the face: no small eyes painted on
     Vector3? _serpentFront;          // bodies that are all tail: where the wave down them starts
 
     // The animation: which pose, and how far through it (0 to 1); a negative phase is a still pose.
@@ -1231,7 +1232,7 @@ public sealed partial class CreatureSculptor
         int e = _p.Eyes == EyeKind.Compound ? 0 : Mathf.Clamp(Mathf.RoundToInt(_headR * 0.2f * _sp.EyeSize), 1, 3);
 
         (int x, int y)? near = null;
-        foreach (int side in new[] { 1, -1 })
+        foreach (int side in _bigEye ? Array.Empty<int>() : new[] { 1, -1 })
         {
             var dir = (hf * 0.62f + hu * 0.3f + hs * side * 0.72f).Normalized();
             float k = 1f / Mathf.Sqrt(Sq(dir.Dot(hf) / 0.92f) + Sq(dir.Dot(hs) / 0.74f) + Sq(dir.Dot(hu) / 0.74f));

@@ -307,7 +307,7 @@ public partial class GameRoot : Node
             var list = new List<Creature>();
             foreach (var form in Enum.GetValues<Form>().Where(f => f != Form.Auto))
             {
-                var plan = Enum.GetValues<BodyPlan>().First(p => Species.FormsFor(p).Contains(form));
+                var plan = Enum.GetValues<BodyPlan>().First(p => Species.AllFormsFor(p).Contains(form));
                 for (ulong seed = start; seed < start + 4000; seed++)
                 {
                     var fsp = Species.Generate(seed);

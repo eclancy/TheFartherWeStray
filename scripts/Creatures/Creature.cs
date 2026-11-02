@@ -70,6 +70,10 @@ public sealed class Species
         s.Name = CreatureNames.Make(s, rng);
         // Rolled from their own stream, so every older roll above stays as it was.
         s.Form = FormOf(s);
+        // A third of new species take one of the later forms instead, from a stream of their own.
+        var later = LaterFormsFor(s.Plan);
+        var lrng = new SeededRng(SeededRng.Derive(seed, 0xF0E4));
+        if (later.Length > 0 && lrng.Chance(0.33f)) s.Form = later[lrng.Int(later.Length)];
         s.Aura = AuraOf(s);
         return s;
     }
@@ -86,11 +90,25 @@ public sealed class Species
         _ => new[] { Form.Wisp, Form.Jelly, Form.Ooze },
     };
 
+    /// <summary>Forms added after the first set. Only rolled for newly generated species.</summary>
+    public static Form[] LaterFormsFor(BodyPlan plan) => plan switch
+    {
+        BodyPlan.Quadruped => new[] { Form.Hydra },
+        BodyPlan.Biped => new[] { Form.Gargoyle },
+        BodyPlan.Serpent => new[] { Form.Naga },
+        BodyPlan.Insectoid => new[] { Form.Scorpion },
+        BodyPlan.Aquatic => new[] { Form.Angler },
+        BodyPlan.Blob => new[] { Form.Watcher },
+        _ => System.Array.Empty<Form>(),
+    };
+
+    public static Form[] AllFormsFor(BodyPlan plan) => FormsFor(plan).Concat(LaterFormsFor(plan)).ToArray();
+
     /// <summary>Its form: the one it has, or one rolled from its seed (species saved before forms existed).</summary>
     public static Form FormOf(Species s)
     {
         var forms = FormsFor(s.Plan);
-        if (s.Form != Form.Auto && System.Array.IndexOf(forms, s.Form) >= 0) return s.Form;
+        if (s.Form != Form.Auto && System.Array.IndexOf(AllFormsFor(s.Plan), s.Form) >= 0) return s.Form;
         var rng = new SeededRng(SeededRng.Derive(s.Seed, 0xF0E3));
         // Behemoths are for big beasts; imps for small ones.
         return rng.Weighted(forms.Select(f => (f, f switch

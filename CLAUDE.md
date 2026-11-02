@@ -23,8 +23,10 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   units as they walk and strike. Sprites come with an anchor (the feet), not a bottom edge.
 - **Mystical, fantastical, varied, themed; not plump** (2026-11-02). Lean, distinct silhouettes
   over round bodies; each creature should read as a kind of fantasy beast, not a palette swap.
-  Layers: `Form` (23 silhouettes, a few per body plan: hound, stag, drake, sentinel, wraith, wyrm,
-  crane, mantis, spider, ray, wisp, jelly...), element themes (ember flames, frost shards, leaf
+  Layers: `Form` (29 silhouettes, a few per body plan: hound, stag, drake, hydra, sentinel,
+  gargoyle, wraith, wyrm, naga, crane, mantis, scorpion, spider, ray, angler, wisp, jelly,
+  watcher...; `LaterFormsFor` holds forms added after the first set, rolled only for a third of
+  newly generated species so nothing already seen changes form), element themes (ember flames, frost shards, leaf
   fronds, tide fins, venom frills, shade smoke, spark crackle, meadow tufts), strain grafts, and an
   `Aura` (halo, floating shards, sigil, third eye, wisps). New forms go in `CreatureForms.cs`: build
   the body, set the anchors (head, spine, tail root, wing root); the shared parts do the rest.

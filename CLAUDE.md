@@ -28,6 +28,8 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   fronds, tide fins, venom frills, shade smoke, spark crackle, meadow tufts), strain grafts, and an
   `Aura` (halo, floating shards, sigil, third eye, wisps). New forms go in `CreatureForms.cs`: build
   the body, set the anchors (head, spine, tail root, wing root); the shared parts do the rest.
+  **The user approved this look as built ("the creatures all look great", 2026-11-02): refine
+  and extend it, don't replace it.**
 - **Readability (2026-11-01):** icons and shorthand over sentences, after WizardSurvivors'
   stat glyphs. `scripts/UI/`: `Glyphs` (12x12 art, outlined, drawn at 2x+), `SkillIcons` (every
   skill gets a framed glyph: frame colour = attack/heal/boost/control/move, corner marks = shape and

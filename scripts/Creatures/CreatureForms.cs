@@ -55,6 +55,7 @@ public sealed partial class CreatureSculptor
             case Form.Scorpion: Scorpion(); break;
             case Form.Angler: Angler(); break;
             case Form.Watcher: Watcher(); break;
+            case Form.Cockatrice: Cockatrice(); break;
             default: Ooze(); break;
         }
     }
@@ -392,6 +393,68 @@ public sealed partial class CreatureSculptor
         _wingRoot = V(2.0f, 0, lh + 15);
     }
 
+    /// <summary>
+    /// A cockatrice: a bird's fore-half, hackled at the neck and crowned, on spurred legs, running
+    /// back into a long scaled serpent's tail that the tail slot finishes.
+    /// </summary>
+    void Cockatrice()
+    {
+        _wingSize = 1.0f;
+        float lh = 12 * LegMul, g = Girth;
+        Loft(new List<(Vector3, float, float)>
+        {
+            (V(-6.5f, 0, lh + 4.5f), 3.1f * g * u, 3.3f * u),
+            (V(-1.5f, 0, lh + 5.5f), 4.3f * g * u, 4.5f * u),
+            (V(3, 0, lh + 8), 4.0f * g * u, 4.3f * u),
+            (V(5, 0, lh + 11), 2.9f * g * u, 3.1f * u),
+        }, Mat.Main, _bodyPart);
+        SetHead(V(10.5f, 0, lh + 20.5f), 4.4f, -10);
+        Neck(V(5, 0, lh + 11), _headC - _headFwd * _headR * 0.55f, 2.8f, 2.3f, V(-1.6f, 0, 0.6f));
+        // Hackles: a ruff of pointed feathers where the neck leaves the body.
+        for (int k = 0; k < 7; k++)
+        {
+            float a = Mathf.Lerp(-1.25f, 1.25f, k / 6f);
+            var b = V(5.4f, 0, lh + 12.5f) + (Y * Mathf.Sin(a) * 2.5f + Z * Mathf.Cos(a) * 2.1f) * g * u;
+            var dir = (-X * 0.9f + Y * Mathf.Sin(a) * 0.55f + Z * (Mathf.Cos(a) * 0.3f - 0.35f)).Normalized();
+            _c.Tube(new[] { b, b + dir * (5.5f - Mathf.Abs(a)) * u }, 1.1f * u, 0.15f * u, _featherMat, Part(Zone.Body));
+        }
+        // A jagged crown, unless horns or a crest already sit there.
+        if (_p.Horns == Horns.None)
+            _c.Membrane(new[] { H(0.45f, 0, 0.55f), H(0.32f, 0, 1.05f), H(0.12f, 0, 0.72f), H(-0.08f, 0, 1.22f), H(-0.32f, 0, 0.78f), H(-0.52f, 0, 1.08f), H(-0.75f, 0, 0.5f) }, Mat.Accent, Part(Zone.Tip));
+        foreach (int side in Sides)
+        {
+            float y = side * 2.6f * g;
+            _c.Ellipsoid(V(0, y, lh + 4.5f), new Vector3(0.3f, 0, -1), 3.0f * u, 2.1f * u, 2.1f * u, Mat.Main, _bodyPart);
+            // A bird's leg: the knee forward, the ankle bent back, the shank down to the talons.
+            var j = new[] { V(0, y, lh + 3), V(2.6f, y, lh * 0.6f), V(-0.9f, y, lh * 0.27f), V(1, y, 0) };
+            Leg(j, 1.3f, Metal(side), hand: true);
+            // A spur on the back of the shank, moving with the leg.
+            var before = _c.Warp;
+            _c.Warp = LegWarp(j[0], j[^1], true);
+            var spur = V(-0.2f, y, lh * 0.17f);
+            _c.Tube(new[] { spur, spur + V(-1.9f, side * 0.3f, -0.3f) }, 0.45f * u, 0.08f * u, Mat.Accent, Part(Zone.Tip));
+            _c.Warp = before;
+        }
+        // The serpent's tail, scaled, with a ridge of small plates down its top.
+        var root = V(-6.5f, 0, lh + 4.5f);
+        _c.Warp = Trail(root, 0.06f);
+        var pts = Smooth(new[] { root, V(-12, 0.5f, lh + 2), V(-18, 2.5f, lh - 1.5f), V(-24, 3.5f, Mathf.Max(2.5f, lh - 4)), V(-28.5f, 2, lh - 1), V(-30, 0, lh + 3) }, 6);
+        _c.Tube(pts, t => Mathf.Lerp(3.0f * g, 0.5f, Mathf.Pow(t, 0.8f)) * u, Mat.Main, Part(Zone.Tail));
+        for (int k = 2; k < pts.Count * 2 / 3; k += 3)
+        {
+            var along = (pts[k + 1] - pts[k - 1]).Normalized();
+            float r = Mathf.Lerp(3.0f * g, 0.5f, Mathf.Pow(k / (float)(pts.Count - 1), 0.8f)) * u;
+            var top = pts[k] + Z * r * 0.85f;
+            _c.Tube(new[] { top, top + Z * 1.5f * u - along * 0.9f * u }, 0.7f * u, 0.1f * u, _spikeMat, Part(Zone.Tip));
+        }
+        _c.Warp = BodyWarp;
+        _bodyIsTail = true;
+        _tailRoot = pts[^1];
+        _tailDir = (pts[^1] - pts[^2]).Normalized();
+        _tailR = 0.7f * u;
+        _wingRoot = V(1.5f, 0, lh + 9.5f);
+    }
+
     /// <summary>A crane: stilt legs, a long S of a neck, a dagger beak.</summary>
     void Crane()
     {
@@ -690,22 +753,26 @@ public sealed partial class CreatureSculptor
         _wingRoot = V(-2, 0, hv + 10);
     }
 
-    /// <summary>A floating eye: one great lidded eye in an orb, a mouth beneath, tendrils hanging.</summary>
+    /// <summary>
+    /// A floating eye: one great lidded eye in an orb, a mouth beneath, tendrils hanging. Kept
+    /// sparse (no ears, back plates or tail) so the eye is the whole read.
+    /// </summary>
     void Watcher()
     {
         float g = Girth, oz = 19;
         _hover = 1;
         _faceOnBody = true;
         _bigEye = true;
-        float r = 6.6f * g;
+        _sparse = true;
+        float r = 7f * g;
         _c.Sphere(V(0, 0, oz), r * u, Mat.Main, _bodyPart);
         // The eye: sclera, a glowing iris, a slit pupil, under a heavy lid.
         int eye = Part(Zone.Head);
         var front = (X - Y * 0.35f + Z * 0.12f).Normalized();
         var ec = V(0, 0, oz) + front * (r - 0.7f) * u;
-        _c.Ellipsoid(ec, front, 1.8f * u, 4.6f * u, 4.3f * u, Mat.EyeWhite, eye);
-        _c.Ellipsoid(ec + front * 1.1f * u, front, 1.0f * u, 2.9f * u, 2.9f * u, Mat.Glow, eye, 0.05f);
-        _c.Ellipsoid(ec + front * 1.8f * u, front, 0.6f * u, 0.8f * u, 2.3f * u, Mat.Pupil, eye);
+        _c.Ellipsoid(ec, front, 1.9f * u, 5.2f * u, 4.8f * u, Mat.EyeWhite, eye);
+        _c.Ellipsoid(ec + front * 1.2f * u, front, 1.0f * u, 3.3f * u, 3.3f * u, Mat.Glow, eye, 0.05f);
+        _c.Ellipsoid(ec + front * 1.9f * u, front, 0.6f * u, 0.9f * u, 2.6f * u, Mat.Pupil, eye);
         var lid = new List<Vector3>();
         for (int k = 0; k <= 10; k++)
         {

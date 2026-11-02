@@ -49,6 +49,7 @@ public sealed partial class CreatureSculptor
     float _hover;                    // floaters: how high it hangs (they bob instead of breathing)
     bool _faceOnBody;                // no head: the face is on the body (jellies)
     bool _bigEye;                    // one great eye is the face: no small eyes painted on
+    bool _sparse;                    // a lone shape (the watcher): no ears, back plates or tail to clutter it
     Vector3? _serpentFront;          // bodies that are all tail: where the wave down them starts
 
     // The animation: which pose, and how far through it (0 to 1); a negative phase is a still pose.
@@ -99,13 +100,13 @@ public sealed partial class CreatureSculptor
         // From here on, anything behind the tail root sways with the tail.
         _tailAxis = _tailDir.Normalized();
         _tailSide = Z.Cross(_tailAxis).Normalized();
-        _tailSway = !_bodyIsTail && _p.Tail != Tail.None;
+        _tailSway = !_bodyIsTail && !_sparse && _p.Tail != Tail.None;
         _c.Warp = BodyWarp;
         Head();
-        EarsPart();
+        if (!_sparse) EarsPart();
         HornsPart();
-        BackPart();
-        TailPart();
+        if (!_sparse) BackPart();
+        if (_sparse) _tailEnd = _tailRoot; else TailPart();
         _c.Warp = WingWarp;
         WingsPart();
         _c.Warp = BodyWarp;
@@ -966,12 +967,15 @@ public sealed partial class CreatureSculptor
         var (mid, mw, mh, _) = SpineAt(0.5f);
         if (Has(Graft.Plating))
         {
-            // A pauldron over the right shoulder and a plate down the flank, riveted.
+            // A pauldron over the right shoulder and a plate down the flank, riveted. A sparse form
+            // wears them smaller and on its far side, clear of the eye.
             int plate = Part(Zone.Body);
-            var shoulder = front - Z * fh * 0.35f - Y * fw * 0.75f;
-            _c.Ellipsoid(shoulder, along, fh * 0.9f, fw * 0.45f, fh * 0.75f, Mat.Metal, plate);
-            var flank = mid - Z * mh * 0.6f - Y * mw * 0.85f;
-            _c.Ellipsoid(flank, along, mh * 1.2f, mw * 0.3f, mh * 0.6f, Mat.Metal, plate, -0.05f);
+            float k = _sparse ? 0.55f : 1;
+            var away = _sparse ? Y : -Y;
+            var shoulder = front - Z * fh * 0.35f + away * fw * 0.75f;
+            _c.Ellipsoid(shoulder, along, fh * 0.9f * k, fw * 0.45f * k, fh * 0.75f * k, Mat.Metal, plate);
+            var flank = mid - Z * mh * 0.6f + away * mw * 0.85f;
+            _c.Ellipsoid(flank, along, mh * 1.2f * k, mw * 0.3f * k, mh * 0.6f * k, Mat.Metal, plate, -0.05f);
         }
         if (Has(Graft.Core))
         {

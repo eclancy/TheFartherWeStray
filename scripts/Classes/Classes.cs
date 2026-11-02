@@ -347,6 +347,10 @@ public static class ClassBook
         new() { Id = "brand", Name = "Brand", Class = "Hexmark", Cost = 30, Cooldown = 3, Range = 4, HitBonus = 15, Buffs = new[] { (StatKind.Def, -4, 3), (StatKind.Evade, -15, 3) }, Text = "Range 4: burn the sigil onto a foe: DEF -4 and 15% easier to hit for 3 turns." },
         new() { Id = "sigil_burst", Name = "Sigil Burst", Class = "Hexmark", Cost = 30, Cooldown = 3, Target = TargetKind.Area, Range = 4, Radius = 1, Power = 0.9f, Text = "The sigil detonates across a cross at range 4 (x0.9)." },
         new() { Id = "warding_circle", Name = "Warding Circle", Class = "Hexmark", Cost = 35, Cooldown = 4, Target = TargetKind.Ally, Range = 0, AroundSelf = true, Radius = 1, Buffs = new[] { (StatKind.Def, 4, 2), (StatKind.Evade, 15, 2) }, Text = "You and adjacent allies: DEF +4 and 15% harder to hit for 2 turns." },
+        // Basilisk (Brawler + Howler, needs the cockatrice form).
+        new() { Id = "stone_peck", Name = "Stone Peck", Class = "Basilisk", Cost = 30, Cooldown = 3, Power = 1f, StunChance = 0.35f, Buffs = new[] { (StatKind.Spd, -2, 2) }, Text = "A peck that turns flesh to stone (x1): 35% to stun, SPD -2 for 2 turns." },
+        new() { Id = "serpent_lash", Name = "Serpent Lash", Class = "Basilisk", Cost = 25, Cooldown = 2, Range = 2, Straight = true, Power = 0.9f, Knock = 1, Text = "The serpent tail whips round, range 2 in a line (x0.9): knocked back a tile." },
+        new() { Id = "dread_crow", Name = "Dread Crow", Class = "Basilisk", Cost = 35, Cooldown = 4, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 2, Buffs = new[] { (StatKind.Atk, -2, 2), (StatKind.Def, -1, 2) }, Text = "A crow that chills the blood: foes within 2 get ATK -2 and DEF -1 for 2 turns." },
     };
 
     public static readonly ClassDef[] Classes =
@@ -548,6 +552,12 @@ public static class ClassBook
             Skills = new[] { "brand", "sigil_burst", "warding_circle" }, Requires = new[] { ("Mystic", 2), ("Tinker", 2) },
             NeedsPart = c => Species.AuraOf(c.Species) == Aura.Sigil, PartHint = "a sigil",
         },
+        new()
+        {
+            Id = "Basilisk", Name = "Basilisk", Blurb = "Half bird, half serpent, and its peck turns flesh to stone.", Atk = 2, Spd = 1,
+            Skills = new[] { "stone_peck", "serpent_lash", "dread_crow" }, Requires = new[] { ("Brawler", 2), ("Howler", 2) },
+            NeedsPart = c => Species.FormOf(c.Species) == Form.Cockatrice, PartHint = "the cockatrice's form",
+        },
 
         // Blood classes: one base class mastered, and the strain in its veins.
         new()
@@ -676,6 +686,8 @@ public static class ClassBook
         new() { Id = "blessed", Name = "Blessed", Class = "Saint", Echo = true, Regen = 0.03f, Text = "Boosts it gives last a turn longer; heals 3% of max HP each turn." },
         new() { Id = "hearten", Name = "Hearten", Class = "Saint", Kind = PassiveKind.Reaction, React = ReactionKind.RallyCry, ReactAmount = 2, Text = "Hit: allies beside it get ATK +2 for a turn." },
         new() { Id = "sigil_lore", Name = "Sigil Lore", Class = "Hexmark", SkillPower = 0.15f, Text = "Skills deal 15% more damage." },
+        new() { Id = "stone_blood", Name = "Stone Blood", Class = "Basilisk", NoPoison = true, Thorns = 2, Text = "Immune to poison; melee attackers take 2." },
+        new() { Id = "petrifying_glare", Name = "Petrifying Glare", Class = "Basilisk", Kind = PassiveKind.Reaction, React = ReactionKind.DirtyRetort, ReactChance = 0.25f, Text = "Hit in melee: 25% chance the attacker is stunned, half turned to stone." },
         new() { Id = "ward_sigil", Name = "Ward Sigil", Class = "Hexmark", Kind = PassiveKind.Reaction, React = ReactionKind.Brace, ReactAmount = 3, Text = "Hit: DEF +3 until its next turn." },
     };
 

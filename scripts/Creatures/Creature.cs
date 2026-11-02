@@ -96,6 +96,7 @@ public sealed class Species
         BodyPlan.Quadruped => new[] { Form.Hydra },
         BodyPlan.Biped => new[] { Form.Gargoyle },
         BodyPlan.Serpent => new[] { Form.Naga },
+        BodyPlan.Avian => new[] { Form.Cockatrice },
         BodyPlan.Insectoid => new[] { Form.Scorpion },
         BodyPlan.Aquatic => new[] { Form.Angler },
         BodyPlan.Blob => new[] { Form.Watcher },

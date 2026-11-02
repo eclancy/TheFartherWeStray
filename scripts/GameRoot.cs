@@ -349,13 +349,15 @@ public partial class GameRoot : Node
         {
             // One creature of every form (the first species of that plan from seed N on), front and
             // back, standing on board tiles: the check on silhouettes. --views does the same for a sheet.
-            // --only=Lung,Jelly keeps just those forms, picked exactly as in the full sheet.
+            // --only=Lung,Jelly keeps just those forms, picked exactly as in the full sheet; --many=K shows K of each.
             ulong start = ulong.TryParse(formsArg, out var fs) ? fs : 1;
+            int many = args.TryGetValue("many", out var manyArg) && int.TryParse(manyArg, out var mv) ? mv : 1;
             var only = args.TryGetValue("only", out var onlyArg) ? onlyArg.Split(',').Select(n => n.Trim().ToLowerInvariant()).ToHashSet() : null;
             var list = new List<Creature>();
             foreach (var form in Enum.GetValues<Form>().Where(f => f != Form.Auto))
             {
                 var plan = Enum.GetValues<BodyPlan>().First(p => Species.AllFormsFor(p).Contains(form));
+                int found = 0;
                 for (ulong seed = start; seed < start + 4000; seed++)
                 {
                     var fsp = Species.Generate(seed);
@@ -365,7 +367,7 @@ public partial class GameRoot : Node
                     if (args.ContainsKey("medium")) fc.Size = SizeClass.Medium;
                     if (only == null || only.Contains(form.ToString().ToLowerInvariant())) list.Add(fc);
                     start = seed + 1;
-                    break;
+                    if (++found >= many) break;
                 }
             }
             if (args.TryGetValue("idle", out var idleName))

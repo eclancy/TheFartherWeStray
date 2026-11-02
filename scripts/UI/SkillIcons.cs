@@ -62,6 +62,7 @@ public static class SkillIcons
         ["gaze_beam"] = "bolt", ["petrifying_stare"] = "eye", ["inner_eye"] = "evade",
         ["benediction"] = "heal", ["radiance"] = "sun", ["sanctuary"] = "def",
         ["brand"] = "flame", ["sigil_burst"] = "rune", ["warding_circle"] = "def",
+        ["stone_peck"] = "mountain", ["serpent_lash"] = "whip", ["dread_crow"] = "sound",
     };
 
     /// <summary>Each class's emblem.</summary>
@@ -75,7 +76,7 @@ public static class SkillIcons
         ["Thornstag"] = "thorns", ["Lionheart"] = "crown", ["Geomancer"] = "spear", ["Bonebreaker"] = "club", ["Swarmlord"] = "bee",
         ["Seer"] = "eye", ["Sunsail"] = "sun", ["Cavalier"] = "move", ["Scavenger"] = "hand", ["Phantom"] = "ghost", ["Champion"] = "star",
         ["Hydrarch"] = "fang", ["Stoneguard"] = "mountain", ["Coilbinder"] = "swirl", ["Venomtail"] = "poison", ["Lurelight"] = "sun",
-        ["Oculus"] = "eye", ["Saint"] = "sparkle", ["Hexmark"] = "rune",
+        ["Oculus"] = "eye", ["Saint"] = "sparkle", ["Hexmark"] = "rune", ["Basilisk"] = "stun",
     };
 
     public enum Kind { Attack, Heal, Boost, Control, Move }

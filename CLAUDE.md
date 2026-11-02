@@ -23,13 +23,15 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   units as they walk and strike. Sprites come with an anchor (the feet), not a bottom edge.
 - **Mystical, fantastical, varied, themed; not plump** (2026-11-02). Lean, distinct silhouettes
   over round bodies; each creature should read as a kind of fantasy beast, not a palette swap.
-  Layers: `Form` (29 silhouettes, a few per body plan: hound, stag, drake, hydra, sentinel,
-  gargoyle, wraith, wyrm, naga, crane, mantis, scorpion, spider, ray, angler, wisp, jelly,
-  watcher...; `LaterFormsFor` holds forms added after the first set, rolled only for a third of
+  Layers: `Form` (30 silhouettes, a few per body plan: hound, stag, drake, hydra, sentinel,
+  gargoyle, wraith, wyrm, naga, crane, cockatrice, mantis, scorpion, spider, ray, angler, wisp,
+  jelly, watcher...; `LaterFormsFor` holds forms added after the first set, rolled only for a third of
   newly generated species so nothing already seen changes form), element themes (ember flames, frost shards, leaf
   fronds, tide fins, venom frills, shade smoke, spark crackle, meadow tufts), strain grafts, and an
   `Aura` (halo, floating shards, sigil, third eye, wisps). New forms go in `CreatureForms.cs`: build
   the body, set the anchors (head, spine, tail root, wing root); the shared parts do the rest.
+  A form that should stay one clean shape sets `_sparse` (the watcher: no ears, back plates or
+  tail, smaller grafts kept off its eye). `--forms --only=Watcher --many=6` shows six of a form.
   **The user approved this look as built ("the creatures all look great", 2026-11-02): refine
   and extend it, don't replace it.** Of the eight fixes on 2026-11-02 the user kept seven and
   preferred the original shell: smooth overlapping plates, no dark rims or knobs.
@@ -59,7 +61,7 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   two-vat breeding (one child per pair; parents rest until the next battle), and the
   ranch-battle-ranch loop. Bred species exist only in the save, so `CreatureRecord` stores the
   whole `Species`.
-- Jobs (`scripts/Classes/Classes.cs`, `docs/classes-design.md`): 43 classes (9 base, 30 part,
+- Jobs (`scripts/Classes/Classes.cs`, `docs/classes-design.md`): 44 classes (9 base, 31 part,
   form, aura or temperament, 4 blood; the form and aura classes need a `Form` such as the hydra or
   an `Aura` such as a halo), each with three skills and passives (a support, often a reaction too),
   mastery stars, and support + reaction slots. Every creature has its own job tree from its body

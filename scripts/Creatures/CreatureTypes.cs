@@ -25,6 +25,7 @@ public enum Form
     Wisp, Jelly, Ooze,                       // blobs
     // Added 2026-11-02; rolled only for some new species, so older ones keep their forms.
     Hydra, Gargoyle, Naga, Scorpion, Angler, Watcher,
+    Cockatrice,
 }
 
 /// <summary>A mystical flourish on top of the body: a halo, floating shards, a sigil, a third eye, trailing wisps.</summary>

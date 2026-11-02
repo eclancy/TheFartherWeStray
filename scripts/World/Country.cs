@@ -141,7 +141,7 @@ public static class Country
         }
         if (RivalBook.Challenger(enc) is { } rival)
         {
-            var duel = Mission.Duel(rival, enc, r.Rivals.GetValueOrDefault(rival.Id), SeededRng.Derive(enc * 977UL, 0xD0E1));
+            var duel = Mission.Duel(rival, enc, r.Rivals.GetValueOrDefault(rival.Id), SeededRng.Derive(enc * 977UL, 0xD0E1), r.RivalLosses.GetValueOrDefault(rival.Id));
             var at = rival.Turf.Select(ByMap).FirstOrDefault(l => l != null && IsOpen(r, l))
                 ?? Open(r).Where(l => l.MapName != null).OrderBy(l => Days(r, l.Id)).First();
             duel.MapName = at.MapName;

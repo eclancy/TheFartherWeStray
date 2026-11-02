@@ -110,13 +110,25 @@ public static class RivalBook
     /// <summary>As many creatures as you can field by then: three, or six once a second tamer has joined you.</summary>
     public static int SquadSize(ulong encounter) => TamerBook.CreaturesEach * Math.Min(TamerBook.MaxFielded, TamerBook.Joined(encounter).Count());
 
+    // How far a rival trains (eased 2026-11-02, when AI-played squads won about two duels in five):
+    // JP per encounter so far, never past the average of the squad you bring; more for their ace and
+    // for each time you've beaten them.
+    public const int JpPerEncounter = 10, AceJp = 10, JpPerWin = 10;
+
+    /// <summary>
+    /// How many creatures fewer a rival brings for the duels you've lost to them in a row: cocky after
+    /// beating you, one fewer, then two. Beating them sets it back (and they train harder instead).
+    /// </summary>
+    public static int Fewer(int losses) => Math.Min(losses, 2);
+
     /// <summary>
     /// A rival's squad of <paramref name="count"/> for a duel: species to their taste, given their blood
-    /// and grafts, and trained about as far as your own creatures will be by this encounter, further
-    /// each time you beat them.
+    /// and grafts, and trained a little behind your own creatures by this encounter (no further than
+    /// <paramref name="yourJp"/>, your squad's average), further each time you beat them.
     /// </summary>
-    public static List<(Creature creature, Training training)> Squad(RivalDef r, ulong encounter, int wins, ulong seed, int count)
+    public static List<(Creature creature, Training training)> Squad(RivalDef r, ulong encounter, int wins, ulong seed, int count, int yourJp = int.MaxValue)
     {
+        int jpBase = Math.Min(JpPerEncounter * (int)encounter, yourJp) + JpPerWin * wins;
         var rng = new SeededRng(seed ^ 0x7A3E);
         var cands = Enumerable.Range(0, 40).Select(i => Species.Generate(SeededRng.Derive(seed, 0x5100 + (ulong)i))).ToList();
         var squad = new List<(Creature, Training)>();
@@ -134,7 +146,7 @@ public static class RivalBook
             if (n <= wins) sp.Grafts |= r.Grafts;
             var c = Creature.Specimen(sp, 0);
             // Their ace, first in line, is trained the furthest.
-            int jp = 12 * (int)encounter + 15 * wins + (n == 0 ? 20 : 0);
+            int jp = jpBase + (n == 0 ? AceJp : 0);
             squad.Add((c, Train(c, r.Classes, jp)));
         }
         return squad;

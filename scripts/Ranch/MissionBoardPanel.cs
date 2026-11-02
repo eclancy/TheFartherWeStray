@@ -135,7 +135,7 @@ public partial class MissionCard : Control
             cx = x + (m.Stars > 3 ? 84 : 48);
         }
         // A dispatch shows how long it takes; a battle, how many it's against.
-        var counts = m.Dispatch != null ? new[] { ("clock", $"{m.Dispatch.Days}d"), ("flask", m.Reward.ToString()) } : new[] { ("paw", m.Pack.ToString()), ("flask", m.Reward.ToString()) };
+        var counts = m.Dispatch != null ? new[] { ("clock", $"{m.Dispatch.Days}d"), ("flask", m.Reward.ToString()) } : new[] { ("paw", (m.Rival != null ? Math.Max(2, m.Pack - Party.RivalBook.Fewer(m.RivalLosses)) : m.Pack).ToString()), ("flask", m.Reward.ToString()) };
         foreach (var (glyph, text) in counts)
         {
             DrawTexture(Glyphs.Get(glyph, 2), new Vector2(cx, 40));
@@ -147,7 +147,7 @@ public partial class MissionCard : Control
             : m.Flavor ?? m.Rival?.Ideal ?? BattleMap.ByName(m.MapName).Blurb;
         DrawString(font, new Vector2(x, 114), line, HorizontalAlignment.Left, w, 14, dim);
         // Whose work it is, in the corner: the city's or the undercity's (the wilds are nobody's).
-        if (m.Location != null && World.Standing.ClientOf(m.Location) is { } client && m.Dispatch == null)
+        if (m.Location != null && World.Standing.ClientOf(m.Location) is { } client && m.Dispatch == null && m.Rival == null && m.Roamer == 0)
             DrawString(font, new Vector2(x, 32), client == World.Side.City ? "for the city" : "for the undercity", HorizontalAlignment.Right, w, 13,
                 Color.FromHtml(client == World.Side.City ? "#f2c14e" : "#ff4f9a"));
         if (m.Story is { } story)
@@ -182,7 +182,8 @@ public partial class MissionCard : Control
         {
             // The rival's own boost, and how often you've beaten them.
             DrawTexture(Glyphs.Get(rival.Tamer.Glyph, 2), new Vector2(x - 4, 128));
-            string record = m.RivalWins > 0 ? $"beaten {m.RivalWins}x  ·  " : "";
+            string record = (m.RivalWins > 0 ? $"beaten {m.RivalWins}x  ·  " : "")
+                + (Party.RivalBook.Fewer(m.RivalLosses) is > 0 and var fewer ? $"cocky: {fewer} fewer  ·  " : "");
             DrawString(font, new Vector2(x + 26, 150), $"{record}{rival.Tamer.Text}", HorizontalAlignment.Left, w - 26, 15, Color.FromHtml("#ff7aa8"));
         }
         else if (m.Repeatable)

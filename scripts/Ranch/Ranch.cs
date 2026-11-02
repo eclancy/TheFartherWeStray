@@ -89,6 +89,7 @@ public sealed class Ranch
     public int Chem;                              // lab currency, earned in battle
     public HashSet<string> Codex = new();          // parts met in battle, graftable at the lab ("Wings.Bat")
     public Dictionary<string, int> Rivals = new();  // times you've beaten each rival tamer (their squads grow)
+    public Dictionary<string, int> RivalLosses = new();  // duels lost to each in a row since (they bring fewer)
     // The country: where your party is, the day, contracts won (a story milestone), main missions won.
     public string Location = World.Country.Home;
     public int Day = 1;
@@ -469,9 +470,11 @@ public sealed class Ranch
             else if (mission.Rival is { } rival)
             {
                 int wins = Rivals.GetValueOrDefault(rival.Id) + (won ? 1 : 0);
-                if (won) Rivals[rival.Id] = wins;
+                if (won) { Rivals[rival.Id] = wins; RivalLosses.Remove(rival.Id); }
+                else RivalLosses[rival.Id] = RivalLosses.GetValueOrDefault(rival.Id) + 1;
+                int fewer = RivalBook.Fewer(RivalLosses.GetValueOrDefault(rival.Id));
                 Report.Add(won ? $"{rival.Name} is beaten ({wins} {(wins == 1 ? "win" : "wins")}); they'll train harder for next time."
-                    : $"{rival.Name} wins this time.");
+                    : $"{rival.Name} wins this time, and grows cocky: they'll bring {(fewer == 1 ? "one creature" : "two creatures")} fewer next time.");
             }
         }
         // Items used come out of the bag; glowberries only past the three every battle brings.

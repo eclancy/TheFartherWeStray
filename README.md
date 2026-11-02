@@ -196,7 +196,7 @@ shows its map, difficulty, chem reward and objective:
 | Capture | recruit the marked creature before it gets away |
 | Hunt | bring down the marked alpha (one size bigger than the rest of its pack) |
 | Hold out | still have someone standing after N rounds against a big pack |
-| Duel | beat a rival tamer's trained squad, matched to yours, within 20 rounds (no recruiting) |
+| Duel | beat a rival tamer's trained squad, matched to yours, within 20 rounds (no recruiting); lose and they grow cocky, bringing one creature fewer next time, then two |
 | Regular job | each place's standing job, always on offer (a rout, a hunt or a hold-out), for a little less pay |
 | Cup | at the Grand Coliseum: three duels in a row against named contenders; take the cup for a big prize |
 | Dispatch | no battle: send one creature off on a pun-titled job for a few days; the better it suits, the likelier it comes back with chem |

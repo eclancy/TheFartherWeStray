@@ -124,15 +124,21 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   grafts, a class order, home maps; the titles are placeholders for the story). A duel
   (`Objective.Duel`, `Mission.Duel`) takes the board's last card on a rival's debut and on every
   other board after. They field as many creatures as you bring (three, up to six once a second
-  tamer joins), trained by `RivalBook.Train` to about your level; each win you have against them
-  (`Ranch.Rivals`, saved) trains them harder and fits their grafts to one more creature. Their
+  tamer joins), trained by `RivalBook.Train` a little behind you (`JpPerEncounter`, never past
+  your squad's average JP); each win you have against them (`Ranch.Rivals`, saved) trains them
+  harder and fits their grafts to one more creature. **Eased 2026-11-02 (the user's pick):** each
+  duel lost to a rival in a row makes them cocky: they bring one creature fewer, then two
+  (`RivalBook.Fewer`, `Ranch.RivalLosses`, saved; never under two; a win resets it). Their
   creatures are `Side.Wild` with a `Tamer`, so they fight as trained and can't be recruited: use
   `Unit.Free` for anything about wild tempers or recruiting. A duel still undecided after
   `Battle.DuelRounds` (20) goes to the side with the larger share of its HP left. `--rivals=N`
-  plays each rival at their first three board appearances against starters trained to match: on
-  2026-11-02, 30-60% wins for you in most, the Wyrm Lord hardest (2-3/10), no stalls.
-  `--battle=S --duel=N [--enc=E --wins=W]` opens one on screen; `--save=X --newranch --encounter=6
-  --boardmode --shot=40` shows a board with a duel card (`--encounter` jumps a ranch ahead).
+  plays each rival at their first three board appearances against starters trained to match,
+  straight and after one and two losses: on 2026-11-02, after easing, you win 43% straight, 69%
+  after a loss, 91% after two (the Wyrm Lord hardest, its third meeting 2/10 straight), no
+  stalls. Rivals win by build (casters with Hex Bolt, hunters with Volley and Return Fire), not
+  numbers. `--battle=S --duel=N [--enc=E --wins=W --losses=L]` opens one on screen;
+  `--save=X --newranch --encounter=6 [--losses=L] --boardmode --shot=40` shows a board with a duel
+  card (`--encounter` jumps a ranch ahead).
 - `Battle.Place` only puts a unit where it can walk toward the far side (`Reaches`): a huge creature
   used to spawn shut in a pit on the Undercity Foundry. Capture berries go only where the lured
   creature can get next to them (`CanFetch`), and the squad stands aside off its way.
@@ -143,7 +149,8 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   plus milestones (contracts won, creatures, codex parts, rival wins), so the story can't be
   rushed. `CountryScreen` (M at the ranch, `--mapmode`) shows it all and travels before a battle.
   `Ranch` saves `Location`, `Day`, `ContractsWon`, `Story`. `Mission.Board` is still the test
-  board for `--autoboard`. `--country=N` plays the loop headless; run it after touching missions,
+  board for `--autoboard`. `--country=N` plays the loop headless (it retrains its squad as a player
+  would, tries a cup at most every fourth battle, and takes `--save`); run it after touching missions,
   milestones or the AI: no battle may stall.
 - **Mission variety (2026-11-02, built):** twelve maps now. The far regions (`BattleMapsFar.cs`:
   Frostfang Pass, Sunscorch Dunes, Cinder Rift, Saltwind Coast, the Grand Coliseum) bring terrains

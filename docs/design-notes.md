@@ -107,9 +107,12 @@ fields up to two and fills their three slots each; battles apply the boosts befo
   never lost.)
 - [ ] Coliseum: your own squad only, or loaner squads; prizes? (Defaulted: your own squad; chem.
   A trophy or a unique creature would be good prizes.)
-- [ ] Rival balance: in a 50-battle headless run, the AI-played squad (recruits barely trained)
-  lost every rival duel, so the main mission wanting a rival win stayed shut. Rivals may want
-  easing, or that milestone a softer form.
+- [x] Rival balance (eased 2026-11-02, the user's pick): rivals train a little behind you and
+  never past your squad's average JP, and each duel lost to one in a row makes them cocky (one
+  creature fewer, then two). Against a trained squad you win 43% straight, 69% after a loss, 91%
+  after two. In 70-battle headless runs every path (city, undercity, peace) wins its two rival
+  duels and reaches its ending. Before, the headless squad never changed class (a test harness
+  gap, fixed) and won about one duel in ten.
 
 ## Story flags and standing (the user's pick, 2026-11-02; built as machinery)
 
@@ -183,6 +186,11 @@ first version, and is open to change.
   rival), so two walls of shields can't stall forever. PvP will want the same rule.
 - Winning pays more chem than a contract, puts their parts in your codex, and counts: each win
   makes their squad train harder and fits their grafts to one more creature.
+- **Eased (2026-11-02):** they train a little behind you (10 JP per encounter, never past your
+  squad's average; their ace +10, +10 per win), and losing makes them cocky: each duel you lose
+  to a rival in a row, they bring one creature fewer next time, then two (never under two). Your
+  first win resets it. The card shows "cocky: 1 fewer". Coliseum contenders are built the same
+  way, so cups train at 10 JP per level too (they don't get cocky: a cup is three rounds and out).
 
 **Open:**
 - [ ] Who the rivals are (names, looks, why they breed what they breed): the story.

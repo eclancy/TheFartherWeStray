@@ -22,6 +22,7 @@ public sealed class Mission
     public string Title, Sighting;
     public Party.RivalDef Rival;  // a duel: the rival tamer whose squad you face
     public int RivalWins;         // times you've beaten them before (their squad trains harder)
+    public int RivalLosses;       // duels lost to them in a row since (cocky, they bring fewer)
     public ulong Encounter;
     public string Location;       // where on the country map it is
     public string Story;          // a main story mission: its id in the StoryBook
@@ -130,13 +131,13 @@ public sealed class Mission
     };
 
     /// <summary>A rival tamer's challenge: their squad on one of their maps, stronger each time you win.</summary>
-    public static Mission Duel(Party.RivalDef rival, ulong encounter, int wins, ulong seed)
+    public static Mission Duel(Party.RivalDef rival, ulong encounter, int wins, ulong seed, int losses = 0)
     {
         var rng = new SeededRng(seed);
-        var m = new Mission { Seed = seed, Encounter = encounter, Goal = Objective.Duel, Rival = rival, RivalWins = wins };
+        var m = new Mission { Seed = seed, Encounter = encounter, Goal = Objective.Duel, Rival = rival, RivalWins = wins, RivalLosses = losses };
         m.MapName = rival.Turf[rng.Int(rival.Turf.Length)];
         m.Pack = Party.RivalBook.SquadSize(encounter);
-        m.Stars = Math.Clamp(m.Pack / 2 + wins, 1, 5);
+        m.Stars = Math.Clamp(m.Pack / 2 + wins - Party.RivalBook.Fewer(losses), 1, 5);
         m.Reward = 20 + m.Pack * 4 + wins * 6;
         m.Title = $"Duel: {rival.Name}";
         return m;
@@ -181,11 +182,13 @@ public sealed class Mission
     {
         if (Rival != null)
         {
-            // A fair fight: they field as many creatures as you bring, at least three and at most Pack.
+            // A fair fight: they field as many creatures as you bring, at least three and at most Pack,
+            // fewer (never under two) while they're cocky from beating you.
             var yours = squad.ToList();
             var duel = new Battle(BattleMap.ByName(MapName), yours, Array.Empty<Creature>(), Seed) { Goal = Goal, Mission = this };
-            int count = Math.Clamp(yours.Count, Party.TamerBook.CreaturesEach, Pack);
-            duel.Challenge(Rival.Tamer, Party.RivalBook.Squad(Rival, Encounter, RivalWins, Seed, count));
+            int count = Math.Max(2, Math.Clamp(yours.Count, Party.TamerBook.CreaturesEach, Pack) - Party.RivalBook.Fewer(RivalLosses));
+            int yourJp = yours.Count == 0 ? 0 : (int)yours.Average(x => x.Item2?.Jp.Values.Sum() ?? 0);
+            duel.Challenge(Rival.Tamer, Party.RivalBook.Squad(Rival, Encounter, RivalWins, Seed, count, yourJp));
             return duel;
         }
         var (pack, target) = Wild();

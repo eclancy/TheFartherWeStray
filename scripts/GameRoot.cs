@@ -18,6 +18,7 @@ namespace CreatureTactics;
 ///   (no options)      the ranch: your roster, breeding, and battles from it (saved to user://ranch.json)
 ///   --save=NAME       use the ranch saved as user://NAME.json
 ///   --newranch        start a fresh ranch (overwrites the save once anything is saved)
+///   --style=ID        art style: neon (default), ffta, painted, noir, grim (V cycles them in the Sprite Lab)
 ///   --lab             open the Sprite Lab (Tab switches)
 ///   --battle=N        a one-off battle with the default squad; --autoplay lets the AI play your side
 ///   --autobattle=N    run a battle AI-vs-AI headless and print the log
@@ -38,6 +39,7 @@ public partial class GameRoot : Node
     void Start()
     {
         var args = ParseArgs(OS.GetCmdlineUserArgs());
+        if (args.TryGetValue("style", out var styleId)) ArtStyle.Current = ArtStyle.ById(styleId);
         ulong sheet = args.TryGetValue("sheet", out var s) && ulong.TryParse(s, out var n) ? n : 1;
         bool four = args.ContainsKey("four"), drawPets = args.ContainsKey("drawpets");
         Species species = null;

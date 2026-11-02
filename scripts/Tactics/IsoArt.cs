@@ -85,6 +85,7 @@ public sealed class IsoArt
     {
         var img = Image.CreateEmpty(Width, Height, false, Image.Format.Rgba8);
         foreach (var t in DrawOrder()) PaintTile(img, t);
+        Creatures.ArtStyle.Current.GradeImage(img);
         return img;
     }
 
@@ -232,6 +233,8 @@ public sealed class IsoArt
     public static Image PaintBackdrop(int w, int h, ulong seed, string theme = "Undercity")
     {
         var look = Look.Get(theme);
+        // Some art styles fight in daylight: the sky comes from the style, the ground from the map.
+        if (Creatures.ArtStyle.Current.Sky is { } sky) look = Look.Get(sky);
         var rng = new Creatures.SeededRng(seed);
         var img = Image.CreateEmpty(w, h, false, Image.Format.Rgba8);
         Color top = look.SkyTop, mid = look.SkyMid, bottom = look.SkyBottom;
@@ -251,6 +254,7 @@ public sealed class IsoArt
             float k = (y - h * 0.8f) / (h * 0.2f);
             if (Hash(x, y, 77) % 3 == 0) img.SetPixel(x, y, img.GetPixel(x, y).Lerp(look.Haze, 0.12f * k));
         }
+        Creatures.ArtStyle.Current.GradeImage(img);
         return img;
     }
 
@@ -326,6 +330,17 @@ public sealed class Look
             new[] { "#8a7f72", "#a09484", "#7a7064", "#4f483f", "#6e6458", "#544c43" },
             new[] { "#1d1830", "#6b3b4a", "#2a1a26" },
             new[] { "#3a2a3e", "#f2b950" }, new[] { "#24182a", "#ffb04f", "#ff7a4f" }, "#c46a4a"),
+        // Daylight skies for the daytime styles (only the sky colours are used).
+        ["Day"] = Make(
+            new[] { "#3e6140", "#5c8550", "#2b4630", "#8a9f5a", "#4a3b33", "#30262a" },
+            new[] { "#6a7083", "#7b8194", "#5f6577", "#363a48", "#535869", "#383b4b" },
+            new[] { "#5d93d6", "#a9d0ec", "#e8e4cf" },
+            new[] { "#8fa4c4", "#dfe7f2" }, new[] { "#6f7f9c", "#cfd8e6" }, "#f0e6c8"),
+        ["DayWarm"] = Make(
+            new[] { "#3e6140", "#5c8550", "#2b4630", "#8a9f5a", "#4a3b33", "#30262a" },
+            new[] { "#6a7083", "#7b8194", "#5f6577", "#363a48", "#535869", "#383b4b" },
+            new[] { "#7f9cb8", "#d9c9a8", "#b89a76" },
+            new[] { "#8c8a96", "#efe2c4" }, new[] { "#6f6a70", "#e8d2a8" }, "#e6c89a"),
         // The hollow: fungal moss and dark rock, lit by crystal.
         ["Cavern"] = Make(
             new[] { "#3a2f5a", "#57458a", "#2a2242", "#7fd8ff", "#2b2236", "#1d1726" },

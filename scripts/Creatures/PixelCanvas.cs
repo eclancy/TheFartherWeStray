@@ -209,6 +209,11 @@ public sealed class PixelCanvas
     {
         var img = Image.CreateEmpty(W, H, false, Image.Format.Rgba8);
         var accentTones = AccentTonesFor(pal);
+        var style = ArtStyle.Current;
+        var black = new Color(0.07f, 0.06f, 0.09f);
+        float rim = pal.RimStrength * style.RimScale;
+        Color rimColor = pal.Glow;
+        if (rim <= 0 && style.NaturalRim > 0) { rim = style.NaturalRim; rimColor = style.NaturalRimColor; }
 
         for (int y = 0; y < H; y++)
         for (int x = 0; x < W; x++)
@@ -220,19 +225,27 @@ public sealed class PixelCanvas
                 // Outer outline: an empty pixel touching the creature.
                 Mat edge = Neighbour4(x, y, j => _mat[j] != Mat.None);
                 if (edge == Mat.None) continue;
-                Color line = fourColor ? pal.GbBlack : LineOf(pal, edge);
-                if (!fourColor && LitEdge(x, y, out int lit) && !IsDetail(_mat[lit]))
+                Color line = fourColor ? pal.GbBlack : style.Outline == OutlineMode.Black ? black : LineOf(pal, edge);
+                if (!fourColor && style.Outline == OutlineMode.Selective && LitEdge(x, y, out int lit) && !IsDetail(_mat[lit]))
                 {
                     // Selective outline: where the light hits the edge, the line softens toward the
                     // colour it borders (the GBA-era trick that stops sprites looking cut out).
                     line = line.Lerp(RampOf(pal, _mat[lit]).Dark, 0.5f);
                 }
-                img.SetPixel(x, y, line);
+                // Glow halo: glowing parts bleed light past the outline.
+                if (!fourColor && style.GlowHalo && Neighbour4(x, y, j => _mat[j] == Mat.Glow) == Mat.Glow) line = pal.Glow.Lerp(line, 0.35f);
+                img.SetPixel(x, y, fourColor ? line : style.Grade(line));
                 continue;
             }
 
-            int tone = ToneOf(_shade[i]);
+            // Dithering nudges the shade either way in a checkerboard, so bands interleave where they meet.
+            float shade = _shade[i] + (style.Dither ? ((x + y) % 2 == 0 ? 0.05f : -0.05f) : 0);
+            int tone = ToneOf(shade);
+            if (style.Tones == 3 && tone == 0) tone = 1;
             Color col = fourColor ? FourColor(pal, m, tone, accentTones) : FullColor(pal, m, tone);
+            bool ramp = m is Mat.Main or Mat.Second or Mat.Accent or Mat.Membrane or Mat.Metal;
+            if (!fourColor && ramp && style.Tones == 5 && tone == 2 && shade >= 0.62f) col = RampOf(pal, m).Base.Lerp(RampOf(pal, m).Light, 0.5f);
+            if (!fourColor && ramp && style.Grain > 0) col = col.Lightened(ArtStyle.Noise(x, y) * style.Grain).Darkened(Mathf.Max(0, -ArtStyle.Noise(x, y)) * style.Grain);
 
             // Seam: this pixel borders a part painted after (in front of) it.
             bool seam = false;
@@ -240,16 +253,16 @@ public sealed class PixelCanvas
             {
                 int part = _part[i];
                 Mat front = Neighbour4(x, y, j => _mat[j] != Mat.None && _part[j] > part && !IsDetail(_mat[j]));
-                if (front != Mat.None) { col = fourColor ? pal.GbBlack : LineOf(pal, front); seam = true; }
+                if (front != Mat.None) { col = fourColor ? pal.GbBlack : style.Outline == OutlineMode.Black ? black : LineOf(pal, front); seam = true; }
             }
             if (!fourColor && !seam && !IsDetail(m))
             {
                 // Glow spill: skin next to something glowing picks up its light.
                 if (Neighbour4(x, y, j => _mat[j] == Mat.Glow) == Mat.Glow) col = col.Lerp(pal.Glow, 0.4f);
                 // Rim light: a neon backlight along the shadow-side silhouette, the Arcane look.
-                else if (pal.RimStrength > 0 && tone <= 2 && OnShadowEdge(x, y)) col = col.Lerp(pal.Glow, pal.RimStrength);
+                else if (rim > 0 && tone <= 2 && OnShadowEdge(x, y)) col = col.Lerp(rimColor, Mathf.Min(0.85f, rim));
             }
-            img.SetPixel(x, y, col);
+            img.SetPixel(x, y, fourColor ? col : style.Grade(col));
         }
         return img;
     }

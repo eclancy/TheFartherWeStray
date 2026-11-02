@@ -46,7 +46,7 @@ public sealed class CreaturePainter
         _cr = cr;
         _sp = cr.Species;
         _p = cr.Parts;
-        S = SizeInfo.Pixels(cr.Size);
+        S = Mathf.Round(SizeInfo.Pixels(cr.Size) * ArtStyle.Current.SizeScale);
         int w = Mathf.CeilToInt(S * 1.7f), h = Mathf.CeilToInt(S * 1.55f);
         _c = new PixelCanvas(w, h);
         Floor = h - 1;

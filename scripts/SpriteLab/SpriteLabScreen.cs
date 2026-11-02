@@ -92,7 +92,7 @@ public partial class SpriteLabScreen : Control
             ? $"Individuals of {SpeciesView.Name}   [Esc] back to {sheet}"
             : $"{(DrawPets ? "DrawPets cast" : $"Sheet {SheetSeed}")}   [Space] reroll   [Left/Right] prev/next   [D] DrawPets   [Click] see the species";
         string mode = FourColor ? "4-colour (GBC)" : "full palette (GBA)";
-        _header.Text = $"Creature Tactics  -  Sprite Lab      {where}   [C] {mode}   [Z] zoom   [P] save PNG"
+        _header.Text = $"Creature Tactics  -  Sprite Lab      {where}   [C] {mode}   [V] style: {ArtStyle.Current.Name}   [Z] zoom   [P] save PNG"
             + (_flash != null ? $"      {_flash}" : "");
     }
 
@@ -129,6 +129,16 @@ public partial class SpriteLabScreen : Control
                 SpeciesView = null;
                 break;
             case Key.C: FourColor = !FourColor; break;
+            case Key.V:
+            {
+                // Cycle the art styles, to compare them on the same creatures.
+                var all = ArtStyle.All();
+                int i = Array.FindIndex(all, s => s.Id == ArtStyle.Current.Id);
+                ArtStyle.Current = all[(i + 1) % all.Length];
+                _flash = $"art style: {ArtStyle.Current.Name}";
+                _flashLeft = 4;
+                break;
+            }
             case Key.Z: Zoom = Zoom == 2 ? 3 : 2; break;
             case Key.P: SavePng(); return;
             case Key.F11:

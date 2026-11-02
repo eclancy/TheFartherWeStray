@@ -72,9 +72,13 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   Hold out) on five handmade regions (`BattleMap.cs`), each with a look (`Look` in `IsoArt.cs`) and
   fauna odds. Sightings promise a codex-missing part. After touching maps or AI, run
   `--autoboard=6`: no mission may stall.
-- Not built yet: story and cutscenes, rival tamers, the AI playing objectives (your side's AI only
-  routs, so it fails most captures in headless runs; that's the AI, not the rules). There's no human
-  player character on the field (the notes' Option A).
+- **Generals and the party (the user's direction, 2026-11-02, not built):** the player is a
+  general leading three creatures, maybe on the field, always boosting or altering the team; a
+  second party member later brings it to six; at most two characters and six creatures per
+  battle, swapped between battles. Decided points and open questions are in
+  `docs/design-notes.md`, with the shinies the user wants to think on. Don't build either
+  without the user.
+- Not built yet: story and cutscenes, generals, rival tamers.
 
 ## Build and check
 

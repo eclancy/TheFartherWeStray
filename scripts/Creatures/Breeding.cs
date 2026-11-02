@@ -107,6 +107,8 @@ public static class Breeding
             EyeSize = Mix(A.EyeSize, B.EyeSize), WingSpread = Mix(A.WingSpread, B.WingSpread), HornCurve = Mix(A.HornCurve, B.HornCurve),
             WingsFolded = planParent.WingsFolded, MuzzleSecond = rng.Chance(0.5f) ? A.MuzzleSecond : B.MuzzleSecond,
             Strain = strain, Grafts = grafts,
+            // The body plan's parent passes on its silhouette; either parent its aura.
+            Form = Species.FormOf(planParent), Aura = Species.AuraOf(rng.Chance(0.5f) ? A : B),
             SpikeMat = style.spike, ShellMat = style.shell, FeatherMat = style.feather, SailMat = style.sail, TuftMat = style.tuft, CrestMat = style.crest,
         };
         child.Name = CreatureNames.Splice(A.Name, B.Name, rng);

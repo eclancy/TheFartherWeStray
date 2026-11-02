@@ -143,6 +143,12 @@ public partial class BattleScreen : Control
             _views[u] = v;
             v.Place(u.Pos);
         }
+        // Everyone starts facing the other side.
+        foreach (var (u, v) in _views)
+        {
+            var foes = _views.Where(o => o.Key.Side != u.Side).Select(o => o.Value.Position).ToList();
+            if (foes.Count > 0) v.Face(foes.Aggregate(Vector2.Zero, (a, b) => a + b) / foes.Count - v.Position);
+        }
         AddLog($"{_battle.Map.Name}. A wild pack blocks the way.");
         RefreshObjective();
         RunTurns();
@@ -826,19 +832,27 @@ public partial class BoardOverlay : Node2D
     }
 }
 
-/// <summary>One creature on the board: sprite, shadow, side ring, HP bar, and its animations.</summary>
+/// <summary>
+/// One creature on the board: sprite, shadow, side ring, HP bar, and its animations. It faces one
+/// of the four grid directions, the screen diagonals: its front view facing down-left or (mirrored)
+/// down-right, its back view facing up-left or (mirrored) up-right.
+/// </summary>
 public partial class UnitView : Node2D
 {
     public Unit Unit;
-    public Texture2D Texture;
+    public Texture2D Texture;   // the front view: portraits and the turn strip
     public int DisplayHp;
-    public float SpriteHeight => Texture.GetHeight();
+    public float SpriteHeight => (_showBack ? _backAnchor : _frontAnchor).Y;
 
     BattleScreen _screen;
     Sprite2D _sprite;
     Vector2I _tile;
     Color _ring;
     float _flash;
+    Texture2D _back;
+    Vector2I _frontAnchor, _backAnchor;
+    bool _showBack, _flip;
+    float _baseY;
 
     public void Setup(Unit u, BattleScreen screen)
     {
@@ -846,12 +860,37 @@ public partial class UnitView : Node2D
         _screen = screen;
         DisplayHp = u.Hp;
         _ring = u.Side == Side.Player ? Color.FromHtml("#4fe3ff") : Color.FromHtml("#ff4f9a");
-        Texture = ImageTexture.CreateFromImage(CreaturePainter.Paint(u.Creature, false));
-        _sprite = new Sprite2D { Texture = Texture, Centered = false };
-        _sprite.Position = new Vector2(-Texture.GetWidth() / 2f, -Texture.GetHeight() + 3);
-        // Sprites face left; the wild pack starts at the back and faces the player's corner.
-        _sprite.FlipH = u.Side == Side.Wild;
+        var (front, fa) = CreatureSculptor.Render(u.Creature, false, View.Front);
+        var (back, ba) = CreatureSculptor.Render(u.Creature, false, View.Back);
+        Texture = ImageTexture.CreateFromImage(front);
+        _back = ImageTexture.CreateFromImage(back);
+        _frontAnchor = fa;
+        _backAnchor = ba;
+        _sprite = new Sprite2D { Centered = false };
         AddChild(_sprite);
+        SetFacing(u.Side == Side.Wild, false);
+    }
+
+    /// <summary>Shows the front or back view, mirrored or not, with its feet on this node.</summary>
+    void SetFacing(bool back, bool flip)
+    {
+        _showBack = back;
+        _flip = flip;
+        var tex = back ? _back : Texture;
+        var a = back ? _backAnchor : _frontAnchor;
+        _sprite.Texture = tex;
+        _sprite.FlipH = flip;
+        _baseY = -a.Y + 2;
+        _sprite.Position = new Vector2(flip ? -(tex.GetWidth() - a.X) : -a.X, _baseY);
+    }
+
+    /// <summary>Turns to face along a screen direction, snapped to the nearest diagonal.</summary>
+    public void Face(Vector2 toward)
+    {
+        if (toward.LengthSquared() < 0.01f) return;
+        bool back = Mathf.Abs(toward.Y) < 0.01f ? _showBack : toward.Y < 0;
+        bool right = Mathf.Abs(toward.X) < 0.01f ? _flip : toward.X > 0;
+        SetFacing(back, right);
     }
 
     public void Place(Vector2I tile)
@@ -865,7 +904,7 @@ public partial class UnitView : Node2D
     {
         if (_flash > 0) { _flash = Mathf.Max(0, _flash - (float)delta * 4); _sprite.Modulate = Colors.White.Lerp(new Color(1, 0.3f, 0.3f), _flash); }
         bool active = _screen.ActiveUnit == Unit;
-        _sprite.Position = new Vector2(_sprite.Position.X, -Texture.GetHeight() + 3 + (active ? Mathf.Round(Mathf.Sin(Time.GetTicksMsec() / 160f)) : 0));
+        _sprite.Position = new Vector2(_sprite.Position.X, _baseY + (active ? Mathf.Round(Mathf.Sin(Time.GetTicksMsec() / 160f)) : 0));
         QueueRedraw();
     }
 
@@ -884,7 +923,7 @@ public partial class UnitView : Node2D
         DrawPolyline(ring, new Color(_ring, active ? 1f : 0.65f), active ? 1.5f : 1f);
 
         // HP bar above the head.
-        float w = 18 * Unit.Size, y = -Texture.GetHeight() - 3;
+        float w = 18 * Unit.Size, y = -SpriteHeight - 3;
         float frac = Mathf.Clamp(DisplayHp / (float)Unit.MaxHp, 0, 1);
         DrawRect(new Rect2(-w / 2 - 1, y - 1, w + 2, 4), new Color(0.05f, 0.03f, 0.08f, 0.9f));
         DrawRect(new Rect2(-w / 2, y, w * frac, 2), frac > 0.5f ? new Color(0.4f, 1f, 0.6f) : frac > 0.25f ? new Color(1f, 0.8f, 0.3f) : new Color(1f, 0.3f, 0.35f));
@@ -913,8 +952,6 @@ public partial class UnitView : Node2D
             DrawColoredPolygon(new[] { m + new Vector2(-3, -3), m + new Vector2(3, -3), m + new Vector2(0, 1) }, _ring);
         }
     }
-
-    void Face(Vector2 toward) { if (Mathf.Abs(toward.X) > 0.5f) _sprite.FlipH = toward.X > 0; }
 
     public async Task Walk(List<Vector2I> path)
     {

@@ -16,7 +16,7 @@ public enum Mat : byte { None, Main, Second, Accent, Membrane, Metal, EyeWhite, 
 /// part's edge pixel becomes a line, so overlapping parts stay readable. Shapes painted under the
 /// same part number merge with no line (a snout on a head, the segments of a serpent).
 /// </summary>
-public sealed class PixelCanvas
+public sealed partial class PixelCanvas
 {
     public readonly int W, H;
     readonly Mat[] _mat;
@@ -184,6 +184,8 @@ public sealed class PixelCanvas
         float shade = tone switch { 0 => 0.15f, 2 => 1, _ => 0.55f };
         int i = y * W + x;
         Set(x, y, m, shade, part, _nx[i], _ny[i]);
+        // Detail painted onto empty canvas (drips, sparks) sits in front of everything.
+        if (_depth != null && _depth[i] == float.MaxValue) _depth[i] = float.MinValue;
     }
 
     /// <summary>Changes the material of pixels that pass a test, keeping their shading (patterns).</summary>
@@ -252,7 +254,7 @@ public sealed class PixelCanvas
             if (!IsDetail(m))
             {
                 int part = _part[i];
-                Mat front = Neighbour4(x, y, j => _mat[j] != Mat.None && _part[j] > part && !IsDetail(_mat[j]));
+                Mat front = Neighbour4(x, y, j => _mat[j] != Mat.None && InFront(j, i, part) && !IsDetail(_mat[j]));
                 if (front != Mat.None) { col = fourColor ? pal.GbBlack : style.Outline == OutlineMode.Black ? black : LineOf(pal, front); seam = true; }
             }
             if (!fourColor && !seam && !IsDetail(m))
@@ -271,7 +273,7 @@ public sealed class PixelCanvas
     bool OnShadowEdge(int x, int y)
     {
         bool Empty(int px, int py) => !Inside(px, py) || _mat[py * W + px] == Mat.None;
-        return Empty(x + 1, y) || (y < H - 3 && Empty(x, y + 1) && Empty(x + 1, y + 1));
+        return Empty(x + 1, y) || ((_depth != null || y < H - 3) && Empty(x, y + 1) && Empty(x + 1, y + 1));
     }
 
     /// <summary>

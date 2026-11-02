@@ -91,6 +91,54 @@ public static class CreatureSheet
         return sheet;
     }
 
+    /// <summary>
+    /// Each creature twice, as it stands on the board: facing down-left (front) and up-left (back),
+    /// feet on a diamond tile, so every sprite in the sheet shares one ground line per row.
+    /// </summary>
+    public static Image ComposeViews(List<Creature> creatures, bool fourColor, int scale, int columns)
+    {
+        var shots = new List<(Image img, Vector2I anchor)>();
+        foreach (var c in creatures)
+            foreach (var view in new[] { View.Front, View.Back })
+                shots.Add(CreatureSculptor.Render(c, fourColor, view));
+        int left = 24, right = 24, up = 0, down = 14;
+        foreach (var (img, a) in shots)
+        {
+            left = Mathf.Max(left, a.X); right = Mathf.Max(right, img.GetWidth() - a.X);
+            up = Mathf.Max(up, a.Y); down = Mathf.Max(down, img.GetHeight() - a.Y);
+        }
+        int pad = 4 * scale, gap = 4 * scale;
+        int spriteW = (left + right) * scale, cellW = spriteW * 2 + 3 * pad, cellH = (up + down) * scale + 2 * pad;
+        int rows = (creatures.Count + columns - 1) / columns;
+        var sheet = Image.CreateEmpty(columns * cellW + (columns + 1) * gap, rows * cellH + (rows + 1) * gap, false, Image.Format.Rgba8);
+        sheet.Fill(Paper);
+        for (int i = 0; i < creatures.Count; i++)
+        {
+            int cx = gap + (i % columns) * (cellW + gap), cy = gap + (i / columns) * (cellH + gap);
+            sheet.FillRect(new Rect2I(cx, cy, cellW, cellH), Card);
+            for (int v = 0; v < 2; v++)
+            {
+                var (img, a) = shots[i * 2 + v];
+                int gx = cx + pad + v * (spriteW + pad) + left * scale, gy = cy + pad + up * scale;
+                // The tile it stands on: a 48 x 24 diamond, as on the board.
+                for (int y = -12; y <= 12; y++)
+                for (int x = -24; x <= 24; x++)
+                {
+                    if (Mathf.Abs(x) / 24f + Mathf.Abs(y) / 12f > 1) continue;
+                    for (int k = 0; k < scale * scale; k++)
+                    {
+                        int px = gx + x * scale + k % scale, py = gy + y * scale + k / scale;
+                        if (px >= 0 && py >= 0 && px < sheet.GetWidth() && py < sheet.GetHeight()) sheet.SetPixel(px, py, Card.Lightened(0.12f));
+                    }
+                }
+                var sprite = (Image)img.Duplicate();
+                sprite.Resize(sprite.GetWidth() * scale, sprite.GetHeight() * scale, Image.Interpolation.Nearest);
+                sheet.BlendRect(sprite, new Rect2I(0, 0, sprite.GetWidth(), sprite.GetHeight()), new Vector2I(gx - a.X * scale, gy - a.Y * scale));
+            }
+        }
+        return sheet;
+    }
+
     static void ShadowEllipse(Image img, int cx, int cy, float rx, float ry)
     {
         for (int y = (int)(cy - ry); y <= cy + ry; y++)

@@ -522,7 +522,7 @@ public partial class RanchCard : Control
         box.SetCornerRadiusAll(8);
         DrawStyleBox(box, new Rect2(Vector2.Zero, Size));
 
-        int z = _tex.GetWidth() * 2 <= Size.X - 12 && _tex.GetHeight() * 2 <= 112 ? 2 : 1;
+        int z = _tex.GetWidth() * 2 <= Size.X - 8 && _tex.GetHeight() * 2 <= 128 ? 2 : 1;
         var ts = _tex.GetSize() * z;
         float ground = 136;
         DrawSetTransform(new Vector2(Size.X / 2, ground - 2), 0, new Vector2(1, 0.22f));

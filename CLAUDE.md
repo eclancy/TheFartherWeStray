@@ -17,10 +17,17 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
 - **Chosen look: "Neon Undercity"** (2026-11-01), the default `ArtStyle`. The user compared five
   styles (`--style=`, V in the Sprite Lab) and picked this one, as is. Keep the other presets for
   reference, but don't switch the default.
-- **Perspective: FFTA's.** The camera is above and behind; creatures face the four screen diagonals
-  (the four grid directions), with front and back views. See `docs/classes-design.md` for jobs.
+- **Perspective: FFTA's** (2026-11-02, built). Creatures are small 3D models ray-cast into pixels
+  (`CreatureSculptor`, `PixelCanvas3D`): camera 30 degrees up a grid diagonal, two views (front
+  facing down-left, back facing up-left), mirrored for the other two diagonals. `UnitView` turns
+  units as they walk and strike. Sprites come with an anchor (the feet), not a bottom edge.
 - **Mystical, fantastical, varied, themed; not plump** (2026-11-02). Lean, distinct silhouettes
   over round bodies; each creature should read as a kind of fantasy beast, not a palette swap.
+  Layers: `Form` (23 silhouettes, a few per body plan: hound, stag, drake, sentinel, wraith, wyrm,
+  crane, mantis, spider, ray, wisp, jelly...), element themes (ember flames, frost shards, leaf
+  fronds, tide fins, venom frills, shade smoke, spark crackle, meadow tufts), strain grafts, and an
+  `Aura` (halo, floating shards, sigil, third eye, wisps). New forms go in `CreatureForms.cs`: build
+  the body, set the anchors (head, spine, tail root, wing root); the shared parts do the rest.
 - **Readability (2026-11-01):** icons and shorthand over sentences, after WizardSurvivors'
   stat glyphs. `scripts/UI/`: `Glyphs` (12x12 art, outlined, drawn at 2x+), `SkillIcons` (every
   skill gets a framed glyph: frame colour = attack/heal/boost/control/move, corner marks = shape and
@@ -71,8 +78,9 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   save and load. Run it after touching `Species`, `Creature`, `PaletteSpec` or the painter's
   inputs. `--breeding=N` writes a sheet of parents and children. Use `--save=NAME` for anything
   that saves, so the user's `user://ranch.json` is never touched.
-- **Sprites:** `"$GODOT_BIN" --headless --path . -- --export=.shots/x.png --sheet=1`, then look at
-  the PNG (`--scale=4 --columns=4 --count=12` for close-ups).
+- **Sprites:** `"$GODOT_BIN" --headless --path . -- --forms --medium` (every form, front and back,
+  on board tiles; `--scale=4` for close-ups) or `--views=N` (sheet N), then look at `.shots/`.
+  `--export=.shots/x.png --sheet=1` still writes the front views.
 - **Screens:** `"$GODOT_BIN" --path . -- --shot=40` (add `--autoplay` for mid-battle, `--battle=3 --aim --shot=900`
   for the aimed-skill panel, `--lab` for
   the Lab) writes `.shots/shot.png`. It opens a window briefly.
@@ -86,7 +94,10 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   rules out of the screen so `--autobattle` stays a real test.
 - Every roll should mean something in battle. Parts map to `Weapon`/`Armor`/`MoveType`
   (`Creature.cs`), and `Unit.From` turns those and grafts into stats.
-- Painting is back to front; part ids increase in paint order, and the seam rule depends on it.
+- 3D painting keeps the nearest surface per pixel; a seam falls where another part sits more than
+  `SeamDepth` in front. Shapes in one part merge without seams, so give a part its own id where a
+  line should show (shell plates, feathers). Shape choices must come from the species' seed, never
+  the view, or the front and back views won't match.
 - Root Controls need `SetAnchorsAndOffsetsPreset(FullRect)`. Plain `SetAnchorsPreset` leaves them
   zero-sized under the `Node` root.
 - The loyal recruit condition is a placeholder; the notes list only four.

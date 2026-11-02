@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace CreatureTactics.Creatures;
 
@@ -28,6 +29,10 @@ public sealed class Species
 
     public Strain Strain;
     public Graft Grafts;
+
+    /// <summary>Its silhouette within the body plan, and its mystical flourish (see <see cref="FormOf"/>).</summary>
+    public Form Form;
+    public Aura Aura;
 
     // Which palette material each part is coloured in. Generated species leave these null and the
     // painter rolls them; authored species can pin them (a ladybug's shell must be red).
@@ -63,7 +68,53 @@ public sealed class Species
         s.Grafts = RollGrafts(s.Strain, rng);
         if (s.Strain == Strain.Abyssal) s.Palette = s.Palette.Abyssal(rng);
         s.Name = CreatureNames.Make(s, rng);
+        // Rolled from their own stream, so every older roll above stays as it was.
+        s.Form = FormOf(s);
+        s.Aura = AuraOf(s);
         return s;
+    }
+
+    /// <summary>The forms each body plan can take.</summary>
+    public static Form[] FormsFor(BodyPlan plan) => plan switch
+    {
+        BodyPlan.Quadruped => new[] { Form.Hound, Form.Stag, Form.Cat, Form.Drake, Form.Behemoth },
+        BodyPlan.Biped => new[] { Form.Raptor, Form.Sentinel, Form.Wraith, Form.Imp },
+        BodyPlan.Serpent => new[] { Form.Wyrm, Form.Lung },
+        BodyPlan.Avian => new[] { Form.Hawk, Form.Crane, Form.Phoenix },
+        BodyPlan.Insectoid => new[] { Form.Mantis, Form.Beetle, Form.Spider },
+        BodyPlan.Aquatic => new[] { Form.Eel, Form.Ray, Form.Kelpie },
+        _ => new[] { Form.Wisp, Form.Jelly, Form.Ooze },
+    };
+
+    /// <summary>Its form: the one it has, or one rolled from its seed (species saved before forms existed).</summary>
+    public static Form FormOf(Species s)
+    {
+        var forms = FormsFor(s.Plan);
+        if (s.Form != Form.Auto && System.Array.IndexOf(forms, s.Form) >= 0) return s.Form;
+        var rng = new SeededRng(SeededRng.Derive(s.Seed, 0xF0E3));
+        // Behemoths are for big beasts; imps for small ones.
+        return rng.Weighted(forms.Select(f => (f, f switch
+        {
+            Form.Behemoth => s.BaseSize >= SizeClass.Large ? 2.5f : 0.15f,
+            Form.Imp => s.BaseSize <= SizeClass.Small ? 2.5f : 0.3f,
+            Form.Sentinel => s.BaseSize >= SizeClass.Medium ? 1.5f : 0.6f,
+            _ => 1f,
+        })).ToArray());
+    }
+
+    /// <summary>Its aura: most strained creatures have one, and about half the natural ones.</summary>
+    public static Aura AuraOf(Species s)
+    {
+        if (s.Aura != Aura.Auto) return s.Aura;
+        var rng = new SeededRng(SeededRng.Derive(s.Seed, 0xA0A0));
+        float none = s.Strain == Strain.Natural ? 4f : 1.5f;
+        return rng.Weighted(
+            (Aura.None, none),
+            (Aura.Halo, s.Strain is Strain.Arcane or Strain.Clockwork ? 2f : 0.8f),
+            (Aura.Shards, s.Element is Element.Frost or Element.Stone or Element.Spark ? 2f : 0.7f),
+            (Aura.Sigil, s.Strain == Strain.Arcane ? 2f : 0.7f),
+            (Aura.ThirdEye, s.Strain == Strain.Abyssal || s.Element == Element.Shade ? 2f : 0.6f),
+            (Aura.Wisps, s.Element is Element.Ember or Element.Shade or Element.Venom || s.Strain == Strain.Chemtech ? 2f : 0.7f));
     }
 
     /// <summary>A copy to change (grafts) without touching other creatures that share this species.</summary>

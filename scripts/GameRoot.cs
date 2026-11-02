@@ -294,6 +294,46 @@ public partial class GameRoot : Node
             return;
         }
 
+        if (args.TryGetValue("forms", out var formsArg))
+        {
+            // One creature of every form (the first species of that plan from seed N on), front and
+            // back, standing on board tiles: the check on silhouettes. --views does the same for a sheet.
+            ulong start = ulong.TryParse(formsArg, out var fs) ? fs : 1;
+            var list = new List<Creature>();
+            foreach (var form in Enum.GetValues<Form>().Where(f => f != Form.Auto))
+            {
+                var plan = Enum.GetValues<BodyPlan>().First(p => Species.FormsFor(p).Contains(form));
+                for (ulong seed = start; seed < start + 4000; seed++)
+                {
+                    var fsp = Species.Generate(seed);
+                    if (fsp.Plan != plan) continue;
+                    fsp.Form = form;
+                    var fc = Creature.Specimen(fsp, 0);
+                    if (args.ContainsKey("medium")) fc.Size = SizeClass.Medium;
+                    list.Add(fc);
+                    start = seed + 1;
+                    break;
+                }
+            }
+            string fpath = ProjectSettings.GlobalizePath("res://.shots/forms.png");
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(fpath)!);
+            CreatureSheet.ComposeViews(list, four, args.TryGetValue("scale", out var fsc) && int.TryParse(fsc, out var fsv) ? fsv : 2, 6).SavePng(fpath);
+            GD.Print($"wrote {fpath}: " + string.Join(", ", list.Select(c => $"{c.Species.Form} {c.Species.Name}")));
+            GetTree().Quit();
+            return;
+        }
+
+        if (args.TryGetValue("views", out var viewsArg))
+        {
+            ulong vs = ulong.TryParse(viewsArg, out var vsv) ? vsv : 1;
+            string vpath = ProjectSettings.GlobalizePath("res://.shots/views.png");
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(vpath)!);
+            CreatureSheet.ComposeViews(CreatureSheet.SpeciesSheet(vs, 24), four, 2, 6).SavePng(vpath);
+            GD.Print($"wrote {vpath}");
+            GetTree().Quit();
+            return;
+        }
+
         if (args.ContainsKey("icons"))
         {
             // Every skill icon, then every glyph, at x4: the readability check.

@@ -256,15 +256,18 @@ gear, strain and attitude.
 - `--save=NAME` uses a separate save file.
 - `--battle=N --map="Sump Marsh"` runs a one-off battle without the ranch.
 - `--shot=N` saves frame N to `.shots/shot.png`.
-- `--export` renders a sheet without a window.
+- `--export` renders a sheet without a window; `--forms` one creature of every form, front and
+  back on board tiles; `--views=N` sheet N the same way; `--icons` every skill icon.
 
 The full list is in `scripts/GameRoot.cs`.
 
 ## Layout
 
 - `scripts/Creatures/`: the generator, with no UI. `Creature.cs` (species, individuals,
-  strains and grafts, gear), `CreaturePainter.cs` (body plans, parts, faces, grafts),
-  `PixelCanvas.cs` (shading, seams, outlines, rim light), `CreaturePalette.cs`,
+  strains and grafts, gear, forms and auras), `CreatureSculptor.cs` and `CreatureForms.cs`
+  (each creature as a small 3D model seen from FFTA's camera: forms, parts, faces, grafts,
+  element themes, auras), `PixelCanvas.cs` and `PixelCanvas3D.cs` (ray-casting, shading,
+  seams, outlines, rim light), `CreaturePalette.cs`,
   `CreatureNames.cs`, `DrawPetsCast.cs`.
 - `scripts/Tactics/`: battles. `Battle.cs` (rules, recruiting, attitude AI, with no drawing),
   `Unit.cs` (stats from parts), `BattleMap.cs`, `Encounter.cs`, `IsoArt.cs` (pixel-art board and
@@ -272,6 +275,7 @@ The full list is in `scripts/GameRoot.cs`.
 - `scripts/Creatures/Breeding.cs`: inheritance rules.
 - `scripts/Classes/Classes.cs`: every class, skill and passive as data; affinities; training (JP, learning, unlocks).
 - `scripts/Ranch/JobsPanel.cs`: the job tree screen.
+- `scripts/UI/`: glyphs, skill icons and the glyph-and-number shorthand used on every screen.
 - `docs/classes-design.md`: the job-tree design and its open questions.
 - `scripts/Ranch/`: the roster and save file (`Ranch.cs`) and the ranch screen with its vats.
 - `scripts/SpriteLab/`: the sheet screen and the PNG composer.

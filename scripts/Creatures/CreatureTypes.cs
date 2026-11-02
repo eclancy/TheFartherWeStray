@@ -8,6 +8,26 @@ public enum BodyPlan { Quadruped, Biped, Serpent, Avian, Insectoid, Aquatic, Blo
 
 public enum SizeClass { Tiny, Small, Medium, Large, Huge }
 
+/// <summary>
+/// The kind of beast within a body plan: its silhouette and proportions (a lean hound, a long-legged
+/// stag, a drake, a coiled wyrm, a crane, a mantis, a wisp). Auto means "roll it from the seed", for
+/// species saved before forms existed.
+/// </summary>
+public enum Form
+{
+    Auto,
+    Hound, Stag, Cat, Drake, Behemoth,       // quadrupeds
+    Raptor, Sentinel, Wraith, Imp,           // bipeds
+    Wyrm, Lung,                              // serpents
+    Hawk, Crane, Phoenix,                    // avians
+    Mantis, Beetle, Spider,                  // insectoids
+    Eel, Ray, Kelpie,                        // aquatics
+    Wisp, Jelly, Ooze,                       // blobs
+}
+
+/// <summary>A mystical flourish on top of the body: a halo, floating shards, a sigil, a third eye, trailing wisps.</summary>
+public enum Aura { Auto, None, Halo, Shards, Sigil, ThirdEye, Wisps }
+
 public enum Attitude { Aggressive, Skittish, Loyal, Curious, Proud }
 
 /// <summary>Palette family. Doubles as the element until elements are designed.</summary>

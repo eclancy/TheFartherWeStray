@@ -70,6 +70,21 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
 - Sprite Lab (`scripts/SpriteLab/`): the generator prototype.
 - Battle slice (`scripts/Tactics/`): one handmade map, your squad against a pack seeded by the
   encounter number, speed-order turns, parts as gear, attitude reactions and AI, and recruiting.
+- **The home base (2026-11-02, the user's direction, built):** every menu and system grounded in a
+  place you walk to. `Ranch/HomeBase.cs` holds the base map (a farmyard: `Ranch` look) and its
+  stations as data (`StationDef`: id, name, glyph, prop letter, `Built` rule, what opens it): the
+  gate (the country map), the pens (roster and squad), the training yard (jobs), the armory
+  (gear, after a contract), the breeding vats (after two), the war table (party, when a second
+  tamer joins), the lab (after `main_foundry`). Unlocks come from progress (no save change); an
+  unbuilt station is `Prop.Scaffold`; `used:ID` flags mark the NEW ones. `Ranch/BaseScreen.cs`
+  is home: you as a person (`SceneActor`), click to walk (`Paths.Find`) or WASD, E or click a
+  station to use it, the herd wandering the pens, the camera following; it asks the pending
+  choice and runs the attract loop (`RanchScreen.AskChoice`, `AutoBattle`). A station opens
+  `RanchScreen` with `Station` set: only that part shows (pens: squad, name, release; vats: the
+  vats; armory: gear; yard: jobs; war: party; lab: lab), Esc goes `Back`; the old shortcuts are
+  off there. `BaseScreen.Standing` keeps where you stood. `--goto=ID` walks to a station and uses
+  it; `--station=ID` (and `--labmode`, `--jobsmode`, `--partymode`, `--vatdemo`) opens one
+  directly. New stations: a `StationDef` entry, a prop letter on the map, and a `Station` case.
 - Ranch and breeding (`scripts/Ranch/`, `Creatures/Breeding.cs`): a saved roster, squad picking,
   two-vat breeding (one child per pair; parents rest until the next battle), and the
   ranch-battle-ranch loop. Bred species exist only in the save, so `CreatureRecord` stores the
@@ -147,7 +162,7 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   tamers and six creatures per battle, swapped between battles. `scripts/Party/Tamers.cs` holds
   them as data (a specialty boost, which creatures it reaches, the encounter they join at: a
   placeholder for the story); `Ranch.Fielded`/`LedBy` save who leads whom; `Battle.Lead` applies
-  the boost before the first turn; the Party panel (P) on the ranch fields tamers and fills slots. Details, defaults and open
+  the boost before the first turn; the war table at the home base (the Party panel) fields tamers and fills slots. Details, defaults and open
   questions are in `docs/design-notes.md`, with PvP (casual, turn timers, your own squad, one
   shiny, basic matchmaking planned) and shinies (1 in 512; the battle opens with a camera pan and
   a glint on each one; each has a unique second passive, `ClassBook.ShinyPassives`, picked by its

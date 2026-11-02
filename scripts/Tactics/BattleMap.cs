@@ -90,6 +90,9 @@ public sealed partial class BattleMap
         "Frostfang Pass", "Sunscorch Dunes", "Cinder Rift", "Saltwind Coast", "The Grand Coliseum",
     };
 
+    /// <summary>A map laid out elsewhere (the home base), from the same three grids.</summary>
+    public static BattleMap Custom(string name, string[] terrain, string[] heights, string[] props, string theme) => new(name, terrain, heights, props) { Theme = theme };
+
     public static BattleMap ByName(string name) => name switch
     {
         "Brass Bridges" => Bridges(),

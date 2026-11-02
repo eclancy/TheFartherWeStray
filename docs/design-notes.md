@@ -124,6 +124,28 @@ fields up to two and fills their three slots each; battles apply the boosts befo
   duels and reaches its ending. Before, the headless squad never changed class (a test harness
   gap, fixed) and won about one duel in ten.
 
+## The home base (the user's direction, 2026-11-02; built)
+
+**The user's words:** all menus and systems grounded in a home base, where systems and areas
+unlock through the campaign; the player goes there to breed, switch equipment, graft and so on,
+walking around the base to the crafting areas.
+
+**Built:** a farmyard you walk around as your character (click or WASD); seven stations, each
+opening one part of the old ranch screen: the gate (the country map), the pens (roster, squad,
+names), the training yard (jobs), the armory (gear), the breeding vats, the war table (tamers),
+the lab. Your creatures wander the pens. Unbuilt stations stand in scaffolding with a sign.
+
+**Defaulted, for the user to change:** the unlock order (gate, pens and yard from the start; the
+armory after a contract; the vats after two; the war table when a second tamer joins; the lab after
+the road to the Foundry). The farmhouse and the lab are closed buildings for now.
+
+**Open:**
+- [ ] The unlock order and conditions (story beats would suit better than counts, once there is a story).
+- [ ] More stations: a dispatch board, a trophy hall for cups and rival titles, a shop or trader
+  at home, a codex wall, the Sprite Lab as a breeder's studio?
+- [ ] Interiors (walking into the farmhouse and the lab), and the base growing visibly (upgrades).
+- [ ] Should tamers stand around the base (and talk)?
+
 ## Story flags and standing (the user's pick, 2026-11-02; built as machinery)
 
 Built: standing with the two sides, choices after main missions, story flags, the three endings

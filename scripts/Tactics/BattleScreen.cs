@@ -676,7 +676,7 @@ public partial class BattleScreen : Control
         var names = new VBoxContainer { SizeFlagsVertical = SizeFlags.ShrinkCenter };
         names.AddThemeConstantOverride("separation", 0);
         names.AddChild(UI.Ui.Text(u.Name, 22, u.Side == Side.Player ? Cyan : Magenta));
-        string what = $"{SizeWords[(int)c.Size]} {c.Species.Plan.ToString().ToLowerInvariant()}" + (c.Species.Strain != Strain.Natural ? $" · {c.Species.Strain.ToString().ToLowerInvariant()}" : "");
+        string what = $"{SizeWords[(int)c.Size]} {c.Species.Plan.ToString().ToLowerInvariant()}" + (c.Species.Strain != Strain.Natural ? $" · {c.Species.Strain.Label().ToLowerInvariant()}" : "");
         names.AddChild(UI.Ui.Text(what, 15, Dim, 4));
         head.AddChild(names);
         _info.AddChild(head);

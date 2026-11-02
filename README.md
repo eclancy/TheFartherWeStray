@@ -36,7 +36,7 @@ Every strain except natural gets a neon rim light and glow spill.
 `GODOT_BIN` is set in `.claude/settings.json` (Godot 4.5.1 mono). Build C# with
 `dotnet build CreatureTactics.sln`. On a fresh checkout, run `"$GODOT_BIN" --headless --path . --import` once.
 
-The game opens on the **ranch**. **Tab** switches to the **Sprite Lab** and back. **N** mutes the
+The game opens at your **home base**. **Tab** switches to the **Sprite Lab** and back. **N** mutes the
 sound and music (`--mute` starts muted, `--nomusic` plays without music).
 
 **Music** is made in code like everything else: a flute and harp at the ranch, a marching horn on
@@ -44,21 +44,39 @@ the map, and battle music by whose ground you fight on (a brass fanfare in the c
 bass in the undercity, a driving pulse in the wilds, something faster for rival tamers and the
 coliseum). `--music` writes every track to `.shots/music/`.
 
+### The home base
+
+Home is a farmyard you walk around: click a tile to walk there (or step with WASD / the arrows),
+and walk up to a station and press **E** (or click it) to use it. Your creatures wander the pens.
+Stations open as the campaign goes on; until then their plot stands in scaffolding with a sign
+saying what opens it, and a new one is marked NEW until you first use it.
+
+| Station | Does | Opens |
+|---|---|---|
+| The Gate | out to the country map: contracts, the story, shops | from the start |
+| The Pens | your roster: pick the squad, name creatures, let one go | from the start |
+| Training Yard | classes and the job tree | from the start |
+| The Armory | fit the gear you've bought | after your first contract |
+| Breeding Vats | breed two creatures into a new one | after two contracts |
+| War Table | your tamers and who each leads | when a second tamer joins |
+| The Lab | grafts, augments and infusions | after the road to the Foundry |
+
+At a station, Esc goes back out to the base.
+
 ### Ranch and breeding
 
 Your roster, saved to `user://ranch.json`. A new ranch starts with four creatures from the
-DrawPets cast. Creatures you recruit in battle move in.
+DrawPets cast. Creatures you recruit in battle move in. At the pens, the vats, the armory and the
+yard:
 
 | Input | Does |
 |---|---|
-| Click a creature | select it. Its panel sets squad, class and secondary skills |
-| J | the selected creature's job tree: classes, secondary, passive |
-| S | add the selected creature to or take it out of the squad (up to 4) |
-| Right-click a creature | put it in a breeding vat (two vats) |
-| Enter | breed the pair in the vats |
-| L | open the lab (grafting) |
-| M (or F) | the mission board; F again departs with the selected contract |
-| Delete twice | release the hovered creature |
+| Click a creature | select it |
+| S (the pens) | add the selected creature to or take it out of the squad |
+| Delete twice (the pens) | release the selected creature |
+| Right-click a creature (the vats) | put it in a breeding vat (two vats) |
+| Enter (the vats) | breed the pair in the vats |
+| Esc | back out to the base |
 
 Each breeding gives one child, a new species of its own. Parts are the gear, so you breed toward
 the creature you want:

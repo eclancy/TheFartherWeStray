@@ -48,7 +48,7 @@ public partial class CountryScreen : Control
         _board = Country.Board(Ranch);
         _token = Screen(Country.Get(Ranch.Location));
 
-        var back = new Button { Text = "Ranch  (Esc)", FocusMode = FocusModeEnum.None, Position = new Vector2(1740, 22), CustomMinimumSize = new Vector2(150, 40) };
+        var back = new Button { Text = "Home  (Esc)", FocusMode = FocusModeEnum.None, Position = new Vector2(1740, 22), CustomMinimumSize = new Vector2(150, 40) };
         back.AddThemeFontSizeOverride("font_size", 16);
         back.Pressed += () => Back?.Invoke();
         AddChild(back);

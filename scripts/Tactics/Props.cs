@@ -13,6 +13,9 @@ public enum Prop
     // The undercity's grime (the user's ask, 2026-11-02): a streetlight that flickers, a hydrant
     // leaking across the street, a grate puffing steam. They move (PropFx).
     BrokenLamp, Hydrant, Vent,
+    // The home base's stations (the user's ask for a base you walk around, 2026-11-02), its fences
+    // and gate, and the scaffolding that stands where a station hasn't opened yet.
+    Vat, LabBench, Dummy, Rack, WarTable, Fence, FenceY, FenceCorner, Gate, Trough, Scaffold,
 }
 
 /// <summary>
@@ -33,6 +36,8 @@ public static class PropArt
         'B' => Prop.Barrel, 'K' => Prop.Tank, 'G' => Prop.Gears, 'S' => Prop.Statue, 'F' => Prop.Fountain,
         'I' => Prop.Pillar, 'm' => Prop.Stall, 'f' => Prop.Banner, 'r' => Prop.Reeds, 'g' => Prop.Grave,
         'e' => Prop.Hedge, 'H' => Prop.Chimney, 'l' => Prop.BrokenLamp, 'y' => Prop.Hydrant, 'v' => Prop.Vent,
+        'V' => Prop.Vat, 'Q' => Prop.LabBench, 'd' => Prop.Dummy, 'R' => Prop.Rack, 'W' => Prop.WarTable,
+        'n' => Prop.Fence, 'k' => Prop.FenceY, '+' => Prop.FenceCorner, 'O' => Prop.Gate, 'q' => Prop.Trough, 'Z' => Prop.Scaffold,
         _ => null,
     };
 
@@ -193,6 +198,112 @@ public static class PropArt
                 c.Tube(new[] { V(0, 1.6f, 5.2f), V(0, 3.2f, 5.2f) }, 0.9f * k, 0.9f * k, Mat.Main, P());
                 c.Tube(new[] { V(0, -1.6f, 5.2f), V(0, -3.0f, 5.2f) }, 0.9f * k, 0.75f * k, Mat.Main, P(), -0.15f);
                 c.Tube(new[] { V(1.2f, -1.4f, 6.5f), V(2.2f, -2.4f, 4.4f), V(1.4f, -2.8f, 3.8f) }, 0.35f * k, 0.35f * k, Mat.Metal, P(), 0.2f);
+                break;
+            }
+            case Prop.Vat:
+            {
+                // A breeding vat: glowing fluid in a brass-ringed glass, a pump on its cap.
+                c.Box(V(0, 0, 0.8f), V(3.8f, 3.8f, 0.8f), Mat.Metal, part);
+                c.Tube(new[] { V(0, 0, 1.6f), V(0, 0, 13) }, 3.1f * k, 3.1f * k, glow, P(), 0.15f, 0);
+                foreach (float z in new[] { 1.8f, 7.3f, 12.8f })
+                {
+                    var ring = new List<Vector3>();
+                    for (int i = 0; i <= 16; i++) ring.Add(V(Mathf.Cos(i / 16f * Mathf.Tau) * 3.2f, Mathf.Sin(i / 16f * Mathf.Tau) * 3.2f, z));
+                    c.Tube(ring, 0.5f * k, 0.5f * k, Mat.Metal, part);
+                }
+                c.Sphere(V(0, 0, 13.4f), 3.2f * k, Mat.Metal, part, 0, 13.2f * k);
+                c.Tube(new[] { V(0, 0, 15), V(0, 0, 18), V(2.5f, -1.5f, 18.5f), V(3.6f, -2.4f, 14) }, 0.6f * k, 0.6f * k, Mat.Metal, P());
+                break;
+            }
+            case Prop.LabBench:
+            {
+                // A workbench of flasks and wires, a glowing crystal, a brass cog.
+                c.Box(V(0, 0, 6.2f), V(4.4f, 3.0f, 0.5f), Mat.Second, part);
+                foreach (var (x, y) in new[] { (-3.8f, -2.4f), (3.8f, -2.4f), (-3.8f, 2.4f), (3.8f, 2.4f) })
+                    c.Tube(new[] { V(x, y, 0), V(x, y, 6) }, 0.5f * k, 0.5f * k, Mat.Second, part);
+                c.Sphere(V(-2, -0.8f, 8.2f), 1.5f * k, glow, P(), 0.2f, 0, lit);
+                c.Tube(new[] { V(-2, -0.8f, 9.4f), V(-2, -0.8f, 11) }, 0.5f * k, 0.5f * k, Mat.Membrane, P());
+                c.Tube(new[] { V(0.6f, 1.0f, 6.7f), V(0.6f, 1.0f, 10.5f) }, 0.9f * k, 0.6f * k, Mat.Membrane, P(), 0.2f);
+                c.Ellipsoid(V(2.6f, -0.6f, 8.2f), new Vector3(0.3f, 0.2f, 1), 2.0f * k, 0.9f * k, 0.9f * k, Mat.Accent, P(), 0.2f);
+                c.Tube(new[] { V(-3, 1.6f, 6.7f), V(-1, 2.6f, 7.4f), V(2.4f, 1.8f, 6.7f) }, 0.3f * k, 0.3f * k, Mat.Metal, P());
+                break;
+            }
+            case Prop.Dummy:
+            {
+                // A training dummy: a straw body on a post, a crossbar for arms, a sack head.
+                c.Tube(new[] { V(0, 0, 0), V(0, 0, 13) }, 0.7f * k, 0.7f * k, Mat.Second, part);
+                c.Ellipsoid(V(0, 0, 9.5f), new Vector3(1, 0, 0), 2.4f * k, 2.6f * k, 3.6f * k, Mat.Main, P());
+                c.Tube(new[] { V(0, -4.4f, 11), V(0, 4.4f, 11) }, 0.6f * k, 0.6f * k, Mat.Second, P());
+                c.Sphere(V(0.3f, 0, 15), 2.0f * k, Mat.Main, P());
+                c.Tube(new[] { V(0, 0, 8), V(1.8f, -1.6f, 9.6f) }, 0.25f * k, 0.25f * k, Mat.Accent, P(), 0.2f);
+                break;
+            }
+            case Prop.Rack:
+            {
+                // An armory: a weapon rack of blades and a spear, an anvil before it.
+                foreach (float y in new[] { -3.6f, 3.6f }) c.Tube(new[] { V(-1.4f, y, 0), V(-1.4f, y, 12) }, 0.6f * k, 0.6f * k, Mat.Second, part);
+                c.Tube(new[] { V(-1.4f, -3.8f, 11), V(-1.4f, 3.8f, 11) }, 0.5f * k, 0.5f * k, Mat.Second, part);
+                c.Tube(new[] { V(-1.4f, -3.8f, 4), V(-1.4f, 3.8f, 4) }, 0.5f * k, 0.5f * k, Mat.Second, part);
+                foreach (float y in new[] { -2.2f, 0f, 2.2f })
+                    c.Tube(new[] { V(-1.0f, y, 2.5f), V(-0.7f, y, 13.5f) }, 0.4f * k, 0.3f * k, Mat.Metal, P(), 0.2f);
+                c.Box(V(2.4f, 0, 1.6f), V(1.6f, 1.2f, 1.6f), Mat.Accent, P(), -0.1f);
+                c.Box(V(2.4f, 0, 3.6f), V(2.6f, 1.4f, 0.6f), Mat.Metal, P(), 0.1f);
+                break;
+            }
+            case Prop.WarTable:
+            {
+                // A war table: the country map pinned on a table, a lantern, marker pins.
+                c.Box(V(0, 0, 5.8f), V(4.6f, 3.4f, 0.5f), Mat.Second, part);
+                foreach (var (x, y) in new[] { (-3.8f, -2.6f), (3.8f, -2.6f), (-3.8f, 2.6f), (3.8f, 2.6f) })
+                    c.Tube(new[] { V(x, y, 0), V(x, y, 5.6f) }, 0.6f * k, 0.6f * k, Mat.Second, part);
+                c.Box(V(0, 0, 6.4f), V(3.8f, 2.7f, 0.15f), Mat.Main, P(), 0.2f, true);
+                foreach (var (x, y) in new[] { (-1.6f, -0.8f), (1.2f, 1.0f), (2.4f, -1.2f) })
+                    c.Sphere(V(x, y, 7.0f), 0.55f * k, Mat.Metal, P(), 0.3f);
+                c.Tube(new[] { V(-3.2f, 2.0f, 6.6f), V(-3.2f, 2.0f, 9.8f) }, 0.9f * k, 0.9f * k, Mat.Metal, P());
+                c.Sphere(V(-3.2f, 2.0f, 8.6f), 0.95f * k, glow, P(), 0.2f, 0, lit);
+                break;
+            }
+            case Prop.Fence or Prop.FenceY or Prop.FenceCorner:
+            {
+                // A paddock fence: a post, and rails running half a tile each way along the fence's line
+                // (the board's X, its Y, or both at a corner), so a row of them joins up. On the board's
+                // camera a model's Y runs along the board's X and its X along the board's Y.
+                const float half = 17f; // half a tile, in model units (not scaled: the rails must meet)
+                c.Tube(new[] { V(0, 0, 0), V(0, 0, 8) }, 0.8f * k, 0.7f * k, Mat.Second, part);
+                c.Sphere(V(0, 0, 8.2f), 0.8f * k, Mat.Second, part);
+                foreach (float z in new[] { 3.2f * k, 6.4f * k })
+                {
+                    if (p != Prop.FenceY) c.Tube(new[] { new Vector3(0, -half, z), new Vector3(0, half, z) }, 0.5f * k, 0.5f * k, Mat.Main, P());
+                    if (p != Prop.Fence) c.Tube(new[] { new Vector3(-half, 0, z), new Vector3(half, 0, z) }, 0.5f * k, 0.5f * k, Mat.Main, P());
+                }
+                break;
+            }
+            case Prop.Gate:
+            {
+                // The way out: two posts, a beam, and a sign hung from it.
+                foreach (float y in new[] { -4.8f, 4.8f }) c.Tube(new[] { V(0, y, 0), V(0, y, 16) }, 0.9f * k, 0.8f * k, Mat.Second, part);
+                c.Tube(new[] { V(0, -5.6f, 15.4f), V(0, 5.6f, 15.4f) }, 0.8f * k, 0.8f * k, Mat.Second, part);
+                c.Box(V(0.4f, 0, 12.4f), V(0.3f, 3.0f, 1.6f), Mat.Main, P(), 0.15f);
+                c.Tube(new[] { V(0, -1.8f, 15), V(0.3f, -1.8f, 14) }, 0.2f * k, 0.2f * k, Mat.Metal, P());
+                c.Tube(new[] { V(0, 1.8f, 15), V(0.3f, 1.8f, 14) }, 0.2f * k, 0.2f * k, Mat.Metal, P());
+                break;
+            }
+            case Prop.Trough:
+            {
+                // A feed trough at the pens: a long wooden box, full.
+                c.Box(V(0, 0, 1.8f), V(2.0f, 4.2f, 1.8f), Mat.Second, part);
+                c.Box(V(0, 0, 3.4f), V(1.5f, 3.7f, 0.3f), Mat.Main, P(), 0.1f);
+                break;
+            }
+            case Prop.Scaffold:
+            {
+                // A plot not yet built: poles, planks, a tarp over a stack of crates.
+                foreach (var (x, y) in new[] { (-3.6f, -3.6f), (3.6f, -3.6f), (-3.6f, 3.6f), (3.6f, 3.6f) })
+                    c.Tube(new[] { V(x, y, 0), V(x, y, 12) }, 0.45f * k, 0.45f * k, Mat.Second, part);
+                c.Box(V(0, 0, 6), V(4.0f, 4.0f, 0.3f), Mat.Second, P(), -0.1f);
+                c.Box(V(0, 0, 11.6f), V(4.0f, 4.0f, 0.3f), Mat.Second, P(), -0.1f);
+                c.Box(V(0.6f, -0.6f, 2.0f), V(2.0f, 2.0f, 2.0f), Mat.Accent, P(), -0.15f);
+                c.Ellipsoid(V(0.6f, -0.6f, 4.4f), new Vector3(1, 0, 0), 2.6f * k, 2.6f * k, 0.9f * k, Mat.Main, P());
                 break;
             }
             case Prop.Vent:
@@ -360,6 +471,15 @@ public static class PropArt
             Prop.Reeds => PaletteSpec.FromHex(theme == "Mire" ? "#6a8a3a" : "#7a8a4a", "#5a3a22", stone, water, glow),
             Prop.Hydrant => PaletteSpec.FromHex(theme == "Uptown" ? "#c9a23a" : variant % 2 == 0 ? "#b8402e" : "#c98a2a", "#2a2228", stone, water, glow),
             Prop.BrokenLamp or Prop.Vent => PaletteSpec.FromHex(leaves, "#1e1a24", stone, "#5a5866", glow),
+            Prop.Vat => PaletteSpec.FromHex(leaves, bark, stone, "#9ad8c8", "#4ff0a0"),
+            Prop.LabBench => PaletteSpec.FromHex(leaves, "#6b4a32", "#7fd8ff", "#d8e8f0", "#ff4fb8"),
+            Prop.Dummy => PaletteSpec.FromHex("#c8a860", "#6b4a32", "#6a5a4a", water, glow),
+            Prop.Rack => PaletteSpec.FromHex(leaves, "#6b4a32", "#3a3640", water, glow),
+            Prop.WarTable => PaletteSpec.FromHex("#e8d8a8", "#5a3e2a", stone, water, glow),
+            Prop.Gate => PaletteSpec.FromHex("#b03a4a", "#6b4a32", stone, water, glow),
+            Prop.Fence or Prop.FenceY or Prop.FenceCorner => PaletteSpec.FromHex("#9a7448", "#6b4a32", stone, water, glow),
+            Prop.Trough => PaletteSpec.FromHex("#c8b060", "#7a5a3a", stone, water, glow),
+            Prop.Scaffold => PaletteSpec.FromHex("#7a6a5a", "#8a6a44", "#6b4a32", water, glow),
             _ => PaletteSpec.FromHex(leaves, bark, stone, water, glow),
         };
         return spec.Build();

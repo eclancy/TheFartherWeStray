@@ -27,6 +27,8 @@ public partial class RanchScreen : Control
     public bool StartOnJobs;              // --jobsmode: open on the job tree (screenshots)
     public bool StartOnParty;             // --partymode: open on the party (screenshots)
     public string StartOn;                // --select=NAME: open with that creature selected (screenshots)
+    public string Station;                // one station of the home base: only its part shows (pens, vats, lab, yard, armory, war)
+    public Action Back;                   // back out to the base
 
     static readonly Color Cyan = Color.FromHtml("#4fe3ff"), Magenta = Color.FromHtml("#ff4f9a"), Gold = Color.FromHtml("#f2c14e");
     static readonly Color Ink = Color.FromHtml("#e8e2f4"), Dim = Color.FromHtml("#9a91b4");
@@ -40,6 +42,8 @@ public partial class RanchScreen : Control
     HBoxContainer _buttonsRow;
     Button _nameButton, _gearButton;
     LineEdit _nameBox;
+    Label _help;
+    VBoxContainer _column;
     int _naming;
     LabPanel _lab;
     enum Panel { Vats, Lab, Jobs, Party }
@@ -76,7 +80,8 @@ public partial class RanchScreen : Control
         _grid.AddThemeConstantOverride("h_separation", 8);
         _grid.AddThemeConstantOverride("v_separation", 8);
         scroll.AddChild(_grid);
-        Text(16, Dim, new Vector2(32, 1036), new Vector2(1120, 30)).Text =
+        _help = Text(16, Dim, new Vector2(32, 1036), new Vector2(1120, 30));
+        _help.Text =
             "Click: select    Right-click: vat    Enter: breed    J: jobs    L: lab    M: map    S: squad    Delete twice: release    N: sound    Tab: Sprite Lab";
 
         _vats = new VatPanel { Position = new Vector2(1170, 96), Size = new Vector2(720, 320), Screen = this, MouseFilter = MouseFilterEnum.Ignore };
@@ -84,7 +89,7 @@ public partial class RanchScreen : Control
         _notes = Text(15, Ink, new Vector2(1170, 432), new Vector2(720, 96));
         _notes.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         // Hover detail and the selected creature's training, stacked in one column.
-        var column = new VBoxContainer { Position = new Vector2(1170, 532), Size = new Vector2(720, 430) };
+        var column = _column = new VBoxContainer { Position = new Vector2(1170, 532), Size = new Vector2(720, 430) };
         column.AddThemeConstantOverride("separation", 14);
         AddChild(column);
         _detail = new VBoxContainer();
@@ -151,22 +156,72 @@ public partial class RanchScreen : Control
         if (Ranch.Report.Count > 0) _notes.Text = string.Join("\n", Ranch.Report);
         Select(Ranch.Creatures.FirstOrDefault(r => r.Name == StartOn)?.Id ?? Ranch.Squad.FirstOrDefault(Ranch.Creatures[0].Id));
         Rebuild();
-        AskPending();
+        if (Station == null) AskChoice(this, Ranch, AutoFight, Flash, Rebuild);
         if (StartInLab) SetPanel(Panel.Lab);
         if (StartOnJobs) SetPanel(Panel.Jobs);
         if (StartOnParty) SetPanel(Panel.Party);
-        if (AutoFight) GetTree().CreateTimer(1.5).Timeout += () =>
+        if (Station != null) ApplyStation();
+        if (AutoFight && Station == null) GetTree().CreateTimer(1.5).Timeout += () => { if (IsInsideTree()) AutoBattle(this, Ranch, Fight); };
+    }
+
+    /// <summary>The attract loop's next battle: the story when it can, else the nearest contract.</summary>
+    public static void AutoBattle(Node host, Ranch ranch, Action<Mission> fight)
+    {
+        if (!host.IsInsideTree() || ranch.Squad.Count == 0) return;
+        var all = World.Country.Board(ranch).Where(x => x.Dispatch == null).ToList();
+        var m = all.FirstOrDefault(x => x.Story != null) ?? all.OrderBy(x => World.Country.Days(ranch, x.Location)).First();
+        var met = ranch.TravelTo(m.Location);
+        ranch.Save();
+        if (met != null) fight?.Invoke(World.Roaming.Battle(met));
+        else if (m.Roamer == 0) fight?.Invoke(m);
+        else if (all.FirstOrDefault(x => x.Roamer == 0) is { } other) fight?.Invoke(other); // the pack moved on
+    }
+
+    /// <summary>
+    /// At one station of the home base, only that station's part shows (the other systems are walked
+    /// to): the pens are the roster and squad, the vats breed, the armory fits gear, the yard trains,
+    /// the war table leads, the lab grafts. Esc goes back out.
+    /// </summary>
+    void ApplyStation()
+    {
+        foreach (var b in new[] { _partyButton, _jobsButton, _labButton, _boardButton }) b.Visible = false;
+        var back = new Button { Text = "Back to the base  (Esc)", FocusMode = FocusModeEnum.None, Position = new Vector2(1640, 22), CustomMinimumSize = new Vector2(250, 40) };
+        back.AddThemeFontSizeOverride("font_size", 16);
+        back.Pressed += () => Back?.Invoke();
+        AddChild(back);
+        SetPanel(Station switch { "lab" => Panel.Lab, "yard" => Panel.Jobs, "war" => Panel.Party, _ => Panel.Vats });
+        var keep = Station switch
         {
-            if (!IsInsideTree() || Ranch.Squad.Count == 0) return;
-            // The attract loop plays the story when it can, else the nearest contract.
-            var all = World.Country.Board(Ranch).Where(x => x.Dispatch == null).ToList();
-            var m = all.FirstOrDefault(x => x.Story != null) ?? all.OrderBy(x => World.Country.Days(Ranch, x.Location)).First();
-            var met = Ranch.TravelTo(m.Location);
-            Ranch.Save();
-            if (met != null) Fight?.Invoke(World.Roaming.Battle(met));
-            else if (m.Roamer == 0) Fight?.Invoke(m);
-            else if (all.FirstOrDefault(x => x.Roamer == 0) is { } other) Fight?.Invoke(other); // the pack moved on
+            "pens" => new[] { _squadButton, _nameButton, _releaseButton },
+            "vats" => new[] { _vatButton },
+            "armory" => new[] { _gearButton },
+            _ => Array.Empty<Button>(),
         };
+        foreach (var b in new[] { _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _nameButton, _gearButton }) b.Visible = keep.Contains(b);
+        if (Station != "vats")
+        {
+            // No vats here: the creature's detail moves up into their space, and the base keeps the news.
+            _vats.Visible = false;
+            _notes.Visible = false;
+            _column.Position = new Vector2(1170, 110);
+        }
+        _help.Text = Station switch
+        {
+            "pens" => "Click: select    S: squad    Delete twice: release    Esc: back to the base    N: sound",
+            "vats" => "Click: select    Right-click: into a vat    Enter: breed    Esc: back to the base    N: sound",
+            "armory" => "Click: select    Gear: next piece from the bag    Esc: back to the base    N: sound",
+            _ => "Click: select a creature    Esc: back to the base    N: sound",
+        };
+        Flash(Station switch
+        {
+            "pens" => "The pens: pick the squad (S), name your creatures, or let one go.",
+            "vats" => "The vats: right-click two creatures into the vats, then Enter to breed.",
+            "armory" => "The armory: fit gear from the bag (Gear cycles through it).",
+            "yard" => "The training yard: every class this creature could train, and what each still needs.",
+            "war" => "The war table: your tamers lead from off the field, up to two, three creatures each.",
+            "lab" => "The lab: graft parts from your codex (chem), fit augments from the bag, or infuse new blood (chem).",
+            _ => "",
+        });
     }
 
     Label Text(int size, Color color, Vector2 pos, Vector2 boxSize)
@@ -184,13 +239,15 @@ public partial class RanchScreen : Control
     void Flash(string text) => _status.Text = text;
 
     /// <summary>The choice after a main mission, over everything until it's made: who hears first and gets the credit.</summary>
-    void AskPending()
+    public static void AskChoice(Control host, Ranch ranch, bool auto, Action<string> flash, Action after)
     {
-        if (Ranch.Pending == null || World.StoryBook.Get(Ranch.Pending) is not { } main) return;
-        if (AutoFight) { Flash(Ranch.Decide("both")); return; } // the attract loop shares the credit and plays on
+        if (ranch.Pending == null || World.StoryBook.Get(ranch.Pending) is not { } main) return;
+        if (auto) { flash(ranch.Decide("both")); return; } // the attract loop shares the credit and plays on
         var shade = new ColorRect { Color = new Color(0.02f, 0.01f, 0.05f, 0.75f), MouseFilter = MouseFilterEnum.Stop };
         shade.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        AddChild(shade);
+        var layer = new CanvasLayer { Layer = 5 };
+        host.AddChild(layer);
+        layer.AddChild(shade);
         var panel = new PanelContainer { Position = new Vector2(560, 320), CustomMinimumSize = new Vector2(800, 0) };
         var box = new StyleBoxFlat { BgColor = new Color(0.08f, 0.06f, 0.13f), BorderColor = Gold };
         box.SetBorderWidthAll(2);
@@ -213,10 +270,10 @@ public partial class RanchScreen : Control
             string id = choice.Id;
             b.Pressed += () =>
             {
-                Flash(Ranch.Decide(id));
-                Ranch.Save();
-                shade.QueueFree();
-                Rebuild();
+                flash(ranch.Decide(id));
+                ranch.Save();
+                layer.QueueFree();
+                after?.Invoke();
             };
             col.AddChild(b);
         }
@@ -247,11 +304,11 @@ public partial class RanchScreen : Control
         {
             var card = new RanchCard { Screen = this, Id = rec.Id };
             int id = rec.Id;
-            card.Clicked += right => { if (right) TogglePen(id); else Select(id); };
+            card.Clicked += right => { if (right && Station is null or "vats") TogglePen(id); else Select(id); };
             card.Hovered += () => ShowDetail(id);
             _grid.AddChild(card);
         }
-        _header.Text = "THE RANCH";
+        _header.Text = Station != null ? HomeBase.Get(Station)?.Name.ToUpperInvariant() ?? "THE RANCH" : "THE RANCH";
         _headerChips?.QueueFree();
         var chips = new List<Chip>
         {
@@ -359,8 +416,7 @@ public partial class RanchScreen : Control
             new Chip("check", $"{standings.Count(s => s == ClassBook.Standing.Open)} open", Ui.Good, "classes it can train now"),
             new Chip("lock", $"{standings.Count(s => s == ClassBook.Standing.Locked)} locked", Dim, "classes it could unlock"),
             new Chip("x", $"{standings.Count(s => s == ClassBook.Standing.Never)} never", Ui.Bad, "classes its body can never take"),
-            new Chip("dot", "J: job tree", Dim),
-        }, 15));
+        }.Concat(Station == null ? new[] { new Chip("dot", "J: job tree", Dim) } : Array.Empty<Chip>()), 15));
     }
     /// <summary>Swaps the right-hand side between breeding and training, and the lab.</summary>
     void SetPanel(Panel p)
@@ -518,7 +574,7 @@ public partial class RanchScreen : Control
         var u = Unit.From(c, Tactics.Side.Player, rec.Training);
         var s = c.Species;
         string what = (c.Nickname != null ? $"{s.Name} · " : "") + $"{c.Size.ToString().ToLowerInvariant()} {s.Plan.ToString().ToLowerInvariant()}"
-            + (s.Strain != Strain.Natural ? $" · {s.Strain.ToString().ToLowerInvariant()}" : "")
+            + (s.Strain != Strain.Natural ? $" · {s.Strain.Label().ToLowerInvariant()}" : "")
             + (s.Origin != null ? $" · from {s.Origin}" : "");
         var head = Row(Ui.Text(c.Name, 22, Ink), Ui.Text(what, 15, Dim, 4));
         if (c.Shiny) head.AddChild(Ui.ChipView(new Chip("sparkle", "shiny", Gold), 15));
@@ -571,6 +627,17 @@ public partial class RanchScreen : Control
     public override void _UnhandledInput(InputEvent e)
     {
         if (e is not InputEventKey { Pressed: true, Echo: false } k) return;
+        if (Station != null)
+        {
+            // At a station only its own keys work; the rest of the ranch is walked to.
+            if (k.Keycode == Key.Escape) Back?.Invoke();
+            else if (k.Keycode is Key.Enter or Key.KpEnter && Station == "vats") Breed();
+            else if (k.Keycode == Key.S && Station == "pens" && _selected is { } ps) ToggleSquad(ps);
+            else if (k.Keycode == Key.Delete && Station == "pens" && _selected is { } pd) Release(pd);
+            else return;
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         switch (k.Keycode)
         {
             case Key.Enter:

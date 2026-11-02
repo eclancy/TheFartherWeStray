@@ -708,6 +708,12 @@ public sealed class Look
             new[] { "#7a8490", "#949eaa", "#6c7682", "#454c56", "#5e6672", "#454c56" },
             new[] { "#18284a", "#5a7ab0", "#e8a87a" },
             new[] { "#2a3a5a", "#ffd27a" }, new[] { "#1a2640", "#ffe3a8", "#7fe0e0" }, "#9fc8e8"),
+        // The home base: deep grass and warm cobbles at dusk, the city's lights far off.
+        ["Ranch"] = Make(
+            new[] { "#4a7a3a", "#6a9a4a", "#365c2c", "#e8d06a", "#6b5038", "#4a3828" },
+            new[] { "#8a7e70", "#a09484", "#7a6e62", "#4f463e", "#6e6458", "#544a40" },
+            new[] { "#1e2148", "#c8785a", "#3a2a4a" },
+            new[] { "#3a3050", "#ffd27a", "#ffe3a8" }, new[] { "#2a2238", "#ffc25a", "#ff9a6a" }, "#e8a87a"),
         // The hollow: fungal moss and dark rock, lit by crystal.
         ["Cavern"] = Make(
             new[] { "#3a2f5a", "#57458a", "#2a2242", "#7fd8ff", "#2b2236", "#1d1726" },
@@ -740,6 +746,12 @@ public sealed class Look
         (f.Roof, f.RoofLight, f.RoofDark) = (C("#dce8f2"), C("#f4fbff"), C("#9fb4c8"));
         (f.WallL, f.WallR, f.Timber, f.Door) = (C("#7a5a3e"), C("#5a422e"), C("#3a2a1e"), C("#2a1e14"));
         f.Windows = new[] { C("#ffd27a") };
+        // The home base: barn-red roofs over timber and whitewash, lamplit windows.
+        var h = Looks["Ranch"];
+        (h.Roof, h.RoofLight, h.RoofDark) = (C("#8a3a2e"), C("#a8503e"), C("#5a2620"));
+        (h.WallL, h.WallR, h.Timber, h.Door) = (C("#e0d4b8"), C("#b8aa8e"), C("#5a3e2a"), C("#3e2a1c"));
+        h.Windows = new[] { C("#ffd27a"), C("#ffe3a8") };
+        h.Flowers = new[] { C("#ffd25a"), C("#ff7a8a"), C("#ffffff"), C("#c08aff") };
         // The coast: white plaster and blue-grey slate.
         var co = Looks["Coast"];
         (co.Roof, co.RoofLight, co.RoofDark) = (C("#4a6a8a"), C("#6a8aaa"), C("#2e4660"));

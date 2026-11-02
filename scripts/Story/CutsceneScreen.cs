@@ -78,14 +78,14 @@ public partial class CutsceneScreen : Control
         {
             var look = People.Look(c.Ref, c.Side);
             actor.Shown = c.Name ?? (c.Ref == "you" ? "You" : CultureInfo.InvariantCulture.TextInfo.ToTitleCase(c.Ref.Replace('_', ' ')));
-            actor.Setup(this, (v, ph, bl, po) => PersonSculptor.Render(look, v, ph, bl, po), SeededRng.Hash(c.Ref), 1, MoveType.Walk, true);
+            actor.Setup(FeetAt, (v, ph, bl, po) => PersonSculptor.Render(look, v, ph, bl, po), SeededRng.Hash(c.Ref), 1, MoveType.Walk, true);
         }
         else
         {
             var creature = Creature(c.Ref);
             var unit = Unit.From(creature, Tactics.Side.Wild);
             actor.Shown = c.Name ?? creature.Name;
-            actor.Setup(this, (v, ph, bl, po) => CreatureSculptor.Render(creature, false, v, ph, bl, po), creature.Seed, unit.Size, unit.MoveType, false);
+            actor.Setup(FeetAt, (v, ph, bl, po) => CreatureSculptor.Render(creature, false, v, ph, bl, po), creature.Seed, unit.Size, unit.MoveType, false);
         }
         _board.AddChild(actor);
         actor.Place(Free(Tiles.Resolve(c.At, _map) ?? _map.PlayerAnchor, actor));
@@ -155,33 +155,7 @@ public partial class CutsceneScreen : Control
         return want;
     }
 
-    /// <summary>A walk across the board: the shortest way over ground it can cross, ledges of two levels at most.</summary>
-    List<Vector2I> PathTo(SceneActor a, Vector2I to)
-    {
-        var from = a.Tile;
-        var back = new Dictionary<Vector2I, Vector2I> { [from] = from };
-        var queue = new Queue<Vector2I>();
-        queue.Enqueue(from);
-        var dirs = new[] { new Vector2I(1, 0), new Vector2I(-1, 0), new Vector2I(0, 1), new Vector2I(0, -1) };
-        while (queue.Count > 0)
-        {
-            var t = queue.Dequeue();
-            if (t == to) break;
-            foreach (var d in dirs)
-            {
-                var n = t + d;
-                if (back.ContainsKey(n) || !CanStand(a, n, false)) continue;
-                if (a.Move != MoveType.Fly && Mathf.Abs(_map.HeightAt(n) - _map.HeightAt(t)) > 2) continue;
-                back[n] = t;
-                queue.Enqueue(n);
-            }
-        }
-        if (!back.ContainsKey(to)) return new List<Vector2I> { from, to };
-        var path = new List<Vector2I> { to };
-        while (path[^1] != from) path.Add(back[path[^1]]);
-        path.Reverse();
-        return path;
-    }
+    List<Vector2I> PathTo(SceneActor a, Vector2I to) => Paths.Find(_map, a.Tile, to, t => CanStand(a, t, false), a.Move == MoveType.Fly) ?? new List<Vector2I> { a.Tile, to };
 
     void FaceToward(SceneActor a, string toward)
     {
@@ -465,7 +439,37 @@ public partial class EmoteBalloon : Node2D
     }
 }
 
-/// <summary>Someone in a cutscene: an <see cref="Actor"/> with a shadow, a name, and how it gets about.</summary>
+/// <summary>Walks over a map: the shortest way across ground one can stand on, ledges of two levels at most (fliers any).</summary>
+public static class Paths
+{
+    public static List<Vector2I> Find(BattleMap map, Vector2I from, Vector2I to, System.Func<Vector2I, bool> canStand, bool fly)
+    {
+        var back = new Dictionary<Vector2I, Vector2I> { [from] = from };
+        var queue = new Queue<Vector2I>();
+        queue.Enqueue(from);
+        var dirs = new[] { new Vector2I(1, 0), new Vector2I(-1, 0), new Vector2I(0, 1), new Vector2I(0, -1) };
+        while (queue.Count > 0)
+        {
+            var t = queue.Dequeue();
+            if (t == to) break;
+            foreach (var d in dirs)
+            {
+                var n = t + d;
+                if (back.ContainsKey(n) || !canStand(n)) continue;
+                if (!fly && Mathf.Abs(map.HeightAt(n) - map.HeightAt(t)) > 2) continue;
+                back[n] = t;
+                queue.Enqueue(n);
+            }
+        }
+        if (!back.ContainsKey(to)) return null;
+        var path = new List<Vector2I> { to };
+        while (path[^1] != from) path.Add(back[path[^1]]);
+        path.Reverse();
+        return path;
+    }
+}
+
+/// <summary>Someone in a cutscene or walking the base: an <see cref="Actor"/> with a shadow, a name, and how it gets about.</summary>
 public partial class SceneActor : Actor
 {
     public string Id;
@@ -473,18 +477,19 @@ public partial class SceneActor : Actor
     public int Size = 1;
     public MoveType Move;
     public bool Person;
-    CutsceneScreen _screen;
+    System.Func<Vector2I, int, Vector2> _feet;
 
-    public void Setup(CutsceneScreen screen, Sculpt sculpt, ulong beat, int size, MoveType move, bool person)
+    /// <summary>Makes the sprite; <paramref name="feet"/> says where a tile (and footprint size) puts its feet on the board.</summary>
+    public void Setup(System.Func<Vector2I, int, Vector2> feet, Sculpt sculpt, ulong beat, int size, MoveType move, bool person)
     {
-        _screen = screen;
+        _feet = feet;
         Size = size;
         Move = move;
         Person = person;
         Begin(sculpt, beat, false);
     }
 
-    protected override Vector2 FeetAt(Vector2I tile) => _screen.FeetAt(tile, Size);
+    protected override Vector2 FeetAt(Vector2I tile) => _feet(tile, Size);
     protected override int DepthAt(Vector2I tile) => 100 + (tile.X + tile.Y + 2 * (Size - 1)) * 4;
 
     protected override void Stepped(int step)

@@ -1031,6 +1031,7 @@ public partial class GameRoot : Node
 
         _lab = () => new SpriteLabScreen { SheetSeed = sheet, SpeciesView = species, DrawPets = drawPets, FourColor = four };
         _autoPlay = args.ContainsKey("autoplay");
+        _goTo = args.GetValueOrDefault("goto");
         _shotFrames = args.TryGetValue("shot", out var shot) && int.TryParse(shot, out var f) ? f : -1;
         _recordFrames = args.TryGetValue("record", out var recordArg) && int.TryParse(recordArg, out var recordCount) ? recordCount : 0;
         _recordWhole = args.ContainsKey("recordwhole");
@@ -1066,7 +1067,11 @@ public partial class GameRoot : Node
         // --losses=L: every rival has beaten you L times running (the board shows them cocky).
         if (args.TryGetValue("losses", out var ranchLosses) && int.TryParse(ranchLosses, out var rl)) foreach (var r in Party.RivalBook.All) _ranch.RivalLosses[r.Id] = rl;
         bool vatDemo = args.ContainsKey("vatdemo");
-        _home = () => new Ranching.RanchScreen { Ranch = _ranch, Fight = StartRanchBattle, OpenMap = ShowMap, VatDemo = vatDemo, AutoFight = _autoPlay, StartInLab = args.ContainsKey("labmode"), StartOnParty = args.ContainsKey("partymode"), StartOnJobs = args.ContainsKey("jobsmode"), StartOn = args.GetValueOrDefault("select") };
+        // Home is the base you walk around; its stations open the ranch's systems one at a time.
+        _home = () => Base(new List<int>());
+        // Screenshots open a station directly: --labmode, --jobsmode, --partymode, --vatdemo, --station=ID (with --select=NAME).
+        string station = args.GetValueOrDefault("station") ?? (args.ContainsKey("labmode") ? "lab" : args.ContainsKey("jobsmode") ? "yard" : args.ContainsKey("partymode") ? "war" : vatDemo ? "vats" : null);
+        if (station != null) { Show(Station(station, vatDemo, args.GetValueOrDefault("select"))); return; }
         // --mapmode (or --boardmode, from before the map) opens on the country map.
         _demoDispatch = args.ContainsKey("dispatchdemo");
         _demoShop = args.ContainsKey("shopdemo");
@@ -1077,6 +1082,23 @@ public partial class GameRoot : Node
         else Show(_home());
     }
 
+    Ranching.BaseScreen Base(List<int> joined)
+    {
+        var home = new Ranching.BaseScreen { Ranch = _ranch, Use = UseStation, Fight = StartRanchBattle, JustJoined = joined, AutoFight = _autoPlay, DemoGoTo = _goTo };
+        _goTo = null; // a demo walk happens once
+        return home;
+    }
+
+    /// <summary>A station of the base, used: the gate goes out to the map; the rest open their part of the ranch.</summary>
+    void UseStation(string id)
+    {
+        if (id == "gate") ShowMap();
+        else Show(Station(id));
+    }
+
+    Ranching.RanchScreen Station(string id, bool vatDemo = false, string select = null) =>
+        new() { Ranch = _ranch, Station = id, Back = () => Show(_home()), Fight = StartRanchBattle, OpenMap = ShowMap, VatDemo = vatDemo, StartOn = select };
+
     void ShowMap() => Show(new World.CountryScreen { Ranch = _ranch, Fight = StartRanchBattle, Back = () => Show(_home()), DemoDispatch = _demoDispatch, DemoShop = _demoShop });
     bool _demoDispatch, _demoShop;
 
@@ -1086,6 +1108,7 @@ public partial class GameRoot : Node
     Node _screen;
     int _shotFrames = -1, _recordFrames, _recorded;
     bool _recordWhole;
+    string _goTo; // --goto=ID: at the base, walk to that station and use it
 
     void Show(Node screen)
     {
@@ -1121,7 +1144,7 @@ public partial class GameRoot : Node
                     StartRanchBattle(World.CupBook.Round(_ranch, World.CupBook.Get(mission.Cup), mission.Round + 1));
                     return;
                 }
-                Show(new Ranching.RanchScreen { Ranch = _ranch, Fight = StartRanchBattle, OpenMap = ShowMap, JustJoined = joined, AutoFight = _autoPlay });
+                Show(Base(joined));
             },
         });
     }
@@ -1137,7 +1160,7 @@ public partial class GameRoot : Node
         // Tab swaps between the Sprite Lab and home (the ranch, or a one-off battle), never mid-fight.
         if (e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Tab }) return;
         if (_screen is SpriteLabScreen) Show(_home());
-        else if (_screen is Ranching.RanchScreen || _ranch == null) Show(_lab());
+        else if (_screen is Ranching.RanchScreen or Ranching.BaseScreen || _ranch == null) Show(_lab());
     }
 
     public override void _Process(double delta)

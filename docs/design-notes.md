@@ -60,11 +60,12 @@ each side replay them: lockstep, the usual way turn-based games go online.
 
 ## Shinies (to think on, 2026-11-02)
 
-**Today:** a creature is shiny 1 time in 24 (`Creature.Generate`). A shiny is only a palette
-swap (`PaletteSpec.Shiny`) and a "shiny" tag in the ranch detail.
+**Today:** a creature is shiny 1 time in 512 (`Creature.Generate`; the user asked for "much
+rarer" than the first 1 in 24 on 2026-11-02). A shiny is only a palette swap
+(`PaletteSpec.Shiny`) and a "shiny" tag in the ranch detail.
 
 **The user wants shinies as a real feature.** Open questions:
-- [ ] How rare? 1 in 24 is common for a "shiny"; collector games use far rarer odds.
+- [x] How rare? **Much rarer** (the user, 2026-11-02): 1 in 512 for now, easy to change.
 - [ ] How they show: a sparkle when one appears in battle, an animated glint in the idle, a mark
       on the card and in the codex.
 - [ ] Are they only cosmetic, or do they matter (a stat edge, a unique skill, a rarer form)?

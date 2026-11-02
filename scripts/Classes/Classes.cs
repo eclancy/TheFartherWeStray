@@ -315,10 +315,10 @@ public static class ClassBook
         new() { Id = "challenge", Name = "Challenge", Class = "Champion", Cost = 30, Cooldown = 3, Range = 3, Taunt = true, Buffs = new[] { (StatKind.Def, -3, 2) }, Text = "Range 3: the foe must face you, DEF -3." },
         new() { Id = "duel_stance", Name = "Duel Stance", Class = "Champion", Cost = 30, Cooldown = 4, Target = TargetKind.Self, Range = 0, Buffs = new[] { (StatKind.Atk, 3, 3), (StatKind.Evade, 15, 3) }, Text = "ATK +3 and 15% harder to hit for 3 turns." },
         new() { Id = "finishing_blow", Name = "Finishing Blow", Class = "Champion", Cost = 35, Cooldown = 3, Power = 1f, Execute = 1.2f, Text = "x1.0, or x2.2 against a foe below 40% HP." },
-        // Manyhead (Brawler + Howler, needs the hydra form).
-        new() { Id = "hydra_snap", Name = "Hydra Snap", Class = "Manyhead", Cost = 30, Cooldown = 2, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 1, Power = 0.8f, Poison = 2, PoisonTurns = 2, Text = "Every head bites: each adjacent foe (x0.8) and poison 2 a turn for 2 turns." },
-        new() { Id = "regrow", Name = "Regrow", Class = "Manyhead", Cost = 30, Cooldown = 4, Target = TargetKind.Self, Range = 0, Heal = 0.3f, Cleanse = true, Text = "Grow back what was lost: recover 30% of max HP and cleanse." },
-        new() { Id = "chorus_roar", Name = "Chorus Roar", Class = "Manyhead", Cost = 35, Cooldown = 4, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 2, StunChance = 0.2f, Buffs = new[] { (StatKind.Atk, -2, 2), (StatKind.Def, -2, 2) }, Text = "All its heads roar: foes within 2 get ATK -2 and DEF -2, 20% chance to stun." },
+        // Hydrarch (Brawler + Howler, needs the hydra form).
+        new() { Id = "hydra_snap", Name = "Hydra Snap", Class = "Hydrarch", Cost = 30, Cooldown = 2, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 1, Power = 0.8f, Poison = 2, PoisonTurns = 2, Text = "Every head bites: each adjacent foe (x0.8) and poison 2 a turn for 2 turns." },
+        new() { Id = "regrow", Name = "Regrow", Class = "Hydrarch", Cost = 30, Cooldown = 4, Target = TargetKind.Self, Range = 0, Heal = 0.3f, Cleanse = true, Text = "Grow back what was lost: recover 30% of max HP and cleanse." },
+        new() { Id = "chorus_roar", Name = "Chorus Roar", Class = "Hydrarch", Cost = 35, Cooldown = 4, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 2, StunChance = 0.2f, Buffs = new[] { (StatKind.Atk, -2, 2), (StatKind.Def, -2, 2) }, Text = "All its heads roar: foes within 2 get ATK -2 and DEF -2, 20% chance to stun." },
         // Stoneguard (Guardian + Mystic, needs the gargoyle form).
         new() { Id = "turn_to_stone", Name = "Turn to Stone", Class = "Stoneguard", Cost = 30, Cooldown = 4, Target = TargetKind.Self, Range = 0, Cleanse = true, Buffs = new[] { (StatKind.Def, 8, 2), (StatKind.Spd, -4, 2) }, Text = "Become stone: cleansed, DEF +8 and SPD -4 for 2 turns." },
         new() { Id = "plunge", Name = "Plunge", Class = "Stoneguard", Cost = 30, Cooldown = 3, Range = 4, Leap = true, Power = 1.3f, HighGround = 0.6f, Text = "Drop on a foe up to 4 tiles away (x1.3, x1.9 from higher ground)." },
@@ -502,7 +502,7 @@ public static class ClassBook
         // Form and aura classes: two base classes mastered, and the shape or the mark for it.
         new()
         {
-            Id = "Manyhead", Name = "Manyhead", Blurb = "Every head hungry, every head awake.", Atk = 2, Hp = 6,
+            Id = "Hydrarch", Name = "Hydrarch", Blurb = "Every head hungry, every head awake.", Atk = 2, Hp = 6,
             Skills = new[] { "hydra_snap", "regrow", "chorus_roar" }, Requires = new[] { ("Brawler", 2), ("Howler", 2) },
             NeedsPart = c => Species.FormOf(c.Species) == Form.Hydra, PartHint = "the hydra's form",
         },
@@ -661,8 +661,8 @@ public static class ClassBook
         new() { Id = "blur", Name = "Blur", Class = "Phantom", Kind = PassiveKind.Reaction, React = ReactionKind.Retreat, ReactAmount = 15, Text = "Hit: slip a tile away and become 15% harder to hit." },
         new() { Id = "riposte", Name = "Riposte", Class = "Champion", Kind = PassiveKind.Reaction, React = ReactionKind.Counter, ReactPower = 0.9f, Text = "Hit in melee: strike back (x0.9)." },
         // Form and aura classes.
-        new() { Id = "spare_heads", Name = "Spare Heads", Class = "Manyhead", HpPct = 0.15f, Regen = 0.03f, Text = "Max HP +15%; heals 3% of max HP each turn." },
-        new() { Id = "another_head", Name = "Another Head", Class = "Manyhead", Kind = PassiveKind.Reaction, React = ReactionKind.Counter, ReactPower = 0.6f, Text = "Hit in melee: another head bites back (x0.6)." },
+        new() { Id = "hydra_blood", Name = "Hydra Blood", Class = "Hydrarch", HpPct = 0.15f, Regen = 0.03f, Text = "Max HP +15%; heals 3% of max HP each turn." },
+        new() { Id = "fanged_retort", Name = "Fanged Retort", Class = "Hydrarch", Kind = PassiveKind.Reaction, React = ReactionKind.Counter, ReactPower = 0.6f, Text = "Hit in melee: one of its other heads bites back (x0.6)." },
         new() { Id = "stone_skin", Name = "Stone Skin", Class = "Stoneguard", Def = 2, NoStun = true, Text = "DEF +2; can't be stunned." },
         new() { Id = "harden", Name = "Harden", Class = "Stoneguard", Kind = PassiveKind.Reaction, React = ReactionKind.Brace, ReactAmount = 4, Text = "Hit: DEF +4 until its next turn." },
         new() { Id = "scaled_coils", Name = "Scaled Coils", Class = "Coilbinder", Evade = 10, Unstoppable = true, Text = "10% harder to hit; no knockback, no roots." },

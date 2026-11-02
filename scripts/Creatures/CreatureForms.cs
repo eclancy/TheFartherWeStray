@@ -20,7 +20,7 @@ public sealed partial class CreatureSculptor
     static readonly Quad CatQ = new(13, 32, 4.8f, 5.3f, 3.9f, 4.4f, 5.2f, 6.2f, 1.5f, 6, 28, 3.3f, 5.4f, -6, 0, 2.6f, 1.2f);
     static readonly Quad DrakeQ = new(9, 30, 5.4f, 5.1f, 5.0f, 4.8f, 5.7f, 5.8f, 0.5f, 14, 56, 3.1f, 5.1f, -10, 4f, 2.7f, 0);
     static readonly Quad BehemothQ = new(16, 30, 6.4f, 7f, 5.8f, 6.6f, 7.8f, 9.6f, 1f, 6, -8, 4.8f, 6.0f, -12, 1f, 4.1f, 4f);
-    static readonly Quad HydraQ = new(11, 29, 5.6f, 5.4f, 5f, 4.8f, 6.2f, 6.4f, 0.5f, 12, 62, 2.7f, 4.5f, -12, 3f, 2.8f, 0);
+    static readonly Quad HydraQ = new(10, 30, 5.8f, 5.6f, 5.2f, 5f, 6.6f, 7f, 1f, 15, 56, 2.8f, 4.5f, -18, 3.5f, 3.0f, 1.5f);
 
     void BuildForm()
     {
@@ -95,19 +95,23 @@ public sealed partial class CreatureSculptor
         _wingRoot = V(chestX - 2, 0, lh + q.ChestH + q.Hunch);
     }
 
-    /// <summary>A many-headed drake: the true head in the middle, two lesser heads on necks of their own.</summary>
+    /// <summary>
+    /// A many-headed drake, low and heavy: three thick necks rise together from the chest in S-curves,
+    /// every head facing forward, snarling, at a different height.
+    /// </summary>
     void Hydra()
     {
         Quadruped(HydraQ);
         float lh = HydraQ.LegH * LegMul, chestX = HydraQ.Len * BodyMul * 0.4f;
         foreach (int side in Sides)
         {
-            // The lesser necks fan out wide from the shoulders, so each head stands clear.
-            var nb = V(chestX, side * 3.2f, lh + HydraQ.ChestH * 0.9f);
-            var hc = nb + V(4.5f, side * 9, 8.5f);
-            var fwd = (X * 0.85f + Y * side * 0.45f - Z * 0.1f).Normalized();
-            _c.Tube(Smooth(new[] { nb, nb + V(1.5f, side * 4.5f, 3.5f), nb + V(2.5f, side * 7.5f, 7), hc - fwd * _headR * 0.5f }, 5), 2.5f * u, 1.9f * u, Mat.Main, _bodyPart);
-            LesserHead(hc, _headR * 0.82f, fwd);
+            var nb = V(chestX + 1.5f, side * 2.6f, lh + HydraQ.ChestH * 0.95f + HydraQ.Hunch);
+            // The far head rides higher, the near one lower, so all three show.
+            var hc = _headC + V(-3, side * 6.5f, side > 0 ? 3 : -3.5f);
+            var fwd = (X + Y * side * 0.15f - Z * 0.25f).Normalized();
+            var neck = Smooth(new[] { nb, nb + V(1, side * 3, 4.5f), nb.Lerp(hc, 0.65f) + V(-1.6f, side * 1, 1.8f), hc - fwd * _headR * 0.55f }, 5);
+            _c.Tube(neck, 3.0f * u, 2.2f * u, Mat.Main, _bodyPart);
+            LesserHead(hc, _headR * 0.9f, fwd);
         }
     }
 
@@ -119,8 +123,17 @@ public sealed partial class CreatureSculptor
         _c.Ellipsoid(c, hf, 0.9f * r, 0.72f * r, 0.72f * r, Mat.Main, part);
         _c.Ellipsoid(c + (hf * 0.38f + hu * 0.4f) * r, hf, 0.42f * r, 0.75f * r, 0.24f * r, Mat.Main, part);
         _c.Ellipsoid(c + (hf * 0.95f - hu * 0.15f) * r, hf - hu * 0.15f, 0.6f * r, 0.38f * r, 0.34f * r, _sp.MuzzleSecond ? Mat.Second : Mat.Main, part);
+        _c.Ellipsoid(c + (hf * 0.75f - hu * 0.42f) * r, hf - hu * 0.15f, 0.5f * r, 0.32f * r, 0.18f * r, _sp.MuzzleSecond ? Mat.Second : Mat.Main, part);
         foreach (int side in Sides)
+        {
             _c.Sphere(c + (hf * 0.55f + hu * 0.25f + hs * side * 0.6f) * r, Mathf.Max(0.55f, 0.15f * r), Mat.Glow, part, 0.2f, 0, true);
+            // If the species is horned, every head is: short spikes swept back.
+            if (_p.Horns != Horns.None)
+            {
+                var hb = c + (hu * 0.6f + hs * side * 0.38f) * r;
+                _c.Tube(new[] { hb, hb + (hu * 0.45f - hf * 0.7f + hs * side * 0.15f) * r }, 0.18f * r, 0.03f * r, Mat.Accent, Part(Zone.Tip));
+            }
+        }
     }
 
     // ---------------------------------------------------------------- bipeds

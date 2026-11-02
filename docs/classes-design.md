@@ -4,7 +4,7 @@ _Status: **built** (2026-11-01), still iterating. The user wants many class opti
 It grew past this draft: 9 base classes (Hunter, Howler and Rogue were added), 30 part, form, aura
 and temperament classes, 4 blood classes, a support passive and usually a reaction per class,
 mastery stars, and FFTA multiclassing (main, secondary, innate, a support slot and a reaction
-slot). On 2026-11-02 eight classes were tied to forms and auras: Manyhead (hydra), Stoneguard
+slot). On 2026-11-02 eight classes were tied to forms and auras: Hydrarch (hydra), Stoneguard
 (gargoyle), Coilbinder (naga), Venomtail (scorpion), Lurelight (angler), Oculus (watcher), Saint
 (a halo) and Hexmark (a sigil). The code is `scripts/Classes/Classes.cs` and
 `scripts/Ranch/JobsPanel.cs`._

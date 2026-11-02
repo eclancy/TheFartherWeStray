@@ -261,7 +261,7 @@ public sealed class Creature
         c.HeadJitter = rng.Range(0.95f, 1.05f);
 
         var palette = species.Palette.Jitter(rng);
-        c.Shiny = rng.Chance(1f / 24f);
+        c.Shiny = rng.Chance(1f / 512f); // much rarer than at first (1 in 24): the user's call, 2026-11-02
         if (c.Shiny) palette = palette.Shiny(rng);
         c.Spec = palette;
         c.Palette = BuildPalette(palette, species);

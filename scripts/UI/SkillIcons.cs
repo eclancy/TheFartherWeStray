@@ -74,7 +74,7 @@ public static class SkillIcons
         ["Deadeye"] = "hit", ["Chemist"] = "poison", ["Runeweaver"] = "crystal", ["Voidcaller"] = "skull", ["Artificer"] = "storm",
         ["Thornstag"] = "thorns", ["Lionheart"] = "crown", ["Geomancer"] = "spear", ["Bonebreaker"] = "club", ["Swarmlord"] = "bee",
         ["Seer"] = "eye", ["Sunsail"] = "sun", ["Cavalier"] = "move", ["Scavenger"] = "hand", ["Phantom"] = "ghost", ["Champion"] = "star",
-        ["Manyhead"] = "fang", ["Stoneguard"] = "mountain", ["Coilbinder"] = "swirl", ["Venomtail"] = "poison", ["Lurelight"] = "sun",
+        ["Hydrarch"] = "fang", ["Stoneguard"] = "mountain", ["Coilbinder"] = "swirl", ["Venomtail"] = "poison", ["Lurelight"] = "sun",
         ["Oculus"] = "eye", ["Saint"] = "sparkle", ["Hexmark"] = "rune",
     };
 

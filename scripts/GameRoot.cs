@@ -70,17 +70,12 @@ public partial class GameRoot : Node
 
         if (args.ContainsKey("people"))
         {
-            // People for cutscenes: six from each side, front and back views, then one person through
+            // People for cutscenes: twelve from each side (every fourth from behind), then one person through
             // every pose, drawn at 3x on a dark ground, to .shots/people.png.
             var folk = new List<(Image img, Vector2I anchor)>();
             foreach (var side in new[] { World.Side.City, World.Side.Undercity, World.Side.Wilds })
-                for (int i = 0; i < 6; i++)
-                {
-                    var look = Story.People.Look($"{side}{i}", side);
-                    folk.Add(Story.PersonSculptor.Render(look, View.Front));
-                    folk.Add(Story.PersonSculptor.Render(look, View.Back));
-                }
-            var you = Story.People.Look("you");
+                for (int i = 0; i < 12; i++) folk.Add(Story.PersonSculptor.Render(Story.People.Look($"{side}{i}", side), i % 4 == 3 ? View.Back : View.Front));
+            var you = Story.People.Look("Undercity0", World.Side.Undercity);
             foreach (var (pose, frames) in new[] { (Pose.Idle, 4), (Pose.Walk, 4), (Pose.Strike, 5), (Pose.Cast, 6), (Pose.Hurt, 4), (Pose.Faint, 6) })
                 for (int fr = 0; fr < frames; fr++) folk.Add(Story.PersonSculptor.Render(you, View.Front, fr / (float)(pose == Pose.Walk || pose == Pose.Idle ? frames : frames - 1), false, pose));
             int scale = 3, cellW = 72, cellH = 84, cols = 12, rows = (folk.Count + cols - 1) / cols;
@@ -978,7 +973,7 @@ public partial class GameRoot : Node
         if (args.ContainsKey("props"))
         {
             // Every prop in every region's colours: one row per region, each on a board tile.
-            string[] themes = { "Undercity", "Piltover", "Sump", "Ruins", "Cavern" };
+            string[] themes = { "Undercity", "Uptown", "Mire", "Ruins", "Cavern" };
             var kinds = Enum.GetValues<Tactics.Prop>();
             int cell = 64, scale = args.TryGetValue("scale", out var psc) && int.TryParse(psc, out var psv) ? psv : 3;
             var propSheet = Image.CreateEmpty(kinds.Length * cell, themes.Length * cell, false, Image.Format.Rgba8);

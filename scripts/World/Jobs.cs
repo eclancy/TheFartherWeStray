@@ -39,7 +39,7 @@ public static class DispatchBook
     public static readonly DispatchDef[] All =
     {
         new() { Id = "hiss", Title = "Hiss and Make Up", Location = "sump", Days = 2, Reward = 22,
-            Ask = "Two serpents in the sump won't stop feuding. Send someone calm to mediate.",
+            Ask = "Two serpents in the mire won't stop feuding. Send someone calm to mediate.",
             Suits = new[] { Plan(BodyPlan.Serpent, "a serpent"), Temper(Attitude.Loyal), Of(Element.Frost) },
             Success = "The serpents hugged it out. Awkwardly.", Failure = "Now there are three feuding serpents." },
         new() { Id = "pane", Title = "Pane in the Glass", Location = "gardens", Days = 2, Reward = 20,

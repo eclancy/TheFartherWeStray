@@ -21,7 +21,7 @@ Three layers, each answering one question:
 |---|---|---|
 | **Affinities**: which base classes come easily, which can't be taken | body plan (and hands) | only by breeding a different body plan |
 | **Part classes**: advanced jobs gated by a part or a size | wings, horns, shell, whip tail, claws, swimming, size | breed it in, or graft it at the lab |
-| **Blood classes**: advanced jobs gated by strain | chemtech / arcane / abyssal blood, clockwork grafts | infuse at the lab, or breed the blood in |
+| **Blood classes**: advanced jobs gated by strain | chemborn / runic / abyssal blood, clockwork grafts | infuse at the lab, or breed the blood in |
 | **Form and aura classes**: advanced jobs gated by the kind of beast it is, or its mystical mark | form (hydra, gargoyle, naga, scorpion, angler, watcher), aura (halo, sigil) | breed it in: a child takes its form from the body plan's parent and its aura from either |
 
 The ranch's training panel shows each creature's whole tree: open, locked with a hint (and how
@@ -67,8 +67,8 @@ Size counts as a part: breed toward huge or tiny on purpose. Swimming comes from
 | Class | Base skills | Needs | Plays as | Skills (draft) |
 |---|---|---|---|---|
 | **Hexwarden** (built) | Mystic + Tinker | - | battle mage | Hex Cage, Overcharge, Nova |
-| **Chemist** | Alchemist | chemtech blood | volatile support | Shimmer Dose (big buff to an ally, poisons it), Caustic Cloud (area poison), Mutagen (random strong buff) |
-| **Runeweaver** | Mystic | arcane blood | traps and wards | Rune Trap (a tile that roots), Glyph Shield (blocks the next hit), Arcane Surge (skills cool down faster) |
+| **Chemist** | Alchemist | chemborn blood | volatile support | Fury Dose (big buff to an ally, poisons it), Caustic Cloud (area poison), Mutagen (random strong buff) |
+| **Runeweaver** | Mystic | runic blood | traps and wards | Rune Trap (a tile that roots), Glyph Shield (blocks the next hit), Rune Surge (skills cool down faster) |
 | **Voidcaller** | Brawler or Mystic | abyssal blood | terror | Dread (foes nearby lose their move), Siphon (steal HP), Maw (big hit that heals you on a kill) |
 | **Artificer** | Tinker | 2+ machine grafts | brass engineer | Deploy Turret, Repair (heal a grafted ally), Overdrive (ally acts twice, then stunned) |
 
@@ -81,7 +81,7 @@ Tinker (no hands). Its reachable advanced jobs are Juggernaut if it has horns, a
 huge. Breeding in a whip tail would open Lasher only after claws (for Tinker) are bred in too.
 That's a two-step breeding goal, which is exactly the kind of goal the notes want.
 
-**Example 2:** a chemtech serpent is good at Mystic and Alchemist and can't be a Guardian, so
+**Example 2:** a chemborn serpent is good at Mystic and Alchemist and can't be a Guardian, so
 Bulwark and Juggernaut are out. It's headed for Chemist (its blood) and Leviathan (it swims, but
 that needs Guardian, which is barred). So Leviathan is never possible for it, but its children
 with a biped parent might get there.

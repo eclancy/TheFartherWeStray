@@ -103,6 +103,6 @@ public static class Lab
         rec.Species.Grafts |= grafts;
         if (strain == Strain.Abyssal) rec.Spec = rec.Spec.Abyssal(new SeededRng(rec.Seed ^ 0xAB15));
         ranch.Refresh(id);
-        return $"{rec.Name} takes the {strain.ToString().ToLowerInvariant()} infusion (-{cost} chem). Its line will carry it.";
+        return $"{rec.Name} takes the {strain.Label().ToLowerInvariant()} infusion (-{cost} chem). Its line will carry it.";
     }
 }

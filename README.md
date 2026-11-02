@@ -12,7 +12,7 @@ Godot 4.5 (.NET), C#.
 
 ## Art direction
 
-Medieval high fantasy with steampunk and neonpunk, after Arcane (Piltover brass above, Zaun neon
+Medieval high fantasy with steampunk and neonpunk, after the look of Arcane (brass above, neon chem
 below). Monsters are drawn in the spirit of FFTA and Fell Seal: lean and predatory, with small
 glowing eyes, fangs, earthy palettes and dark outlines. The tone can be dark and scary, balanced
 by plenty of natural beasts. Every species has a **strain**:
@@ -20,9 +20,9 @@ by plenty of natural beasts. Every species has a **strain**:
 | Strain | Share | Look |
 |---|---|---|
 | Natural | about half | earthy beasts, no glow |
-| Clockwork | | brass plating, a metal limb, a lens visor, a hextech core |
-| Chemtech | | a canister of neon chem on its back, glowing veins, dripping ooze |
-| Arcane | | glowing runes, burning horn and spike tips |
+| Clockwork | | brass plating, a metal limb, a lens visor, a crystal core |
+| Chemborn | | a canister of neon chem on its back, glowing veins, dripping ooze |
+| Runic | | glowing runes, burning horn and spike tips |
 | Abyssal | | near-black body, extra eyes, glowing cracks |
 
 Every strain except natural gets a neon rim light and glow spill.
@@ -66,7 +66,7 @@ the creature you want:
   a parent's own mutations, with a small chance of a fresh mutation.
 - **Colour:** it comes from either parent, sometimes blended.
 - **Size and proportions:** they land between the parents'.
-- **Strain:** blood strains (arcane, chemtech, abyssal) are inherited. Clockwork grafts are
+- **Strain:** blood strains (runic, chemborn, abyssal) are inherited. Clockwork grafts are
   machinery, so they aren't.
 - **Names:** spliced from both parents.
 
@@ -151,8 +151,8 @@ leanings) and a few barred ones. **Tinker** needs hands: a biped, or claws.
 
 | Class | Needs | Skills |
 |---|---|---|
-| Chemist | Alchemist, chemtech blood | Shimmer Dose, Caustic Cloud, Mutagen |
-| Runeweaver | Mystic, arcane blood | Glyph Snare, Glyph Shield, Arcane Surge |
+| Chemist | Alchemist, chemborn blood | Fury Dose, Caustic Cloud, Mutagen |
+| Runeweaver | Mystic, runic blood | Glyph Snare, Glyph Shield, Rune Surge |
 | Voidcaller | Brawler, abyssal blood | Dread, Siphon, Maw |
 | Artificer | Tinker, two machine grafts (augments count) | Spark Coil, Repair, Overdrive |
 
@@ -161,7 +161,7 @@ The gates are why you breed and visit the lab:
 - Graft claws to open Tinker, or fit a visor to open Deadeye.
 - Infuse blood to open a blood class.
 
-Wild creatures fight with a natural skill from their strain: chemtech beasts throw toxic flasks,
+Wild creatures fight with a natural skill from their strain: chemborn beasts throw toxic flasks,
 arcane ones cast hex bolts, clockwork ones carry shock prods, abyssal ones rend, and aggressive
 natural ones swing heavy blows.
 
@@ -174,14 +174,14 @@ off, and 5 for each creature you release.
   the parts you've met on creatures you fought or recruited. Wings cost the most (40), since they
   give flight and open Skydiver.
 - **Augments:** bought at undercity shops and fitted here, two to a creature, never inherited.
-  Four mechanical (Piston Fist, Rivet Gun, Lens Visor, Hextech Core), four chemical (Acid
+  Four mechanical (Piston Fist, Rivet Gun, Lens Visor, Crystal Core), four chemical (Acid
   Canister, Chem Veins, Strobe Tips, Drip Feed) and four steamwork (Gear Grinder, Steam Pistons,
   Smokestack, Pressure Pipes); each bolts on its brass, neon or steam work and teaches an attack.
   Clockwork creatures are often born with steamwork of their own: turning cogs, pumping pistons,
   a steaming stack, copper pipes and a pressure gauge.
 - **Traits** aren't made here: creatures are born with them (Keen Nose, Quick Healer, Stout...) and
   pass them down when bred.
-- **Infusions:** chemtech, arcane or abyssal blood for a natural creature.
+- **Infusions:** chemborn, runic or abyssal blood for a natural creature.
 
 The graft chamber previews the creature with the parts you're considering. Flesh and machine
 grafts belong to that one creature: breeding passes on the parts it was born with. Infusions are
@@ -214,7 +214,8 @@ sells its own stock, priced in chem; you buy where you stand (S on the map). Put
 ranch (Gear); items appear in the battle's command bar with their counts.
 
 **Cutscenes** play on the battle maps, FFTA-style: people and creatures walk, turn, strike and
-emote on the board while lines appear in a box with the speaker's portrait (Enter goes on, Esc
+emote on the board (the undercity's people neon-punk, with wild hair, glowing tattoos and mechanical
+arms; the city above's dressed like royalty) while lines appear in a box with the speaker's portrait (Enter goes on, Esc
 skips). Main missions can open with one. Scenes are written as plain lines (`scripts/Story/Scenes.cs`);
 the one so far is a stand-in until the story is written. `--scene=road_to_foundry` plays it.
 
@@ -244,7 +245,7 @@ brings the part into your breeding lines.
 Twelve places, each with its own look and its own creatures, among them:
 - **Undercity Foundry:** cobbles, brass platforms, a chem canal. Anything turns up.
 - **Brass Bridges:** marble plazas over a chasm in the city above. Birds and clockwork things.
-- **Sump Marsh:** islands in glowing chem. Swimmers, serpents, blobs, chemtech mutants.
+- **Glowmire:** islands in glowing chem. Swimmers, serpents, blobs, chemborn mutants.
 - **Clocktower Ruins:** steep tiers where the high ground decides fights. Bipeds and beasts.
 - **Hexlight Hollow:** a crystal-lit cavern. Insects, arcane and abyssal creatures.
 - **Frostfang Pass:** snow and blue rock round a frozen lake. Frost creatures, birds and beasts.
@@ -309,7 +310,7 @@ gear, strain and attitude.
 - `--breeding=N` writes `.shots/breeding.png`: pairs of parents and four possible children each.
 - `--autoplay` loops ranch and battle on its own (an attract mode).
 - `--save=NAME` uses a separate save file.
-- `--battle=N --map="Sump Marsh"` runs a one-off battle without the ranch.
+- `--battle=N --map="Glowmire"` runs a one-off battle without the ranch.
 - `--shot=N` saves frame N to `.shots/shot.png`.
 - `--props` writes every map prop in every region's colours.
 - `--export` renders a sheet without a window; `--forms` one creature of every form, front and

@@ -82,9 +82,9 @@ public sealed class CreaturePalette
 /// <summary>The HSV choices behind a palette, rolled per species.</summary>
 public record struct PaletteSpec(Hsv Main, Hsv Second, Hsv Accent, Hsv Membrane, Hsv Glow, Hsv Metal)
 {
-    // Neon: hextech blue, chemtech green, shimmer pink, forge amber, a Zaun red.
-    static readonly Hsv Amber = new(0.11f, 0.85f, 1f), Hextech = new(0.52f, 0.75f, 1f), Chem = new(0.3f, 0.9f, 1f),
-        Shimmer = new(0.87f, 0.65f, 1f), Ember = new(0.02f, 0.85f, 1f);
+    // Neon: crystal blue, chem green, hot pink, forge amber, a deep red.
+    static readonly Hsv Amber = new(0.11f, 0.85f, 1f), Crystal = new(0.52f, 0.75f, 1f), Chem = new(0.3f, 0.9f, 1f),
+        HotPink = new(0.87f, 0.65f, 1f), Ember = new(0.02f, 0.85f, 1f);
     // Metals: brass, copper, gunmetal.
     static readonly Hsv Brass = new(0.11f, 0.62f, 0.82f), Copper = new(0.06f, 0.62f, 0.72f), Gunmetal = new(0.6f, 0.15f, 0.5f);
 
@@ -122,14 +122,14 @@ public record struct PaletteSpec(Hsv Main, Hsv Second, Hsv Accent, Hsv Membrane,
         Hsv glow = element switch
         {
             Element.Ember => rng.Pick(new[] { Amber, Ember }),
-            Element.Spark or Element.Frost => rng.Pick(new[] { Hextech, Amber }),
-            Element.Venom or Element.Leaf => rng.Pick(new[] { Chem, Shimmer }),
-            Element.Shade => rng.Pick(new[] { Shimmer, Hextech, Ember }),
-            _ => rng.Pick(new[] { Amber, Hextech, Chem, Shimmer }),
+            Element.Spark or Element.Frost => rng.Pick(new[] { Crystal, Amber }),
+            Element.Venom or Element.Leaf => rng.Pick(new[] { Chem, HotPink }),
+            Element.Shade => rng.Pick(new[] { HotPink, Crystal, Ember }),
+            _ => rng.Pick(new[] { Amber, Crystal, Chem, HotPink }),
         };
         Hsv metal = rng.Weighted((Brass, 3f), (Copper, 2f), (Gunmetal, 1.5f));
         // The glow has to stand out from the body: a green glow on a green body turns pink.
-        if (Mathf.Abs(Mathf.PosMod(glow.H - main.H + 0.5f, 1f) - 0.5f) < 0.08f) glow = glow.H is > 0.4f and < 0.7f ? Amber : Hextech;
+        if (Mathf.Abs(Mathf.PosMod(glow.H - main.H + 0.5f, 1f) - 0.5f) < 0.08f) glow = glow.H is > 0.4f and < 0.7f ? Amber : Crystal;
         return new PaletteSpec(main, second, accent, membrane, glow, metal);
     }
 

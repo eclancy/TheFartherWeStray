@@ -904,7 +904,7 @@ public sealed partial class Battle
                     foreach (var id in t.Cooldowns.Keys.ToList()) t.Cooldowns[id] -= s.CooldownCut;
                     Status(t, "recharged");
                 }
-                if (s.Poison > 0) Poison(t, s); // a volatile dose: Shimmer Dose
+                if (s.Poison > 0) Poison(t, s); // a volatile dose: Fury Dose
                 if (s.Pull > 0 && t != u) Pull(u, t, s.Pull);
             }
         }

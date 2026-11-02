@@ -17,12 +17,12 @@ namespace CreatureTactics.Story;
 /// cast you person you at player face ne          a person, by look id (side city|undercity|wilds; name "Shown Name"; hidden)
 /// cast blaze creature squad1 at player+1,0       a creature: squad1.. (your squad), pack1.. (the battle's pack), a cast name, or wild:SEED
 /// title Lantern Row                              a caption
-/// lamp: The road is blocked.                     a line of dialogue (narrate TEXT for no speaker)
+/// look: The road is blocked.                     a line of dialogue (narrate TEXT for no speaker)
 /// walk you player+2,-1                           walk there (leave WHO [TILE]: walk off and fade; appear WHO: fade in)
-/// face you lamp       face you ne                turn toward someone, or ne nw se sw
+/// face you look       face you ne                turn toward someone, or ne nw se sw
 /// emote blaze !                                  a balloon: ! ? ... or a glyph name (sound, sparkle, skull...)
 /// pose blaze cast                                strike, cast, hurt, faint
-/// pan lamp        pan 6,4                         move the camera
+/// pan look        pan 6,4                         move the camera
 /// wait 0.5        fade in        fade out        shake
 /// sound gong      music battle   music stop
 /// &amp; walk blaze 5,5                                a leading &amp; runs the step alongside the next one
@@ -148,28 +148,32 @@ public static class SceneBook
             Script = @"
 # A stand-in: the first main mission, given a reason. Replace with the story's own.
 cast you person you at player face ne
-cast lamp person lamplighter side undercity name ""Lamplighter"" at player-4,-5 face se
+cast look person lookout side undercity name ""Lookout"" at player-4,-5 face se
 cast one creature squad1 at player+1,-1 face ne
 cast two creature squad2 at player-1,0 face ne
 cast three creature squad3 at player-1,-2 face ne
+cast punk1 person street_a side undercity name ""Local"" at player-5,-4 face se
+cast punk2 person street_b side undercity name ""Local"" at player+2,-4 face sw
 cast p1 creature pack1 at wild hidden face sw
 cast p2 creature pack2 at wild+3,0 hidden face sw
 cast p3 creature pack3 at wild-2,0 hidden face sw
 pan you
 fade in
 title Lantern Row
-& walk lamp player-2,-3
+& walk look player-2,-3
 wait 0.4
-emote lamp !
-lamp: You're the tamer from the ranch? Good. The road to the Foundry is blocked.
-lamp: A wild pack moved into the lanes last night. Nobody's getting through.
-face you lamp
+emote look !
+look: You the tamer from the ranch? Good. The road to the Foundry's blocked.
+look: A wild pack took over the street last night. Nothing's getting through.
+face you look
 emote you ...
 pan wild
 & appear p1
 & appear p2
 appear p3
 sound gong
+& emote punk1 !
+& emote punk2 !
 & emote p1 !
 & emote p2 !
 emote p3 !
@@ -179,8 +183,8 @@ pan you
 & emote one !
 & emote two !
 emote three !
-face lamp wild
-lamp: There they are. Clear the way, and the Foundry is open to you.
+face look wild
+look: There they are. Clear them out, and the Foundry's yours to reach.
 & walk you player-2,-2
 & walk one player+0,-3
 walk two player-2,-1

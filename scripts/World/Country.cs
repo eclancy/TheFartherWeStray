@@ -48,7 +48,7 @@ public static class Country
         new() { Id = "coliseum", Name = "The Grand Coliseum", MapName = "The Grand Coliseum", Glyph = "star", Side = Side.City, At = new(112, 78), OpenedBy = "main_bridges",
             Blurb = "The city's arena. Cups of three duels in a row; win all three to take one.",
             Regular = "Crowd Pleaser", RegularAsk = "The crowd paid for monsters. Give them a show." },
-        new() { Id = "sump", Name = "Sump Marsh", MapName = "Sump Marsh", Glyph = "flask", Side = Side.Undercity, At = new(216, 204), OpenedBy = "main_sump",
+        new() { Id = "sump", Name = "Glowmire", MapName = "Glowmire", Glyph = "flask", Side = Side.Undercity, At = new(216, 204), OpenedBy = "main_sump",
             Regular = "Sludge Duty", RegularAsk = "The chem pools are crawling again. Thin them out." },
         new() { Id = "clocktower", Name = "Clocktower Ruins", MapName = "Clocktower Ruins", Glyph = "clock", Side = Side.City, At = new(196, 64), OpenedBy = "main_clocktower",
             Regular = "Bats in the Belfry", RegularAsk = "The bells won't ring with all that up there." },

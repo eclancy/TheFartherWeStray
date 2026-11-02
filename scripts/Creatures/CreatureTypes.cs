@@ -61,6 +61,15 @@ public enum Pattern { None, Belly, Stripes, Spots, Saddle, Tips, Markings }
 /// </summary>
 public enum Strain { Natural, Clockwork, Chemtech, Arcane, Abyssal }
 
+/// <summary>
+/// What the player reads for a strain. Arcane is the look, not the words: no names from it in the game.
+/// The enum keeps its old names because saves store them.
+/// </summary>
+public static class Strains
+{
+    public static string Label(this Strain s) => s switch { Strain.Chemtech => "Chemborn", Strain.Arcane => "Runic", _ => s.ToString() };
+}
+
 /// <summary>Grafts and marks a strain adds on top of the parts.</summary>
 [System.Flags]
 public enum Graft

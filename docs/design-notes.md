@@ -27,7 +27,7 @@ working name "warden", and matches the rival tamers planned for later.
 
 **Built (first version, 2026-11-02):** six tamers as data in `scripts/Party/Tamers.cs`: You
 (Steady Hand: ATK and DEF +1 for all), the Beastmaster (natural creatures), the Tinker (clockwork
-and brass), the Chemist (chemtech and abyssal), the Arcanist (arcane or aura) and the Drillmaster
+and brass), the Chemist (chemborn and abyssal), the Arcanist (runic or aura) and the Drillmaster
 (MOVE and SPD for all), joining at encounters 3, 6, 9, 12 and 15. The ranch's Party panel (P)
 fields up to two and fills their three slots each; battles apply the boosts before the first turn.
 
@@ -52,7 +52,7 @@ fields up to two and fills their three slots each; battles apply the boosts befo
   six looping tracks made in code like the sound effects (`Audio/Songs.cs`, `Audio/Music.cs`):
   Home Pasture (the ranch: a flute over a harp, F major), The Open Road (the map: a marching horn
   call), Wild Clash (battles in the wilds: driving E minor), Brass and Banners (the city above: a
-  brass fanfare with bells, timpani and clockwork ticks), Neon Sump (the undercity: a dark
+  brass fanfare with bells, timpani and clockwork ticks), Neon Mire (the undercity: a dark
   phrygian groove on saw bass with echoing arpeggios) and Rival's Gambit (duels and the coliseum:
   fast harmonic minor). The two sides are heard apart, as they're seen apart.
   **Open:** [ ] the user's ear on all of it (made without listening: levels and balance were
@@ -157,10 +157,10 @@ the numbers are in `story-notes.md` ("Built so far"). All wording is placeholder
   two), so recruits bring theirs. Bred, each parent's trait passes down half the time; a child
   that gets none sometimes shows a new one (about one in six).
 - **Augments** (`Classes/Augments.cs`): 8, four mechanical (Piston Fist, Rivet Gun, Lens Visor,
-  Hextech Core) and four chemical (Acid Canister, Chem Veins, Strobe Tips, Drip Feed). Each bolts
+  Crystal Core) and four chemical (Acid Canister, Chem Veins, Strobe Tips, Drip Feed). Each bolts
   on a graft (its look, drawn by the sculptor, and its stats) and teaches an attack (Piston
   Punch, Rivet Volley, Targeting Beam, Core Discharge, Acid Spray, Chem Rush, Strobe Flash,
-  Toxic Drip). Sold only at undercity shops (the Foundry, Lantern Row, the Sump), some after a
+  Toxic Drip). Sold only at undercity shops (the Foundry, Lantern Row, the Glowmire), some after a
   main mission or a cup; fitted at the lab, which no longer sells brass directly. Never
   inherited: breeding reads the parents as they were born.
 - **Steamwork** (the sculptor's new steampunk parts): gears and pipework with a pressure gauge on
@@ -211,7 +211,7 @@ first version, and is open to change.
   - uncommon: their signature gear (Brass Gorget, Witch's Phial, Fang Necklace, Occult Sigil,
     Wyrmscale Mantle: a little better than shop gear, never sold), one of their augments (the
     Baron's Rivet Gun or Lens Visor, the Witch's Acid Canister or Drip Feed, the Occultist's
-    Hextech Core or Strobe Tips; the Huntress and the Wyrm Lord give items instead), or a title
+    Crystal Core or Strobe Tips; the Huntress and the Wyrm Lord give items instead), or a title
     (won once, shown on the ranch: Gearbreaker, Witchbane, Apex Tamer, Sigilbreaker, Wyrmtamer,
     placeholders for the story);
   - rare: an egg from their line: two species to their taste, given their blood, bred together,

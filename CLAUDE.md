@@ -12,6 +12,11 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
 - **Arcane (League of Legends)**: medieval high fantasy with steampunk (Piltover brass) and
   neonpunk (Zaun chem glow). Creatures can be magical, mechanical, full of glowing liquid, or
   dark and scary, balanced by plenty of natural ones. This is the `Strain` system.
+- **Arcane is the look, not the words** (the user, 2026-11-02): no names or terms from the show or
+  League anywhere a player reads (no Piltover, Zaun, the Lanes, lamplighters, hextech, shimmer, the
+  Sump, chemtech). Strains show as Chemborn and Runic (`Strain.Label()`); the `Strain` enum names and
+  the `hextech_core` and `shimmer_*` ids stay because saves store them. The marsh is the Glowmire;
+  the city above's look is `Uptown`.
 - The current sprite fidelity (medium creature about Gen 3 size, four tones, selective outlines)
   is what the user wants. Don't shrink it.
 - **Chosen look: "Neon Undercity"** (2026-11-01), the default `ArtStyle`. The user compared five
@@ -99,7 +104,13 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   pans, fades; Enter / Space / click goes on, Esc skips. Board sprites share `Tactics/Actor.cs` with
   battle (`UnitView` is an `Actor` with its ring and HP bar). People (`Story/People.cs`): a
   `PersonSculptor` makes them like creatures (a 3D figure ray-cast to pixels, every pose animated),
-  looks rolled per id and tinted by side (`People.Look`): a first pass for the user to judge. A main
+  looks rolled per id and side (`People.Look`). **Stylized and punk, not rigid** (the user,
+  2026-11-02): long legs, a V torso, chunky boots, the whole body leaning into a stance (swagger,
+  crossed, slouch, ready, showoff, regal); clothes coloured by the creatures' own palette roller
+  (`PaletteSpec.Roll` by element); the undercity neon-punk (crests, liberty spikes, dreads, hair horns,
+  neon tips; vests showing glowing tattoos; mechanical arms, chem tanks, eye implants, glowing veins,
+  piercings, spine spikes); the city above royal (silver, gold and blues: breastplates, paired
+  pauldrons, capes with gold hems, sashes, ruffs, crowns and circlets); the wilds scavengers. A main
   mission's `Scene` plays once before its battle (flag `seen:ID`); the only scene, `road_to_foundry`
   before `main_foundry`, is a placeholder showing what scenes can do, to be replaced with the
   user's story. `--scene=ID [--autoplay]` plays one; `--scenetest` reads them all (cast, tiles,
@@ -110,9 +121,14 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   asked for larger maps), each with a look (`Look` in `IsoArt.cs`) and fauna odds. Maps have three
   grids: terrain (now with roofs, boards, dirt and water), heights, and props. Buildings are roof
   tiles on house-front walls (FFTA towns: fliers and climbers stand on roofs). Props
-  (`Props.cs`: 22 kinds, trees to neon signs, built like creatures and coloured per region) block
-  their tile except reeds and banners; fliers pass over them. Small ground details (tufts, cracks,
-  fungus) are painted per tile. `--props` writes every prop in every region's colours. Sightings promise a codex-missing part. After touching maps or AI, run
+  (`Props.cs`: 25 kinds, trees to neon signs, built like creatures and coloured per region) block
+  their tile except reeds, banners and grates; fliers pass over them. Small ground details (tufts,
+  cracks, fungus, neon puddles) are painted per tile. **The undercity's grime** (the user's ask,
+  2026-11-02): broken streetlights (`l`) that stutter and spark, leaking hydrants (`y`) spraying
+  into a rippling puddle, steam grates (`v`), and neon signs buzzing out now and then, animated by
+  `PropFx` (show only, never the rules); graffiti tags, bubble letters, sprayed symbols and torn
+  posters on undercity walls (`IsoArt.WallArt`, from the wall's tile). `PropArt.Place` puts a map's
+  props on any board (battles and cutscenes). `--props` writes every prop in every region's colours. Sightings promise a codex-missing part. After touching maps or AI, run
   `--autoboard=6`: no mission may stall. Your side's AI plays the objective (`PlayerPlan` in
   `Battle.cs`): hunts focus the alpha, hold-outs keep together and out of reach, captures never
   land the knockout and play to the target's temper (a champion duels the proud, the squad rings

@@ -159,12 +159,7 @@ public partial class BattleScreen : Control
         _board.Position = new Vector2((1480 - _art.Width * Scale) / 2f, Mathf.Max(110, 550 - _art.Height * Scale / 2f));
         _board.AddChild(new Sprite2D { Texture = ImageTexture.CreateFromImage(_art.PaintBoard()), Centered = false });
         // Props stand on their tiles, sorted with the creatures so a tree hides what's behind it.
-        foreach (var (tile, prop) in _battle.Map.Props)
-        {
-            var (tex, anchor) = PropArt.Texture(prop, (int)(tile.X * 7 + tile.Y * 3), _battle.Map.Theme);
-            var at = _art.TileCenter(tile, _battle.Map.HeightAt(tile));
-            _board.AddChild(new Sprite2D { Texture = tex, Centered = false, Position = at - anchor + new Vector2(0, 1), ZIndex = 100 + (tile.X + tile.Y) * 4 + 1 });
-        }
+        PropArt.Place(_board, _battle.Map, _art);
         _overlay = new BoardOverlay { Screen = this, ZIndex = 1 };
         _board.AddChild(_overlay);
         _fx = new SkillFx { ZIndex = 300 };

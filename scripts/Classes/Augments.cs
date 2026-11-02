@@ -28,7 +28,7 @@ public static class AugmentBook
         new() { Id = "piston_fist", Name = "Piston Fist", Graft = Graft.MetalLimb, Skill = "piston_punch" },
         new() { Id = "rivet_gun", Name = "Rivet Gun", Graft = Graft.Plating, Skill = "rivet_volley" },
         new() { Id = "lens_visor", Name = "Lens Visor", Graft = Graft.Visor, Skill = "targeting_beam" },
-        new() { Id = "hextech_core", Name = "Hextech Core", Graft = Graft.Core, Skill = "core_discharge" },
+        new() { Id = "hextech_core", Name = "Crystal Core", Graft = Graft.Core, Skill = "core_discharge" },
         new() { Id = "acid_canister", Name = "Acid Canister", Graft = Graft.Canister, Skill = "acid_spray", Chem = true },
         new() { Id = "chem_veins", Name = "Chem Veins", Graft = Graft.Veins, Skill = "chem_rush", Chem = true },
         new() { Id = "strobe_tips", Name = "Strobe Tips", Graft = Graft.GlowTips, Skill = "strobe_flash", Chem = true },

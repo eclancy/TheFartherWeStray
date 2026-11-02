@@ -86,14 +86,14 @@ public sealed partial class BattleMap
 
     public static readonly string[] Names =
     {
-        "Undercity Foundry", "Brass Bridges", "Sump Marsh", "Clocktower Ruins", "Hexlight Hollow", "Lantern Row", "Gilded Gardens",
+        "Undercity Foundry", "Brass Bridges", "Glowmire", "Clocktower Ruins", "Hexlight Hollow", "Lantern Row", "Gilded Gardens",
         "Frostfang Pass", "Sunscorch Dunes", "Cinder Rift", "Saltwind Coast", "The Grand Coliseum",
     };
 
     public static BattleMap ByName(string name) => name switch
     {
         "Brass Bridges" => Bridges(),
-        "Sump Marsh" => Sump(),
+        "Glowmire" => Sump(),
         "Clocktower Ruins" => Clocktower(),
         "Hexlight Hollow" => Hollow(),
         "Lantern Row" => LanternRow(),
@@ -153,13 +153,13 @@ public sealed partial class BattleMap
             "....H...c.....L.",
             ".c............B.",
             ".B.......K......",
-            "L.....N......o..",
+            "l..v..N.....yo..",
             "................",
             "................",
             ".L....c....G....",
             "...........B.L..",
             "........c.......",
-            "....L.........H.",
+            "....l..v......H.",
             ".c...B.....N....",
             ".....H..........",
             "L.........c.....",
@@ -221,7 +221,7 @@ public sealed partial class BattleMap
         })
     {
         Blurb = "Marble plazas of the city above, bridged over a chasm. Fliers own the gaps.",
-        Theme = "Piltover",
+        Theme = "Uptown",
         WildAnchor = new Vector2I(2, 0), PlayerAnchor = new Vector2I(12, 12),
         Plans = { [BodyPlan.Avian] = 3f, [BodyPlan.Insectoid] = 1.5f, [BodyPlan.Aquatic] = 0.2f },
         Strains = { [Strain.Clockwork] = 3f, [Strain.Abyssal] = 0.4f },
@@ -229,7 +229,7 @@ public sealed partial class BattleMap
     };
 
     /// <summary>A sump below the city: islands, boardwalks and stilt shacks over water and chem.</summary>
-    public static BattleMap Sump() => new("Sump Marsh",
+    public static BattleMap Sump() => new("Glowmire",
         new[]
         {
             "..==..,,..~~~~..",
@@ -283,7 +283,7 @@ public sealed partial class BattleMap
         })
     {
         Blurb = "Islands in a sump of glowing chem, strung with boardwalks. Swimmers and mutants thrive.",
-        Theme = "Sump",
+        Theme = "Mire",
         WildAnchor = new Vector2I(8, 1), PlayerAnchor = new Vector2I(2, 12),
         Plans = { [BodyPlan.Aquatic] = 3f, [BodyPlan.Serpent] = 2f, [BodyPlan.Blob] = 2f, [BodyPlan.Avian] = 0.5f },
         Strains = { [Strain.Chemtech] = 3f, [Strain.Clockwork] = 0.5f },
@@ -403,7 +403,7 @@ public sealed partial class BattleMap
             "......C.....M...",
         })
     {
-        Blurb = "A cavern lit by raw hextech crystal and glowing fungus. Arcane and abyssal things nest in the dark.",
+        Blurb = "A cavern lit by raw glowing crystal and fungus. Runic and abyssal things nest in the dark.",
         Theme = "Cavern",
         WildAnchor = new Vector2I(8, 1), PlayerAnchor = new Vector2I(8, 12),
         Plans = { [BodyPlan.Insectoid] = 2f, [BodyPlan.Blob] = 1.5f, [BodyPlan.Serpent] = 1.5f, [BodyPlan.Avian] = 0.5f },
@@ -451,17 +451,17 @@ public sealed partial class BattleMap
         {
             ".H......H.....L.",
             "...c.......H...B",
-            "L....N....L....N",
+            "l....N....L....N",
             "..m..........m..",
             "...B........c...",
             "................",
-            ".......T........",
+            ".......T..v.....",
             "...L.....F......",
             "..H.......c...H.",
-            "N..............L",
-            "......c.........",
+            "N....v.........l",
+            "......c......y..",
             "...........B....",
-            "...L....H.......",
+            "...l....H.......",
             "L....B.........L",
         })
     {
@@ -524,7 +524,7 @@ public sealed partial class BattleMap
         })
     {
         Blurb = "A gilded garden of the city above: lawns, hedges, ponds and statues. Insects and birds everywhere.",
-        Theme = "Piltover",
+        Theme = "Uptown",
         WildAnchor = new Vector2I(7, 0), PlayerAnchor = new Vector2I(8, 12),
         Plans = { [BodyPlan.Avian] = 2f, [BodyPlan.Insectoid] = 2f, [BodyPlan.Quadruped] = 1.5f },
         Strains = { [Strain.Natural] = 1.5f, [Strain.Clockwork] = 1.5f },

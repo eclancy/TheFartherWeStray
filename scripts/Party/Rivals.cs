@@ -73,13 +73,13 @@ public static class RivalBook
         new()
         {
             Tamer = new() { Id = "chem_witch", Name = "The Chem Witch", Specialty = "Bubbling Vials", Glyph = "poison",
-                Leads = c => c.Species.Strain is Strain.Chemtech or Strain.Abyssal, LeadsHint = "chemtech or abyssal creatures",
-                SkillPower = 0.2f, Spd = 1, Text = "Chemtech and abyssal creatures: skills hit 20% harder; SPD +1." },
+                Leads = c => c.Species.Strain is Strain.Chemtech or Strain.Abyssal, LeadsHint = "chemborn or abyssal creatures",
+                SkillPower = 0.2f, Spd = 1, Text = "Chemborn and abyssal creatures: skills hit 20% harder; SPD +1." },
             Ideal = "Breeds creatures brimming with glowing chem.", AppearsAt = 4,
             Taste = s => s.Strain == Strain.Chemtech ? 6 : s.Strain == Strain.Abyssal ? 2 : s.Strain == Strain.Natural ? 1 : 0,
             Infuse = Strain.Chemtech,
             Classes = new[] { "Chemist", "Venomtail", "Swarmlord", "Stalker", "Alchemist", "Rogue", "Hunter" },
-            Turf = new[] { "Sump Marsh", "Undercity Foundry" },
+            Turf = new[] { "Glowmire", "Undercity Foundry" },
             Prizes = Hoard(
                 new() { Rarity = Rarity.Common, Item = "smelling_salts", Count = 2 },
                 new() { Rarity = Rarity.Common, Item = "tonic", Count = 2 },
@@ -110,8 +110,8 @@ public static class RivalBook
         {
             Tamer = new() { Id = "occultist", Name = "The Occultist", Specialty = "Old Rites", Glyph = "eye",
                 Leads = c => c.Species.Strain is Strain.Arcane or Strain.Abyssal || Species.AuraOf(c.Species) != Aura.None,
-                LeadsHint = "arcane or abyssal creatures, or any with an aura", SkillPower = 0.15f, Evade = 8,
-                Text = "Arcane and abyssal creatures, and any with an aura: skills hit 15% harder; 8% harder to hit." },
+                LeadsHint = "runic or abyssal creatures, or any with an aura", SkillPower = 0.15f, Evade = 8,
+                Text = "Runic and abyssal creatures, and any with an aura: skills hit 15% harder; 8% harder to hit." },
             Ideal = "Breeds beasts touched by old magic: runes, halos, third eyes.", AppearsAt = 8,
             Taste = s => (s.Strain == Strain.Arcane ? 5 : s.Strain == Strain.Abyssal ? 2 : s.Strain == Strain.Natural ? 0.6f : 0.2f)
                 * (Species.AuraOf(s) != Aura.None ? 3 : 1),
@@ -135,7 +135,7 @@ public static class RivalBook
             Taste = s => (s.BaseSize >= SizeClass.Large ? 4 : s.BaseSize == SizeClass.Medium ? 1 : 0.1f)
                 * (Species.FormOf(s) is Form.Wyrm or Form.Lung or Form.Drake or Form.Behemoth or Form.Hydra or Form.Naga ? 3 : 1),
             Classes = new[] { "Titan", "Hydrarch", "Leviathan", "Juggernaut", "Bonebreaker", "Voidcaller", "Brawler", "Guardian" },
-            Turf = new[] { "Sump Marsh", "Clocktower Ruins" },
+            Turf = new[] { "Glowmire", "Clocktower Ruins" },
             // Big beasts, no machinery: provisions and a fat purse.
             Prizes = Hoard(
                 new() { Rarity = Rarity.Common, Item = "tonic", Count = 3 },

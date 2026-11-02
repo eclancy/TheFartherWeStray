@@ -167,6 +167,12 @@ public sealed class IsoArt
         if (below < 1.5f || inStorey == 0) return timber;
         if (along < 0.09f || along > 0.91f) return timber;
         if (storey >= storeys) return wall.Darkened(0.25f); // the foundation below street level
+        if (_map.Theme == "Undercity" && WallArt(t, face, h) is { } art)
+        {
+            int col = (int)(along * WallCols), row = (int)below - art.top;
+            if (row >= 0 && row < art.mask.GetLength(1) && art.mask[col, row] is var m and > 0)
+                return face == 1 ? art.colors[m].Darkened(0.22f) : art.colors[m];
+        }
         bool door = storey == storeys - 1 && Hash(t.X, t.Y, 40 + face) % 3 == 0;
         if (door)
         {
@@ -232,13 +238,14 @@ public sealed class IsoArt
                     break;
                 case Terrain.Stone:
                     if (r % 4 == 0) { stamp = Crack; b = _look.StoneJoint; }
-                    else if (r % 4 == 1 && _map.Theme is "Undercity" or "Sump") { stamp = Moss; a = _look.GrassLight; }
+                    else if (r % 4 == 1 && _map.Theme is "Undercity" or "Mire") { stamp = Moss; a = _look.GrassLight; }
                     else if (r % 4 == 1 && _map.Theme == "Cavern") { stamp = Fungus; c = C("#b9a2ff"); b = _look.StoneJoint; }
                     else if (r % 4 == 2 && _map.Theme == "Undercity") { stamp = Scrap; a = C("#c79a45"); b = C("#6e5220"); }
+                    else if (r % 4 == 3 && _map.Theme == "Undercity" && r % 3 == 0) { stamp = NeonPuddle; a = C("#1c2638"); c = r / 3 % 2 == 0 ? C("#ff4fb8") : C("#4fe3ff"); }
                     else { stamp = Pebble; a = _look.StoneLight; b = _look.StoneJoint; }
                     break;
                 case Terrain.Dirt:
-                    stamp = r % 3 == 0 && _map.Theme is "Undercity" or "Sump" or "Ruins" or "Coast" ? Puddle : Pebble;
+                    stamp = r % 3 == 0 && _map.Theme is "Undercity" or "Mire" or "Ruins" or "Coast" ? Puddle : Pebble;
                     a = r % 3 == 0 ? C("#5f8fb0") : C("#9a8064"); b = C("#4a3828"); c = a;
                     break;
                 case Terrain.Wood:
@@ -246,6 +253,137 @@ public sealed class IsoArt
                     break;
             }
             if (stamp != null) Stamp(img, stamp, at, a, b, c);
+        }
+    }
+
+    // ------------------------------------------------------------------ the undercity's walls
+
+    const int WallCols = 24, ArtRows = 11;
+    readonly Dictionary<(Vector2I, int), (byte[,] mask, Color[] colors, int top)?> _wallArt = new();
+    static readonly Color[] Neon = { C("#ff4fb8"), C("#4fe3ff"), C("#6fff8a"), C("#ffd23a"), C("#f4f0ff"), C("#ff6a3a"), C("#b07aff") };
+
+    // Symbols sprayed on walls ('a' paint): no words, just marks.
+    static readonly string[][] Symbols =
+    {
+        new[] { "a..a..a", "aa.a.aa", "aaaaaaa", "aaaaaaa" },                       // a crown
+        new[] { "...a...", "..aaa..", "aaaaaaa", ".aaaaa.", "..a.a..", ".a...a." },  // a star
+        new[] { "...a...", "....a..", "aaaaaaa", "....a..", "...a..." },             // an arrow
+        new[] { "..aaa", ".aa..", "aaaa.", "..aa.", ".aa..", "a...." },              // a bolt
+        new[] { "a...a", ".a.a.", "..a..", ".a.a.", "a...a" },                       // an X
+    };
+
+    /// <summary>
+    /// Graffiti and posters on one undercity wall, or none (the user's ask for a grittier undercity,
+    /// 2026-11-02): a neon tag scrawled at street level with a drop shadow and drips, bubble letters,
+    /// a sprayed symbol, or a torn poster pasted up a storey. Painted in the wall's own skewed grid,
+    /// so it lies on the wall. Mask values: 1 paint, 2 its outline, 3 drips, 4 paper, 5 print, 6 shine.
+    /// </summary>
+    (byte[,] mask, Color[] colors, int top)? WallArt(Vector2I t, int face, int h)
+    {
+        if (_wallArt.TryGetValue((t, face), out var cached)) return cached;
+        var rng = new Creatures.SeededRng(Hash(t.X, t.Y, 70 + face));
+        (byte[,], Color[], int)? art = null;
+        if (rng.Chance(0.6f))
+        {
+            var mask = new byte[WallCols, ArtRows];
+            var paint = rng.Pick(Neon);
+            var colors = new Color[7];
+            colors[1] = paint;
+            colors[2] = rng.Chance(0.6f) ? C("#120a18") : rng.Pick(Neon);
+            colors[3] = paint.Darkened(0.25f);
+            colors[4] = rng.Pick(new[] { C("#e8dcc0"), C("#c84a3a"), C("#e8c040"), C("#7ab0d8") });
+            colors[5] = C("#2a1e2e");
+            colors[6] = C("#ffffff");
+            int top = (h - 1) * HS + 1; // the street-level storey
+            int kind = rng.Int(10);
+            void Set(int x, int y, byte v, bool over = true)
+            {
+                if (x < 2 || x >= WallCols - 2 || y < 0 || y >= ArtRows) return;
+                if (over || mask[x, y] == 0) mask[x, y] = v;
+            }
+            if (kind < 4)
+            {
+                // A tag: two or three scrawled strokes, a drop shadow, a few drips.
+                int strokes = 2 + rng.Int(2), x = 3 + rng.Int(3);
+                for (int k = 0; k < strokes; k++)
+                {
+                    int y = 2 + rng.Int(5);
+                    for (int step = 0; step < 5; step++)
+                    {
+                        int nx = x + 1 + rng.Int(2), ny = Math.Clamp(y + rng.Int(5) - 2, 1, 8);
+                        for (int i = 0; i <= 8; i++) Set((int)Mathf.Round(Mathf.Lerp(x, nx, i / 8f)), (int)Mathf.Round(Mathf.Lerp(y, ny, i / 8f)), 1);
+                        x = nx; y = ny;
+                    }
+                    x = Math.Max(3, x - 6 + rng.Int(3));
+                }
+                Outline(mask, Set);
+                Drips(mask, rng, Set);
+            }
+            else if (kind < 6)
+            {
+                // Bubble letters: fat round shapes side by side, outlined, with a shine.
+                int n = 2 + rng.Int(2), x0 = 4 + rng.Int(2);
+                for (int i = 0; i < n; i++)
+                {
+                    float cx = x0 + i * 5.2f, cy = 5 + rng.Range(-1f, 1f), rx = 2.6f, ry = 3.3f;
+                    for (int y = 0; y < ArtRows; y++)
+                    for (int x = 0; x < WallCols; x++)
+                        if (Sq((x - cx) / rx) + Sq((y - cy) / ry) <= 1) Set(x, y, 1);
+                    Set((int)cx - 1, (int)cy - 2, 6);
+                }
+                Outline(mask, Set, all: true);
+                Drips(mask, rng, Set);
+            }
+            else if (kind < 8)
+            {
+                var sym = rng.Pick(Symbols);
+                int x0 = 4 + rng.Int(WallCols - 10), y0 = 1 + rng.Int(Math.Max(1, ArtRows - sym.Length - 2));
+                for (int y = 0; y < sym.Length; y++)
+                for (int x = 0; x < sym[y].Length; x++)
+                    if (sym[y][x] == 'a') Set(x0 + x, y0 + y, 1);
+                Outline(mask, Set);
+                Drips(mask, rng, Set);
+            }
+            else
+            {
+                // A poster, pasted up and torn at a corner, a storey higher if there is one.
+                if (h > 1) top = (h - 2) * HS + 1;
+                int x0 = 4 + rng.Int(WallCols - 11), y0 = 2 + rng.Int(3);
+                for (int y = 0; y < 7; y++)
+                for (int x = 0; x < 6; x++)
+                    if (!(x == 5 && y == 0) && !(x == 0 && y == 6 && rng.Chance(0.5f))) Set(x0 + x, y0 + y, 4);
+                for (int x = 1; x < 5; x++) Set(x0 + x, y0 + 2, 5);
+                Set(x0 + 2, y0 + 4, 5); Set(x0 + 3, y0 + 4, 5); Set(x0 + 1, y0 + 5, 5);
+            }
+            art = (mask, colors, top);
+        }
+        return _wallArt[(t, face)] = art;
+    }
+
+    static float Sq(float v) => v * v;
+
+    /// <summary>Paint's edge: a shadow below and to the right (or a full outline for bubble letters).</summary>
+    static void Outline(byte[,] mask, Action<int, int, byte, bool> set, bool all = false)
+    {
+        var paint = new List<(int x, int y)>();
+        for (int y = 0; y < ArtRows; y++)
+        for (int x = 0; x < WallCols; x++)
+            if (mask[x, y] is 1 or 6) paint.Add((x, y));
+        foreach (var (x, y) in paint)
+            foreach (var (dx, dy) in all ? new[] { (1, 0), (-1, 0), (0, 1), (0, -1) } : new[] { (1, 1), (0, 1) })
+                set(x + dx, y + dy, 2, false);
+    }
+
+    /// <summary>Runs of paint down the wall from the lowest strokes.</summary>
+    static void Drips(byte[,] mask, Creatures.SeededRng rng, Action<int, int, byte, bool> set)
+    {
+        for (int d = 0, tries = 0; d < 2 + rng.Int(2) && tries < 40; tries++)
+        {
+            int x = 2 + rng.Int(WallCols - 4), y = ArtRows - 1;
+            while (y > 0 && mask[x, y] != 1) y--;
+            if (mask[x, y] != 1) continue;
+            for (int k = 1; k <= 1 + rng.Int(3); k++) set(x, y + k, 3, false);
+            d++;
         }
     }
 
@@ -264,6 +402,7 @@ public sealed class IsoArt
     static readonly string[] Drift = { ".aa.", "abba" };
     static readonly string[] Ember = { "a.", ".b" };
     static readonly string[] Shell = { "aaa", ".b." };
+    static readonly string[] NeonPuddle = { ".aaaa.", "aacaaa", "aaaaca", ".aaaa." };
 
     void Stamp(Image img, string[] stamp, Vector2 at, Color a, Color b, Color c)
     {
@@ -517,13 +656,13 @@ public sealed class Look
             new[] { "#0d0b1e", "#251537", "#120c1a" },
             new[] { "#1c1a33", "#f2b950", "#f7d58a" }, new[] { "#160f22", "#ff4fb8", "#4ff0a0", "#5fd0ff" }, "#2f6a55"),
         // The city above: marble and gardens at sunset, brass towers lit gold.
-        ["Piltover"] = Make(
+        ["Uptown"] = Make(
             new[] { "#4f7a3e", "#6fa04f", "#3a5c30", "#e8c86a", "#6b5a48", "#4a3d33" },
             new[] { "#cfc7b8", "#e6dfd2", "#b9b0a1", "#8f8678", "#a39a8c", "#7c7468" },
             new[] { "#2b3f6b", "#d98a5a", "#4a3a5a" },
             new[] { "#6b5a7a", "#ffd27a", "#ffe3a8" }, new[] { "#3b2f4a", "#ffc25a", "#7fe0e0" }, "#f2b57a"),
         // The sump: black moss, slick slate, a green chem haze.
-        ["Sump"] = Make(
+        ["Mire"] = Make(
             new[] { "#2f4a2c", "#46663a", "#22361f", "#7fbf5a", "#2f2a24", "#1f1b18" },
             new[] { "#4d5250", "#5e6461", "#444947", "#2a2d2c", "#3a3e3d", "#2a2d2c" },
             new[] { "#08130f", "#123326", "#0a1a14" },
@@ -580,13 +719,13 @@ public sealed class Look
     static Look()
     {
         // The city above: cream plaster, terracotta roofs, warm windows.
-        var p = Looks["Piltover"];
+        var p = Looks["Uptown"];
         (p.Roof, p.RoofLight, p.RoofDark) = (C("#a8553a"), C("#c46c4a"), C("#74382a"));
         (p.WallL, p.WallR, p.Timber, p.Door) = (C("#d9c9a8"), C("#b0a080"), C("#6a4a32"), C("#4a2e1e"));
         p.Windows = new[] { C("#ffe3a8"), C("#ffd27a"), C("#9fd8e8") };
         p.Flowers = new[] { C("#ff5f6f"), C("#ffffff"), C("#ffd25a"), C("#c08aff") };
         // The sump: rusted tin roofs on plank shacks, chem-lit windows.
-        var s = Looks["Sump"];
+        var s = Looks["Mire"];
         (s.Roof, s.RoofLight, s.RoofDark) = (C("#7a5a3a"), C("#8f6a45"), C("#4f3a26"));
         (s.WallL, s.WallR, s.Timber, s.Door) = (C("#5a4632"), C("#3e3024"), C("#2a2018"), C("#1e1610"));
         s.Windows = new[] { C("#4ff0a0"), C("#9fffc8") };

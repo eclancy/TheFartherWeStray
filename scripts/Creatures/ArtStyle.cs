@@ -55,7 +55,7 @@ public sealed class ArtStyle
         },
         new ArtStyle
         {
-            Id = "noir", Name = "Neon Noir (Arcane)",
+            Id = "noir", Name = "Neon Noir",
             Blurb = "Everything backlit in cyan and magenta, glowing parts haloed, a deep purple grade with hard contrast.",
             RimScale = 1.6f, NaturalRim = 0.35f, NaturalRimColor = Color.FromHtml("#4fe3ff"), GlowHalo = true,
             Saturation = 1.1f, Value = 0.86f, Contrast = 1.15f, Tint = Color.FromHtml("#7a5cff"), TintAmount = 0.1f,

@@ -58,12 +58,7 @@ public partial class CutsceneScreen : Control
         _board = new Node2D { Scale = new Vector2(Scale, Scale), TextureFilter = TextureFilterEnum.Nearest };
         AddChild(_board);
         _board.AddChild(new Sprite2D { Texture = ImageTexture.CreateFromImage(_art.PaintBoard()), Centered = false });
-        foreach (var (tile, prop) in _map.Props)
-        {
-            var (tex, anchor) = PropArt.Texture(prop, (int)(tile.X * 7 + tile.Y * 3), _map.Theme);
-            var at = _art.TileCenter(tile, _map.HeightAt(tile));
-            _board.AddChild(new Sprite2D { Texture = tex, Centered = false, Position = at - anchor + new Vector2(0, 1), ZIndex = 100 + (tile.X + tile.Y) * 4 + 1 });
-        }
+        PropArt.Place(_board, _map, _art);
         _board.Position = Focus - new Vector2(_art.Width / 2f, _art.Height / 2f) * Scale;
 
         foreach (var c in _script.Cast) Enter(c);

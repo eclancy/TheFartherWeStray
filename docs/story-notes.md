@@ -41,10 +41,10 @@ Everything below is placeholder wording for the story to replace; the mechanics 
   `scripts/Story/Scenes.cs` (`SceneBook`; the format is at the top of the file) and played on the
   battle maps with the cast as animated sprites, people included, dialogue with portraits, emotes,
   camera pans and fades. A main mission can play one before its battle. The one scene so far
-  (`road_to_foundry`, before the first main mission) is a stand-in: a lamplighter tells you a wild
+  (`road_to_foundry`, before the first main mission) is a stand-in: a lookout tells you a wild
   pack blocks the road. Replace it, and every person's look, with the story's own.
-  **Open:** [ ] how people look (now rolled per id and tinted by side; the story's characters
-  want designed looks); [ ] does the player speak, or stay silent as many collectors do (the
+  **Open:** [ ] how people look (now rolled per id and side: neon-punk in the undercity, royal in
+  the city above, after the user's notes of 2026-11-02; the story's characters want designed looks); [ ] does the player speak, or stay silent as many collectors do (the
   stand-in keeps you silent); [ ] portraits drawn for the box, or the sprite as now.
 - **The three endings** (`end_justice` at the Brass Bridges, `end_chaos` at the Foundry,
   `end_peace` at Hexlight Hollow): once the last road is open and 15 contracts are won, the one
@@ -53,7 +53,7 @@ Everything below is placeholder wording for the story to replace; the mechanics 
   (`Ranch.Ending`); you can play on.
 - **Rumoured creatures** (the user's narrative-gated monsters): a rare creature per path, heard of
   at a place once standing allows and gone once caught: a prize-bred beast in the Gardens (city
-  50), a lab escapee in the Sump (undercity 50), a creature of both worlds in the Hollow
+  50), a lab escapee in the Glowmire (undercity 50), a creature of both worlds in the Hollow
   (balanced, 30 with both).
 
 ## The goal
@@ -89,7 +89,7 @@ earlier "no human unit" assumption. See `design-notes.md` for the mechanics as t
 - **Setting tone:** medieval high fantasy with steampunk and neonpunk, after Arcane. A brass city
   above (Piltover-like) and a chem-lit undercity below (Zaun-like). It can be dark and scary,
   balanced by natural wonder.
-- **Strains need a reason in the lore:** why clockwork grafts, chemtech mutants, arcane-marked
+- **Strains need a reason in the lore:** why clockwork grafts, chemborn mutants, runic-marked
   beasts and abyssal horrors exist, and who makes them. The lab and infusions are the player's
   side of that.
 - **Story seeds** from `game-ideas.md` section 4: frontier rangers (new species keep appearing),

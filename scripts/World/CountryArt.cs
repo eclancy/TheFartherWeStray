@@ -138,7 +138,7 @@ public static class CountryArt
             Set(img, x, cy - 1, ChemDeep); Set(img, x, cy, Chem); Set(img, x, cy + 1, ChemDeep);
         }
         for (int i = 0; i < 18; i++) Blend(img, rng.Int(80, 250), rng.Int(126, 210), rng.Int(6, 12), Smog, 0.35f);
-        // Sump Marsh: pools of glowing chem and reeds.
+        // The Glowmire: pools of glowing chem and reeds.
         Blob(img, 216, 204, 20, 13, C("#173a2c"), 9);
         for (int i = 0; i < 9; i++) Blob(img, 216 + rng.Int(-14, 14), 204 + rng.Int(-8, 8), rng.Int(2, 5), rng.Int(1, 3), rng.Chance(0.5f) ? Chem : ChemDeep, 10 + i);
         for (int i = 0; i < 30; i++) Set(img, 216 + rng.Int(-18, 18), 204 + rng.Int(-11, 11), C("#4f7a35"));

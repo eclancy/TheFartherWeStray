@@ -139,7 +139,7 @@ public static class SongBook
             new Part { Inst = "drums", Div = 4, Notes =
                 "k+t+c . r . s . r . k . r k s . r . | k+t . r . s . r . k . r k s . r . | k+t . r . s . r . k . r k s . r . | k+t . r . s . r . t . t . T . T T" }),
 
-        Make("battle_under", "Neon Sump", "battles in the undercity: a dark phrygian groove, saw bass and echoing chem-glow arpeggios", 124, UnderChords,
+        Make("battle_under", "Neon Mire", "battles in the undercity: a dark phrygian groove, saw bass and echoing chem-glow arpeggios", 124, UnderChords,
             new Part { Inst = "chip", Echo = 0.75f, Feedback = 0.35f, Notes =
                 "F#5 - - C#5 - - F#5 - | A5 - G5 - F#5 - E5 - | D5 - - - B4 - D5 - | C#5 - - - - - . . | " +
                 "F#5 - - A5 - - C#6 - | B5 - A5 - G5 - F#5 - | E5 - - G#5 - - B5 - | B5 - - - D6 - - - | " +

@@ -100,7 +100,7 @@ public static class StoryBook
         new()
         {
             Id = "rumour_under", Location = "sump", Gate = "50 standing with the undercity",
-            Words = "Something that escaped an undercity lab is loose in the Sump, dripping chem.",
+            Words = "Something that escaped an undercity lab is loose in the Glowmire, dripping chem.",
             Open = r => r.UnderStanding >= 50,
             Make = () => Rumoured(0x5E7A, sp => { sp.Strain = Strain.Chemtech; sp.Grafts = Graft.Canister | Graft.Drips | Graft.Pipework; }, "iron_stomach", "quick_healer"),
         },

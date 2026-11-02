@@ -432,7 +432,7 @@ public sealed class Ranch
             Record(id).Training = new Training { Class = DefaultClass(c), Innate = ClassBook.WildSkill(c) };
             Lab.Learn(this, c);
             string traits = string.Join(" and ", c.Traits.Select(t => ClassBook.Passive(t).Name));
-            string what = $"{c.Species.Strain} {Species.FormOf(c.Species)}".ToLowerInvariant();
+            string what = $"{c.Species.Strain.Label()} {Species.FormOf(c.Species)}".ToLowerInvariant();
             return $"{won}: an egg from their line hatches{(c.Shiny ? ", shiny" : "")}! {c.Name}, {("aeiou".Contains(what[0]) ? "an" : "a")} {what}, born with {traits}.";
         }
         if (prize.Title != null)

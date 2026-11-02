@@ -104,7 +104,7 @@ public partial class LabPanel : Control
             b.TooltipText = Classes.AugmentBook.Text(aug) + (full ? $"\nReplaces the {Classes.AugmentBook.Get(rec.Augments[0])?.Name} (scrapped)." : "");
             augments.AddChild(b);
         }
-        if (inBag.Count == 0) augments.AddChild(Text("None in the bag: the Foundry, Lantern Row and the Sump sell them.", 700, dim));
+        if (inBag.Count == 0) augments.AddChild(Text("None in the bag: the Foundry, Lantern Row and the Glowmire sell them.", 700, dim));
         _rows.AddChild(augments);
 
         if (rec.Species.Strain == Strain.Natural)
@@ -115,13 +115,13 @@ public partial class LabPanel : Control
             foreach (var (strain, _, cost) in Lab.Infusions)
             {
                 int id = _id.Value;
-                var b = Btn($"{strain}  {cost}", Ranch.Chem >= cost, () => Finish(Lab.Infuse(Ranch, id, strain)));
+                var b = Btn($"{strain.Label()}  {cost}", Ranch.Chem >= cost, () => Finish(Lab.Infuse(Ranch, id, strain)));
                 b.Icon = flask;
                 infusions.AddChild(b);
             }
             _rows.AddChild(infusions);
         }
-        else _rows.AddChild(Text($"Strain: {rec.Species.Strain} - already infused.", 700, dim));
+        else _rows.AddChild(Text($"Strain: {rec.Species.Strain.Label()} - already infused.", 700, dim));
 
         // The chamber shows the creature with every part you're considering.
         var preview = rec.ToCreature();

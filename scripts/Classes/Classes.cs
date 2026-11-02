@@ -207,7 +207,7 @@ public static class ClassBook
         new() { Id = "taunt", Name = "Taunt", Class = "Guardian", Cost = 20, Cooldown = 3, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 3, Taunt = true, Text = "Foes within 3 must come for you next turn." },
         new() { Id = "second_wind", Name = "Second Wind", Class = "Guardian", Cost = 25, Cooldown = 4, Target = TargetKind.Self, Range = 0, Heal = 0.35f, Text = "Recover 35% of max HP." },
         // Mystic: hextech, at range.
-        new() { Id = "hex_bolt", Name = "Hex Bolt", Class = "Mystic", Cost = 15, Cooldown = 2, Range = 4, Power = 1.1f, Text = "A bolt of hextech at range 4 (x1.1)." },
+        new() { Id = "hex_bolt", Name = "Hex Bolt", Class = "Mystic", Cost = 15, Cooldown = 2, Range = 4, Power = 1.1f, Text = "A bolt of rune-light at range 4 (x1.1)." },
         new() { Id = "ward", Name = "Ward", Class = "Mystic", Cost = 20, Cooldown = 3, Target = TargetKind.Ally, Range = 3, Buffs = new[] { (StatKind.Def, 4, 3) }, Text = "An ally within 3: DEF +4 for 3 turns." },
         new() { Id = "arc_storm", Name = "Arc Storm", Class = "Mystic", Cost = 25, Cooldown = 3, Target = TargetKind.Area, Range = 4, Radius = 1, Power = 0.8f, Text = "Lightning across a 3x3 cross at range 4 (x0.8)." },
         // Alchemist: chemtech, poison and healing.
@@ -229,7 +229,7 @@ public static class ClassBook
         // Hexwarden (Mystic + Tinker).
         new() { Id = "hex_cage", Name = "Hex Cage", Class = "Hexwarden", Cost = 30, Cooldown = 3, Range = 4, Power = 0.7f, Root = true, Buffs = new[] { (StatKind.Def, -2, 2) }, Text = "Range 4 (x0.7): root the foe and crack its DEF -2." },
         new() { Id = "overcharge", Name = "Overcharge", Class = "Hexwarden", Cost = 30, Cooldown = 4, Target = TargetKind.Ally, Range = 3, Buffs = new[] { (StatKind.Atk, 4, 3), (StatKind.Spd, 2, 3) }, Text = "An ally within 3: ATK +4 and SPD +2 for 3 turns." },
-        new() { Id = "nova", Name = "Nova", Class = "Hexwarden", Cost = 35, Cooldown = 5, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 2, Power = 1.2f, Text = "A burst of hextech: every foe within 2 (x1.2)." },
+        new() { Id = "nova", Name = "Nova", Class = "Hexwarden", Cost = 35, Cooldown = 5, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 2, Power = 1.2f, Text = "A burst of rune-light: every foe within 2 (x1.2)." },
         // Hunter: ranged physical (quills, spit, thrown stones).
         new() { Id = "quill_shot", Name = "Quill Shot", Class = "Hunter", Cost = 15, Cooldown = 1, Range = 3, Power = 0.9f, Text = "A shot at range 3 (x0.9)." },
         new() { Id = "pin_down", Name = "Pin Down", Class = "Hunter", Cost = 20, Cooldown = 3, Range = 3, Power = 0.6f, Root = true, Text = "Range 3 (x0.6): pins the foe so it can't move next turn." },
@@ -275,13 +275,13 @@ public static class ClassBook
         new() { Id = "mark", Name = "Mark", Class = "Deadeye", Cost = 30, Cooldown = 3, Range = 5, Buffs = new[] { (StatKind.Def, -4, 3), (StatKind.Evade, -20, 3) }, Text = "Range 5: DEF -4 and 20% easier to hit for 3 turns." },
         new() { Id = "ricochet", Name = "Ricochet", Class = "Deadeye", Cost = 35, Cooldown = 3, Target = TargetKind.Area, Range = 4, Radius = 1, Power = 0.8f, Text = "A shot that bounces across a cross at range 4 (x0.8)." },
         // Chemist (Alchemist + chemtech blood).
-        new() { Id = "shimmer_dose", Name = "Shimmer Dose", Class = "Chemist", Cost = 30, Cooldown = 4, Target = TargetKind.Ally, Range = 2, Buffs = new[] { (StatKind.Atk, 6, 2), (StatKind.Spd, 3, 2) }, Poison = 3, PoisonTurns = 2, Text = "An ally within 2: ATK +6, SPD +3 for 2 turns, but it's poisoned." },
+        new() { Id = "shimmer_dose", Name = "Fury Dose", Class = "Chemist", Cost = 30, Cooldown = 4, Target = TargetKind.Ally, Range = 2, Buffs = new[] { (StatKind.Atk, 6, 2), (StatKind.Spd, 3, 2) }, Poison = 3, PoisonTurns = 2, Text = "An ally within 2: ATK +6, SPD +3 for 2 turns, but it's poisoned." },
         new() { Id = "caustic_cloud", Name = "Caustic Cloud", Class = "Chemist", Cost = 30, Cooldown = 3, Target = TargetKind.Area, Range = 3, Radius = 1, Power = 0.3f, Poison = 5, PoisonTurns = 3, Text = "A cloud across a cross at range 3: poison 5 a turn for 3 turns." },
         new() { Id = "mutagen", Name = "Mutagen", Class = "Chemist", Cost = 35, Cooldown = 3, Target = TargetKind.Ally, Range = 2, RandomBuff = true, Text = "An ally within 2 gets a random strong boost for 3 turns." },
         // Runeweaver (Mystic + arcane blood).
         new() { Id = "glyph_snare", Name = "Glyph Snare", Class = "Runeweaver", Cost = 30, Cooldown = 3, Range = 4, Power = 0.5f, Root = true, HitBonus = 15, Text = "Range 4 (x0.5): a glyph roots the foe." },
         new() { Id = "glyph_shield", Name = "Glyph Shield", Class = "Runeweaver", Cost = 30, Cooldown = 3, Target = TargetKind.Ally, Range = 3, Buffs = new[] { (StatKind.Def, 6, 2) }, Cleanse = true, Text = "An ally within 3: cleansed, and DEF +6 for 2 turns." },
-        new() { Id = "arcane_surge", Name = "Arcane Surge", Class = "Runeweaver", Cost = 35, Cooldown = 5, Target = TargetKind.Ally, Range = 3, CooldownCut = 2, Text = "An ally within 3: its skills cool down 2 turns sooner." },
+        new() { Id = "arcane_surge", Name = "Rune Surge", Class = "Runeweaver", Cost = 35, Cooldown = 5, Target = TargetKind.Ally, Range = 3, CooldownCut = 2, Text = "An ally within 3: its skills cool down 2 turns sooner." },
         // Voidcaller (Brawler or Mystic + abyssal blood).
         new() { Id = "dread", Name = "Dread", Class = "Voidcaller", Cost = 30, Cooldown = 4, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 2, Root = true, Buffs = new[] { (StatKind.Spd, -3, 2) }, Text = "Foes within 2 freeze in terror: rooted, SPD -3." },
         new() { Id = "siphon", Name = "Siphon", Class = "Voidcaller", Cost = 30, Cooldown = 2, Range = 2, Power = 1f, Drain = 0.5f, Text = "Range 2 (x1): heal for half the damage." },
@@ -378,8 +378,8 @@ public static class ClassBook
         new() { Id = "Brawler", Name = "Brawler", Blurb = "Fights up close.", Atk = 2, Hp = 2, Skills = new[] { "heavy_blow", "rend", "frenzy" } },
         new() { Id = "Skirmisher", Name = "Skirmisher", Blurb = "Hits and runs.", Spd = 2, Move = 1, Skills = new[] { "quick_strike", "pounce", "evasion" } },
         new() { Id = "Guardian", Name = "Guardian", Blurb = "Holds the line.", Def = 2, Hp = 6, Spd = -1, Skills = new[] { "shield_wall", "taunt", "second_wind" } },
-        new() { Id = "Mystic", Name = "Mystic", Blurb = "Channels hextech at range.", Atk = 1, Def = -1, Skills = new[] { "hex_bolt", "ward", "arc_storm" } },
-        new() { Id = "Alchemist", Name = "Alchemist", Blurb = "Brews chemtech: poison and mending.", Spd = 1, Skills = new[] { "toxic_flask", "mend", "acid_splash" } },
+        new() { Id = "Mystic", Name = "Mystic", Blurb = "Channels rune-light at range.", Atk = 1, Def = -1, Skills = new[] { "hex_bolt", "ward", "arc_storm" } },
+        new() { Id = "Alchemist", Name = "Alchemist", Blurb = "Brews chem: poison and mending.", Spd = 1, Skills = new[] { "toxic_flask", "mend", "acid_splash" } },
         new()
         {
             Id = "Tinker", Name = "Tinker", Blurb = "Clockwork tricks: boosts, snares, shocks.", Def = 1, Spd = 1, Skills = new[] { "overclock", "snare", "shock_prod" },
@@ -518,7 +518,7 @@ public static class ClassBook
         },
         new()
         {
-            Id = "Hexwarden", Name = "Hexwarden", Blurb = "Binds hextech and clockwork.", Atk = 2, Def = 1,
+            Id = "Hexwarden", Name = "Hexwarden", Blurb = "Binds runes and clockwork.", Atk = 2, Def = 1,
             Skills = new[] { "hex_cage", "overcharge", "nova" }, Requires = new[] { ("Mystic", 2), ("Tinker", 2) },
         },
 
@@ -583,13 +583,13 @@ public static class ClassBook
         {
             Id = "Chemist", Name = "Chemist", Blurb = "Doses allies with volatile chem.", Spd = 2, Atk = 1,
             Skills = new[] { "shimmer_dose", "caustic_cloud", "mutagen" }, Requires = new[] { ("Alchemist", 2) },
-            NeedsPart = c => c.Species.Strain == Strain.Chemtech, PartHint = "chemtech blood",
+            NeedsPart = c => c.Species.Strain == Strain.Chemtech, PartHint = "chemborn blood",
         },
         new()
         {
             Id = "Runeweaver", Name = "Runeweaver", Blurb = "Writes glyphs that bind and shield.", Def = 1, Atk = 1,
             Skills = new[] { "glyph_snare", "glyph_shield", "arcane_surge" }, Requires = new[] { ("Mystic", 2) },
-            NeedsPart = c => c.Species.Strain == Strain.Arcane, PartHint = "arcane blood",
+            NeedsPart = c => c.Species.Strain == Strain.Arcane, PartHint = "runic blood",
         },
         new()
         {
@@ -663,7 +663,7 @@ public static class ClassBook
         new() { Id = "pack_bond", Name = "Pack Bond", Class = "Packleader", PackBond = true, Text = "ATK +1 for each ally beside it." },
         new() { Id = "steady_aim", Name = "Steady Aim", Class = "Deadeye", Hit = 15, Text = "+15% to hit." },
         new() { Id = "spell_mastery", Name = "Spell Mastery", Class = "Hexwarden", SkillPower = 0.15f, Text = "Skills deal 15% more damage." },
-        new() { Id = "shimmer_blood", Name = "Shimmer Blood", Class = "Chemist", Regen = 0.08f, NoPoison = true, Text = "Heals 8% of max HP each turn; immune to poison." },
+        new() { Id = "shimmer_blood", Name = "Chem Blood", Class = "Chemist", Regen = 0.08f, NoPoison = true, Text = "Heals 8% of max HP each turn; immune to poison." },
         new() { Id = "runic_skin", Name = "Runic Skin", Class = "Runeweaver", NoStun = true, Def = 1, Text = "Immune to stun; DEF +1." },
         new() { Id = "bloodthirst", Name = "Bloodthirst", Class = "Voidcaller", Drain = 0.25f, Text = "Basic attacks heal 25% of the damage." },
         new() { Id = "brass_frame", Name = "Brass Frame", Class = "Artificer", Def = 2, NoPoison = true, Text = "DEF +2; immune to poison." },

@@ -293,7 +293,7 @@ public sealed partial class BattleMap
             "f..I...ff...I..f",
         })
     {
-        Blurb = "The city's arena: packed earth ringed by stone tiers. The crowd wants a show.", Theme = "Piltover",
+        Blurb = "The city's arena: packed earth ringed by stone tiers. The crowd wants a show.", Theme = "Uptown",
         WildAnchor = new Vector2I(8, 2), PlayerAnchor = new Vector2I(8, 11),
     };
 }

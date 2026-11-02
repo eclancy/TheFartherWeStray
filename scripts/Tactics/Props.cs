@@ -10,6 +10,9 @@ public enum Prop
 {
     Tree, Pine, DeadTree, Bush, Mushroom, Crystals, Rock, Lamp, Neon, Crate, Barrel, Tank, Gears,
     Statue, Fountain, Pillar, Stall, Banner, Reeds, Grave, Hedge, Chimney,
+    // The undercity's grime (the user's ask, 2026-11-02): a streetlight that flickers, a hydrant
+    // leaking across the street, a grate puffing steam. They move (PropFx).
+    BrokenLamp, Hydrant, Vent,
 }
 
 /// <summary>
@@ -21,7 +24,7 @@ public enum Prop
 public static class PropArt
 {
     /// <summary>Props you can walk through: everything else fills its tile.</summary>
-    public static bool Blocks(Prop p) => p is not (Prop.Reeds or Prop.Banner);
+    public static bool Blocks(Prop p) => p is not (Prop.Reeds or Prop.Banner or Prop.Vent);
 
     public static Prop? FromChar(char c) => c switch
     {
@@ -29,29 +32,55 @@ public static class PropArt
         'C' => Prop.Crystals, 'o' => Prop.Rock, 'L' => Prop.Lamp, 'N' => Prop.Neon, 'c' => Prop.Crate,
         'B' => Prop.Barrel, 'K' => Prop.Tank, 'G' => Prop.Gears, 'S' => Prop.Statue, 'F' => Prop.Fountain,
         'I' => Prop.Pillar, 'm' => Prop.Stall, 'f' => Prop.Banner, 'r' => Prop.Reeds, 'g' => Prop.Grave,
-        'e' => Prop.Hedge, 'H' => Prop.Chimney,
+        'e' => Prop.Hedge, 'H' => Prop.Chimney, 'l' => Prop.BrokenLamp, 'y' => Prop.Hydrant, 'v' => Prop.Vent,
         _ => null,
     };
 
-    static readonly Dictionary<(Prop, int, string), (Texture2D tex, Vector2I anchor)> Cache = new();
+    static readonly Dictionary<(Prop, int, string, bool), (Texture2D tex, Vector2I anchor)> Cache = new();
 
-    public static (Texture2D tex, Vector2I anchor) Texture(Prop p, int variant, string theme)
+    /// <summary>The prop's sprite; <paramref name="lit"/> false draws its lights dark (a flicker's off beat).</summary>
+    public static (Texture2D tex, Vector2I anchor) Texture(Prop p, int variant, string theme, bool lit = true)
     {
         variant = Math.Abs(variant) % 4;
-        if (Cache.TryGetValue((p, variant, theme), out var hit)) return hit;
-        var (img, anchor) = Paint(p, variant, theme);
-        return Cache[(p, variant, theme)] = (ImageTexture.CreateFromImage(img), anchor);
+        if (Cache.TryGetValue((p, variant, theme, lit), out var hit)) return hit;
+        var (img, anchor) = Paint(p, variant, theme, lit);
+        return Cache[(p, variant, theme, lit)] = (ImageTexture.CreateFromImage(img), anchor);
+    }
+
+    /// <summary>The size a prop is built at, by variant (a little variation; a tree stands about two tiles tall).</summary>
+    static float Scale(int variant) => (0.88f + 0.08f * (Math.Abs(variant) % 4)) * 1.4f;
+
+    /// <summary>Where a point on a prop's model lands on the board, from the tile centre it stands on.</summary>
+    public static Vector2 Spot(int variant, Vector3 model) => new Camera3(View.Front, Vector2.Zero).Project(model * Scale(variant));
+
+    /// <summary>
+    /// Puts a map's props on a board: each a sprite standing on its tile (sorted with the creatures
+    /// so a tree hides what's behind it), and the moving ones their effects. Battles and cutscenes share it.
+    /// </summary>
+    public static void Place(Node2D board, BattleMap map, IsoArt art)
+    {
+        foreach (var (tile, prop) in map.Props)
+        {
+            int variant = tile.X * 7 + tile.Y * 3;
+            var (tex, anchor) = Texture(prop, variant, map.Theme);
+            var at = art.TileCenter(tile, map.HeightAt(tile));
+            int z = 100 + (tile.X + tile.Y) * 4 + 1;
+            var sprite = new Sprite2D { Texture = tex, Centered = false, Position = at - anchor + new Vector2(0, 1), ZIndex = z };
+            board.AddChild(sprite);
+            if (PropFx.Moves(prop, map.Theme))
+                board.AddChild(new PropFx { Prop = prop, Variant = variant, Theme = map.Theme, Sprite = sprite, Seed = (ulong)(tile.X * 131 + tile.Y * 17 + 7), Position = at, ZIndex = z + 1 });
+        }
     }
 
     /// <summary>The prop's sprite and where its foot (the tile centre) lands in it.</summary>
-    public static (Image img, Vector2I anchor) Paint(Prop p, int variant, string theme)
+    public static (Image img, Vector2I anchor) Paint(Prop p, int variant, string theme, bool lit = true)
     {
         const int size = 120;
         var c = new PixelCanvas(size, size);
         c.Begin3D(new Camera3(View.Front, new Vector2(size / 2f, size * 0.78f)));
         var rng = new SeededRng(SeededRng.Derive((ulong)p * 977 + 13, (ulong)variant));
-        float k = (0.88f + 0.08f * variant) * 1.4f; // a little size variation; a tree stands about two tiles tall
-        Build(c, p, variant, k, rng, theme);
+        float k = Scale(variant);
+        Build(c, p, variant, k, rng, theme, lit);
         var img = c.Resolve(PaletteFor(p, variant, theme), false);
         var used = img.GetUsedRect();
         var origin = c.Cam.Origin;
@@ -61,8 +90,12 @@ public static class PropArt
 
     static readonly Vector3 X = new(1, 0, 0), Y = new(0, 1, 0), Z = new(0, 0, 1);
 
-    static void Build(PixelCanvas c, Prop p, int variant, float k, SeededRng rng, string theme)
+    // Where the moving props' effects come from, on the model (see Spot).
+    public static readonly Vector3 LampBulb = new(4.6f, 1.2f, 18.6f), HydrantLeak = new(0, -3.1f, 5.2f), VentMouth = new(0, 0, 0.8f), NeonPanel = new(0.5f, 0, 18);
+
+    static void Build(PixelCanvas c, Prop p, int variant, float k, SeededRng rng, string theme, bool lit)
     {
+        var glow = lit ? Mat.Glow : Mat.Membrane;
         int part = c.NewPart();
         int P() => c.NewPart();
         Vector3 V(float x, float y, float z) => new(x * k, y * k, z * k);
@@ -133,7 +166,40 @@ public static class PropArt
                 c.Tube(new[] { V(0, -3, 0), V(0, -3, 22) }, 0.7f * k, 0.7f * k, Mat.Metal, part);
                 c.Tube(new[] { V(0, 3, 0), V(0, 3, 22) }, 0.7f * k, 0.7f * k, Mat.Metal, part);
                 c.Box(V(0, 0, 18), V(0.8f, 5.5f, 3.6f), Mat.Metal, P());
-                c.Box(V(0.5f, 0, 18), V(0.6f, 4.6f, 2.7f), Mat.Glow, P(), 0.1f, true);
+                c.Box(V(0.5f, 0, 18), V(0.6f, 4.6f, 2.7f), glow, P(), 0.1f, lit);
+                break;
+            }
+            case Prop.BrokenLamp:
+            {
+                // Knocked crooked: the pole bends, the arm droops, the hood hangs cracked, a wire dangles.
+                c.Box(V(0, 0, 1), V(1.8f, 1.8f, 1), Mat.Metal, part);
+                c.Tube(new[] { V(0, 0, 1), V(0, 0, 13), V(1.2f, 0.6f, 20), V(1.6f, 0.8f, 23) }, 0.85f * k, 0.7f * k, Mat.Metal, part);
+                c.Tube(new[] { V(1.6f, 0.8f, 22.5f), V(3.4f, 1.0f, 22.8f), V(4.6f, 1.2f, 21.2f) }, 0.6f * k, 0.6f * k, Mat.Metal, part);
+                var bulb = LampBulb * k;
+                c.Sphere(bulb, 1.6f * k, glow, P(), 0.2f, 0, lit);
+                c.Ellipsoid(bulb + V(-0.3f, 0, 2.0f), new Vector3(0.9f, 0.2f, -0.4f), 2.6f * k, 2.3f * k, 0.8f * k, Mat.Metal, part);
+                c.Tube(new[] { V(1.2f, 0.6f, 19), V(2.2f, -0.8f, 15.5f), V(1.6f, -1.4f, 12.5f) }, 0.3f * k, 0.3f * k, Mat.Second, P());
+                break;
+            }
+            case Prop.Hydrant:
+            {
+                // A squat street hydrant, its side cap knocked off (the leak is PropFx's).
+                c.Box(V(0, 0, 0.6f), V(2.8f, 2.8f, 0.6f), Mat.Metal, part, -0.1f);
+                c.Tube(new[] { V(0, 0, 0.6f), V(0, 0, 7.4f) }, 2.3f * k, 2.1f * k, Mat.Main, part);
+                c.Sphere(V(0, 0, 7.4f), 2.15f * k, Mat.Main, part);
+                c.Box(V(0, 0, 9.6f), V(0.8f, 0.8f, 0.7f), Mat.Metal, P(), 0.1f);
+                c.Tube(new[] { V(1.6f, 0, 5), V(3.4f, 0, 5) }, 1.2f * k, 1.2f * k, Mat.Main, P());
+                c.Box(V(3.6f, 0, 5), V(0.4f, 1.3f, 1.3f), Mat.Metal, P(), 0.2f);
+                c.Tube(new[] { V(0, 1.6f, 5.2f), V(0, 3.2f, 5.2f) }, 0.9f * k, 0.9f * k, Mat.Main, P());
+                c.Tube(new[] { V(0, -1.6f, 5.2f), V(0, -3.0f, 5.2f) }, 0.9f * k, 0.75f * k, Mat.Main, P(), -0.15f);
+                c.Tube(new[] { V(1.2f, -1.4f, 6.5f), V(2.2f, -2.4f, 4.4f), V(1.4f, -2.8f, 3.8f) }, 0.35f * k, 0.35f * k, Mat.Metal, P(), 0.2f);
+                break;
+            }
+            case Prop.Vent:
+            {
+                // A street grate, flush with the ground: slots over the dark (the steam is PropFx's).
+                c.Box(V(0, 0, 0.35f), V(4.6f, 4.6f, 0.35f), Mat.Metal, part);
+                for (int i = -2; i <= 2; i++) c.Box(V(i * 1.7f, 0, 0.55f), V(0.45f, 3.8f, 0.2f), Mat.Second, P(), -0.4f);
                 break;
             }
             case Prop.Crate:
@@ -250,6 +316,20 @@ public static class PropArt
         }
     }
 
+    /// <summary>A region's light colour (lamps, signs, fungus, chem): neon pink or cyan in the undercity.</summary>
+    static string GlowHex(int variant, string theme) => theme switch
+    {
+        "Undercity" => Math.Abs(variant) % 2 == 0 ? "#ff4fb8" : "#4fe3ff",
+        "Mire" => "#4ff0a0",
+        "Cavern" => "#7fd8ff",
+        "Uptown" => "#ffcf6a",
+        "Frost" => "#9fe8ff",
+        "Volcanic" => "#ff6a2a",
+        _ => "#ffb04f",
+    };
+
+    public static Color GlowOf(int variant, string theme) => Color.FromHtml(GlowHex(variant, theme));
+
     /// <summary>
     /// Colours for a prop in a region: Main (leaves, cloth), Second (wood, bark), Accent (stone,
     /// marble, crystal), Membrane (water, smoke), Glow (lamps, fungus, chem).
@@ -258,35 +338,28 @@ public static class PropArt
     {
         string leaves = theme switch
         {
-            "Ruins" => variant % 2 == 0 ? "#b5632f" : "#9a7a2c", "Sump" => "#4a6b3a", "Piltover" => "#4f9a4a", "Cavern" => "#4a3a7a",
+            "Ruins" => variant % 2 == 0 ? "#b5632f" : "#9a7a2c", "Mire" => "#4a6b3a", "Uptown" => "#4f9a4a", "Cavern" => "#4a3a7a",
             "Frost" => "#2f5a52", "Desert" => "#8a8a3a", "Volcanic" => "#3a3030", "Coast" => "#4f7a4a", _ => "#3f6e45",
         };
-        string bark = theme switch { "Sump" => "#4a3f35", "Cavern" => "#cbbfd8", "Volcanic" => "#2a2224", "Desert" => "#8a6a4a", _ => "#6b4a32" };
+        string bark = theme switch { "Mire" => "#4a3f35", "Cavern" => "#cbbfd8", "Volcanic" => "#2a2224", "Desert" => "#8a6a4a", _ => "#6b4a32" };
         string stone = theme switch
         {
-            "Piltover" => "#d8d0bf", "Ruins" => "#9a8c7a", "Cavern" => "#8a6ae0", "Sump" => "#5f6663",
+            "Uptown" => "#d8d0bf", "Ruins" => "#9a8c7a", "Cavern" => "#8a6ae0", "Mire" => "#5f6663",
             "Frost" => "#a8bcd0", "Desert" => "#d0a070", "Volcanic" => "#3e3a44", "Coast" => "#9aa4ae", _ => "#7a7f90",
         };
-        string water = theme switch { "Sump" => "#5fae8a", "Volcanic" => "#ff8a3a", _ => "#6fb4e0" };
-        string glow = theme switch
-        {
-            "Undercity" => variant % 2 == 0 ? "#ff4fb8" : "#4fe3ff",
-            "Sump" => "#4ff0a0",
-            "Cavern" => "#7fd8ff",
-            "Piltover" => "#ffcf6a",
-            "Frost" => "#9fe8ff",
-            "Volcanic" => "#ff6a2a",
-            _ => "#ffb04f",
-        };
+        string water = theme switch { "Mire" => "#5fae8a", "Volcanic" => "#ff8a3a", _ => "#6fb4e0" };
+        string glow = GlowHex(variant, theme);
         string cloth = variant switch { 0 => "#b03a4a", 1 => "#2f6fb0", 2 => "#c9a23a", _ => "#5a8a3a" };
         var spec = p switch
         {
             Prop.Mushroom => PaletteSpec.FromHex(theme == "Cavern" ? "#7a4ab8" : "#a8443a", "#e2d6c4", stone, water, glow),
             Prop.Crystals => PaletteSpec.FromHex(leaves, bark, theme switch { "Cavern" => "#9a7aff", "Volcanic" => "#2a2030", "Frost" => "#cfeeff", _ => "#7fd8ff" }, water, glow),
-            Prop.Stall or Prop.Banner => PaletteSpec.FromHex(cloth, bark, theme == "Piltover" ? "#e6c26a" : "#d8c49a", water, glow),
-            Prop.Chimney => PaletteSpec.FromHex(leaves, bark, theme == "Piltover" ? "#a85a3a" : "#5a4a4a", "#9a96a6", glow),
+            Prop.Stall or Prop.Banner => PaletteSpec.FromHex(cloth, bark, theme == "Uptown" ? "#e6c26a" : "#d8c49a", water, glow),
+            Prop.Chimney => PaletteSpec.FromHex(leaves, bark, theme == "Uptown" ? "#a85a3a" : "#5a4a4a", "#9a96a6", glow),
             Prop.Crate or Prop.Barrel => PaletteSpec.FromHex(leaves, "#8a6238", "#4a3a2a", water, glow),
-            Prop.Reeds => PaletteSpec.FromHex(theme == "Sump" ? "#6a8a3a" : "#7a8a4a", "#5a3a22", stone, water, glow),
+            Prop.Reeds => PaletteSpec.FromHex(theme == "Mire" ? "#6a8a3a" : "#7a8a4a", "#5a3a22", stone, water, glow),
+            Prop.Hydrant => PaletteSpec.FromHex(theme == "Uptown" ? "#c9a23a" : variant % 2 == 0 ? "#b8402e" : "#c98a2a", "#2a2228", stone, water, glow),
+            Prop.BrokenLamp or Prop.Vent => PaletteSpec.FromHex(leaves, "#1e1a24", stone, "#5a5866", glow),
             _ => PaletteSpec.FromHex(leaves, bark, stone, water, glow),
         };
         return spec.Build();

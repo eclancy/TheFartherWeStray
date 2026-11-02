@@ -66,6 +66,9 @@ public sealed class Species
         return s;
     }
 
+    /// <summary>A copy to change (grafts) without touching other creatures that share this species.</summary>
+    public Species Clone() => (Species)MemberwiseClone();
+
     /// <summary>How strongly the neon rims this species: natural beasts get none.</summary>
     public float RimStrength => Strain switch { Strain.Natural => 0, Strain.Abyssal => 0.6f, _ => 0.5f };
 
@@ -165,6 +168,7 @@ public sealed class Creature
     public SizeClass Size;
     public Attitude Attitude;
     public PartSet Parts;
+    public PartSet? BirthParts;       // the parts it was born with, if the lab has grafted any (breeding uses these)
     public PaletteSpec Spec;          // this individual's colours (species colours plus drift)
     public CreaturePalette Palette;   // built from Spec
     public bool Shiny;

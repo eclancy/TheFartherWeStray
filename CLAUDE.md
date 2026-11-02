@@ -29,8 +29,15 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   a secondary and an innate skill are usable. Skills are pure data (`SkillDef`) read by
   `Battle.UseSkill`, so a new skill should be a new entry, not new code. Wild creatures get a
   strain-based natural skill.
-- Not built yet: grafting at the lab, more maps, rival tamers. There's no human player character
-  on the field (the notes' Option A).
+- The lab (`scripts/Ranch/Lab.cs`, `LabPanel.cs`): chem from battles pays for flesh grafts
+  (swap a part for one in the codex, the parts met in battle), machine grafts (brass) and
+  infusions (blood strains for natural creatures). Flesh and machine grafts are **not inherited**:
+  breeding reads `BirthParts`. Infusions are.
+- **Story (planned, not started):** the user wants FFTA-depth story, cutscenes and sprite
+  animation, and will set the themes first. `docs/story-notes.md` holds the goal, the open
+  questions and a suggested first iteration. Don't invent the story's themes; ask.
+- Not built yet: story and cutscenes, more maps, a mission board, rival tamers. There's no human
+  player character on the field (the notes' Option A).
 
 ## Build and check
 

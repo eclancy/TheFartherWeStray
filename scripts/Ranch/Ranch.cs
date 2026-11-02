@@ -19,6 +19,7 @@ public sealed class CreatureRecord
     public SizeClass Size;
     public Attitude Attitude;
     public PartSet Parts;
+    public PartSet? BirthParts; // set once the lab grafts a part: what breeding passes on
     public PaletteSpec Spec;
     public bool Shiny;
     public string Mutation;
@@ -29,14 +30,14 @@ public sealed class CreatureRecord
 
     public static CreatureRecord From(Creature c, int id) => new()
     {
-        Id = id, Species = c.Species, Seed = c.Seed, Size = c.Size, Attitude = c.Attitude, Parts = c.Parts, Spec = c.Spec,
+        Id = id, Species = c.Species, Seed = c.Seed, Size = c.Size, Attitude = c.Attitude, Parts = c.Parts, Spec = c.Spec, BirthParts = c.BirthParts,
         Shiny = c.Shiny, Mutation = c.Mutation, BodyJitter = c.BodyJitter, LegJitter = c.LegJitter, HeadJitter = c.HeadJitter,
         Generation = c.Generation, ParentA = c.ParentA, ParentB = c.ParentB,
     };
 
     public Creature ToCreature() => new()
     {
-        Species = Species, Seed = Seed, Size = Size, Attitude = Attitude, Parts = Parts, Spec = Spec,
+        Species = Species, Seed = Seed, Size = Size, Attitude = Attitude, Parts = Parts, Spec = Spec, BirthParts = BirthParts,
         Palette = Creature.BuildPalette(Spec, Species), Shiny = Shiny, Mutation = Mutation,
         BodyJitter = BodyJitter, LegJitter = LegJitter, HeadJitter = HeadJitter,
         Generation = Generation, ParentA = ParentA, ParentB = ParentB,
@@ -57,6 +58,8 @@ public sealed class Ranch
     public ulong Encounter = 1;
     public int NextId = 1;
     public int Bred;
+    public int Chem;                              // lab currency, earned in battle
+    public HashSet<string> Codex = new();          // parts met in battle, graftable at the lab ("Wings.Bat")
 
     readonly Dictionary<int, Creature> _cache = new();
 
@@ -74,7 +77,11 @@ public sealed class Ranch
         {
             using var f = FileAccess.Open(SavePath, FileAccess.ModeFlags.Read);
             var ranch = JsonSerializer.Deserialize<Ranch>(f.GetAsText(), Json);
-            if (ranch != null && ranch.Creatures.Count > 0) return ranch;
+            if (ranch != null && ranch.Creatures.Count > 0) {
+                // Saves from before the lab: fill the codex from the roster.
+                if (ranch.Codex.Count == 0) foreach (var r in ranch.Creatures) Lab.Learn(ranch, ranch.Get(r.Id));
+                return ranch;
+            }
         }
         catch (JsonException e)
         {
@@ -93,6 +100,7 @@ public sealed class Ranch
             r.Record(id).Training = t;
             r.Squad.Add(id);
         }
+        foreach (var rec in r.Creatures) Lab.Learn(r, r.Get(rec.Id));
         return r;
     }
 
@@ -122,8 +130,12 @@ public sealed class Ranch
 
     public List<(Creature, Training)> SquadCreatures() => Squad.Select(id => (Get(id), Record(id).Training)).ToList();
 
+    /// <summary>Rebuilds a creature after the lab changes its record.</summary>
+    public void Refresh(int id) => _cache.Remove(id);
+
     public void Release(int id)
     {
+        Chem += 5; // salvage
         Creatures.RemoveAll(r => r.Id == id);
         Squad.Remove(id);
         _cache.Remove(id);
@@ -183,6 +195,16 @@ public sealed class Ranch
             foreach (var skill in u.Training.Earn(jp))
                 Report.Add($"{u.Name} learned {skill.Name} ({skill.Class}).");
         }
+        // Chem for the lab: more for a win and for every wild creature driven off. Their parts enter the codex.
+        int fled = battle.Units.Count(u => u.Training == null && u.Gone);
+        int chem = (battle.Winner == Tactics.Side.Player ? 8 : 2) + 2 * fled;
+        Chem += chem;
+        Report.Add($"+{chem} chem (now {Chem}).");
+        var before = new HashSet<string>(Codex);
+        foreach (var u in battle.Units.Where(u => u.Training == null)) Lab.Learn(this, u.Creature);
+        var found = Codex.Except(before).Select(k => k.Replace(".", ": ")).ToList();
+        if (found.Count > 0) Report.Add($"New in the codex: {string.Join(", ", found)}.");
+
         var joined = new List<int>();
         foreach (var u in battle.Recruited)
         {

@@ -41,7 +41,8 @@ public static class Breeding
 
         var plan = From("body plan", A.Plan, B.Plan);
         var planParent = plan == A.Plan ? A : B;
-        PartSet pa = a.Parts, pb = b.Parts;
+        // Birth parts: lab grafts are surgery, not blood, so they don't pass down.
+        PartSet pa = a.BirthParts ?? a.Parts, pb = b.BirthParts ?? b.Parts;
         var parts = new PartSet(
             From("head", pa.Head, pb.Head), From("ears", pa.Ears, pb.Ears), From("eyes", pa.Eyes, pb.Eyes),
             From("horns", pa.Horns, pb.Horns), From("back", pa.Back, pb.Back), From("limbs", pa.Limbs, pb.Limbs),
@@ -84,8 +85,9 @@ public static class Breeding
             (strainParent == A ? r.FromA : r.FromB).Add($"{strain.ToString().ToLowerInvariant()} blood");
             // Most of the parent's blood traits come through; at least one always does.
             foreach (Graft g in Enum.GetValues<Graft>())
-                if (g != Graft.None && strainParent.Grafts.HasFlag(g) && rng.Chance(0.7f)) grafts |= g;
-            if (grafts == Graft.None) grafts = Species.RollGrafts(strain, rng);
+                if (g != Graft.None && (g & Ranching.Lab.MachineGrafts) == 0 && strainParent.Grafts.HasFlag(g) && rng.Chance(0.7f)) grafts |= g;
+            if (grafts == Graft.None) grafts = Species.RollGrafts(strain, rng) & ~Ranching.Lab.MachineGrafts;
+            if (grafts == Graft.None) grafts = strain switch { Strain.Arcane => Graft.Runes, Strain.Chemtech => Graft.Veins, _ => Graft.Cracks };
         }
         if (A.Strain == Strain.Clockwork || B.Strain == Strain.Clockwork) r.Notes.Add("clockwork grafts aren't inherited");
 

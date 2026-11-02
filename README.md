@@ -49,6 +49,7 @@ DrawPets cast. Creatures you recruit in battle move in.
 | S | add the selected creature to or take it out of the squad (up to 4) |
 | Right-click a creature | put it in a breeding vat (two vats) |
 | Enter | breed the pair in the vats |
+| L | open the lab (grafting) |
 | F | take the squad into the next battle |
 | Delete twice | release the hovered creature |
 
@@ -93,6 +94,21 @@ the skill they had in the wild.
 Wild creatures fight with a natural skill from their strain: chemtech beasts throw toxic flasks,
 arcane ones cast hex bolts, clockwork ones carry shock prods, abyssal ones rend, and aggressive
 natural ones swing heavy blows.
+
+### The lab
+
+Press **L** at the ranch (or the Lab button). The lab changes parts without breeding, at a price
+in **chem**. You earn chem each battle: 8 for a win, 2 for a loss, 2 for every wild creature driven
+off, and 5 for each creature you release.
+- **Flesh grafts:** swap a part slot (horns, wings, shell...) for any variant in your **codex**,
+  the parts you've met on creatures you fought or recruited. Wings cost the most (40), since they
+  give flight and open Skydiver.
+- **Machine grafts:** brass plating, a clockwork limb, a lens visor, a hextech core.
+- **Infusions:** chemtech, arcane or abyssal blood for a natural creature.
+
+The graft chamber previews the creature with the parts you're considering. Flesh and machine
+grafts belong to that one creature: breeding passes on the parts it was born with. Infusions are
+blood, so the line carries them.
 
 ### Battle
 
@@ -167,4 +183,7 @@ The full list is in `scripts/GameRoot.cs`.
 - `scripts/Classes/Classes.cs`: every class and skill as data, training (JP, learning, unlocks).
 - `scripts/Ranch/`: the roster and save file (`Ranch.cs`) and the ranch screen with its vats.
 - `scripts/SpriteLab/`: the sheet screen and the PNG composer.
+- `scripts/Ranch/Lab.cs`, `LabPanel.cs`: grafting rules and the lab panel.
 - `docs/game-ideas.md`: the design notes.
+- `docs/story-notes.md`: the planned story track (FFTA-style story, cutscenes, animation), with
+  open questions. Not started.

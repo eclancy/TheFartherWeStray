@@ -83,6 +83,25 @@ public partial class GameRoot : Node
                 var (child, result) = ranch.Breed(pair[0], pair[1]);
                 GD.Print($"  bred {ranch.Get(pair[0]).Species.Name} x {ranch.Get(pair[1]).Species.Name} -> {ranch.Get(child).Species.Name} (gen {ranch.Get(child).Generation})");
             }
+            // The lab: graft wings onto Tank (a walker), fit brass, infuse chem blood, then breed him.
+            ranch.Chem += 200;
+            int tank = ranch.Creatures.First(r => r.Species.Name == "Tank").Id;
+            var tankBefore = ranch.Get(tank);
+            string wingKey = ranch.Codex.First(k => k.StartsWith("Wings.") && k != "Wings.None");
+            GD.Print($"codex: {ranch.Codex.Count} parts; chem {ranch.Chem}");
+            GD.Print("  " + Ranching.Lab.GraftPart(ranch, tank, "Wings", (int)Enum.Parse<Wings>(wingKey.Split('.')[1])));
+            GD.Print("  " + Ranching.Lab.AddMachine(ranch, tank, Graft.Plating));
+            GD.Print("  " + Ranching.Lab.Infuse(ranch, tank, Strain.Chemtech));
+            var tankAfter = ranch.Get(tank);
+            GD.Print($"  Tank moves: {tankBefore.MoveType} -> {tankAfter.MoveType}; strain {tankAfter.Species.Strain}; chem left {ranch.Chem}");
+            foreach (var r in ranch.Creatures) r.Rested = true;
+            int mate = ranch.Creatures.First(r => r.Id != tank && r.Species.Name == "Sprocket").Id;
+            var (pup, _) = ranch.Breed(tank, mate);
+            var pupC = ranch.Get(pup);
+            GD.Print($"  bred Tank x Sprocket -> {pupC.Species.Name}: wings {pupC.Parts.Wings} (grafts don't pass), strain {pupC.Species.Strain}, grafts {pupC.Species.Grafts}");
+            string labPath = ProjectSettings.GlobalizePath("res://.shots/lab.png");
+            CreatureSheet.Compose(new List<Creature> { tankBefore, tankAfter, pupC }, false, 4, 3).SavePng(labPath);
+
             ranch.Save();
             var loaded = Ranching.Ranch.Load();
             int same = 0;
@@ -156,7 +175,7 @@ public partial class GameRoot : Node
         if (args.TryGetValue("save", out var saveName) && saveName != "") Ranching.Ranch.SavePath = $"user://{saveName}.json";
         _ranch = args.ContainsKey("newranch") ? Ranching.Ranch.New() : Ranching.Ranch.Load();
         bool vatDemo = args.ContainsKey("vatdemo");
-        _home = () => new Ranching.RanchScreen { Ranch = _ranch, Fight = StartRanchBattle, VatDemo = vatDemo, AutoFight = _autoPlay };
+        _home = () => new Ranching.RanchScreen { Ranch = _ranch, Fight = StartRanchBattle, VatDemo = vatDemo, AutoFight = _autoPlay, StartInLab = args.ContainsKey("labmode") };
         Show(_home());
     }
 

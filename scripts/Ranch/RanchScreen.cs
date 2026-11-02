@@ -21,6 +21,7 @@ public partial class RanchScreen : Control
     public List<int> JustJoined = new(); // recruits from the last battle, to point out
     public bool VatDemo;                  // screenshots: fill the vats with the first rested pair and the newest child
     public bool AutoFight;                // --autoplay: head into the next battle on its own (an attract loop)
+    public bool StartInLab;               // --labmode: open on the lab (screenshots)
 
     static readonly Color Cyan = Color.FromHtml("#4fe3ff"), Magenta = Color.FromHtml("#ff4f9a"), Gold = Color.FromHtml("#f2c14e");
     static readonly Color Ink = Color.FromHtml("#e8e2f4"), Dim = Color.FromHtml("#9a91b4");
@@ -28,7 +29,10 @@ public partial class RanchScreen : Control
     GridContainer _grid;
     Label _header, _status, _notes, _detail, _training;
     VatPanel _vats;
-    Button _squadButton, _classButton, _secondButton, _vatButton, _releaseButton;
+    Button _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _labButton;
+    HBoxContainer _buttonsRow;
+    LabPanel _lab;
+    bool _labMode;
     readonly List<int> _pen = new();
     int? _selected, _releaseArmed;
     double _releaseTimer;
@@ -58,7 +62,7 @@ public partial class RanchScreen : Control
         _grid.AddThemeConstantOverride("v_separation", 8);
         scroll.AddChild(_grid);
         Text(16, Dim, new Vector2(32, 1036), new Vector2(1120, 30)).Text =
-            "Click: select    Right-click: breeding vat    Enter: breed    F: to battle    S: squad    Delete twice: release    Tab: Sprite Lab";
+            "Click: select    Right-click: vat    Enter: breed    L: lab    F: to battle    S: squad    Delete twice: release    Tab: Sprite Lab";
 
         _vats = new VatPanel { Position = new Vector2(1170, 96), Size = new Vector2(720, 320), Screen = this, MouseFilter = MouseFilterEnum.Ignore };
         AddChild(_vats);
@@ -69,7 +73,7 @@ public partial class RanchScreen : Control
         _training = Text(15, Ink, new Vector2(1170, 760), new Vector2(720, 200));
         _training.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 
-        var buttons = new HBoxContainer { Position = new Vector2(1170, 970) };
+        var buttons = _buttonsRow = new HBoxContainer { Position = new Vector2(1170, 970) };
         buttons.AddThemeConstantOverride("separation", 8);
         AddChild(buttons);
         Button Make(string text, Action onPress)
@@ -86,6 +90,14 @@ public partial class RanchScreen : Control
         _vatButton = Make("Vat", () => { if (_selected is { } id) TogglePen(id); });
         _releaseButton = Make("Release", () => { if (_selected is { } id) Release(id); });
 
+        _lab = new LabPanel { Ranch = Ranch, Position = new Vector2(1170, 96), Size = new Vector2(720, 930), Visible = false };
+        _lab.Done = msg => { Flash(msg); Rebuild(); if (_selected is { } sid) ShowDetail(sid); };
+        AddChild(_lab);
+        _labButton = new Button { Text = "Lab  (L)", FocusMode = FocusModeEnum.None, Position = new Vector2(1750, 22), CustomMinimumSize = new Vector2(140, 40) };
+        _labButton.AddThemeFontSizeOverride("font_size", 16);
+        _labButton.Pressed += ToggleLab;
+        AddChild(_labButton);
+
         if (VatDemo)
         {
             _pen.AddRange(Ranch.Creatures.Where(r => r.Rested).Take(2).Select(r => r.Id));
@@ -97,6 +109,7 @@ public partial class RanchScreen : Control
         if (Ranch.Report.Count > 0) _notes.Text = string.Join("\n", Ranch.Report);
         Select(Ranch.Squad.FirstOrDefault(Ranch.Creatures[0].Id));
         Rebuild();
+        if (StartInLab) ToggleLab();
         if (AutoFight) GetTree().CreateTimer(1.5).Timeout += () => { if (IsInsideTree() && Ranch.Squad.Count > 0) Fight?.Invoke(); };
     }
 
@@ -125,7 +138,7 @@ public partial class RanchScreen : Control
             card.Hovered += () => ShowDetail(id);
             _grid.AddChild(card);
         }
-        _header.Text = $"THE RANCH      {Ranch.Creatures.Count} creatures      squad {Ranch.Squad.Count}/{Ranch.SquadSize}      next: encounter {Ranch.Encounter}";
+        _header.Text = $"THE RANCH      {Ranch.Creatures.Count} creatures      squad {Ranch.Squad.Count}/{Ranch.SquadSize}      chem {Ranch.Chem}      next: encounter {Ranch.Encounter}";
         _vats.QueueRedraw();
         RefreshSelected();
     }
@@ -140,6 +153,7 @@ public partial class RanchScreen : Control
     void Select(int id)
     {
         _selected = id;
+        if (_labMode) _lab.ShowCreature(id);
         foreach (var card in _grid.GetChildren().OfType<RanchCard>()) card.QueueRedraw();
         ShowDetail(id);
         RefreshSelected();
@@ -175,6 +189,17 @@ public partial class RanchScreen : Control
         foreach (var adv in ClassBook.Classes.Where(k => k.Advanced))
             lines.Add(ClassBook.Unlocked(adv, c, t) ? $"{adv.Name}: unlocked" : $"??? - needs {ClassBook.Hint(adv, c, t)}");
         _training.Text = string.Join("\n", lines);
+    }
+
+    /// <summary>Swaps the right-hand side between breeding and training, and the lab.</summary>
+    void ToggleLab()
+    {
+        _labMode = !_labMode;
+        foreach (var c in new Control[] { _vats, _notes, _training, _buttonsRow, _detail }) c.Visible = !_labMode;
+        _lab.Visible = _labMode;
+        _labButton.Text = _labMode ? "Vats  (L)" : "Lab  (L)";
+        if (_labMode && _selected is { } id) _lab.ShowCreature(id);
+        Flash(_labMode ? "The lab: graft parts from your codex, fit brass, or infuse new blood. It all costs chem." : "");
     }
 
     void CycleClass(int id)
@@ -288,6 +313,9 @@ public partial class RanchScreen : Control
                 if (Ranch.Squad.Count == 0) { Flash("Pick at least one creature for the squad."); return; }
                 Ranch.Save();
                 Fight?.Invoke();
+                break;
+            case Key.L:
+                ToggleLab();
                 break;
             case Key.S when _selected is { } sid:
                 ToggleSquad(sid);

@@ -1,6 +1,7 @@
 # Design notes: decided directions and things to think on
 
-_Systems the user has asked for that aren't built yet. Each says what's decided (the user's
+_Systems the user has asked for that aren't built yet (generals and the party, online PvP,
+shinies). Each says what's decided (the user's
 words) and what's still open. Story themes live in `story-notes.md`._
 
 ## Generals and the party (the user's direction, 2026-11-02)
@@ -28,6 +29,34 @@ words) and what's still open. Story themes live in `story-notes.md`._
 
 **What changes in the current game:** the squad is one group of four today (`Ranch.SquadSize`).
 It becomes three per general, six with two. Mission rewards and recruiting stay the same.
+
+## Online PvP battles (a goal, the user's direction, 2026-11-02)
+
+**Decided:** online player-versus-player battles are a goal: your generals and creatures against
+another player's.
+
+**What already helps:** the rules live in `Battle`, apart from any drawing, and every roll comes
+from `SeededRng`. Two machines that start from the same seed and apply the same commands reach
+the same state, so a match can send just the commands (move here, use this skill there) and let
+each side replay them: lockstep, the usual way turn-based games go online.
+
+**What it will need:**
+- Commands as data: every player action a small serialisable record, and `Battle` driven only by
+  those (today the screen calls `Battle` methods directly).
+- A determinism check: both sides hash the battle state after each turn and compare. Floating
+  point is the risk; the rules use little of it, and what they use should be rounded or made
+  integer before matches go online.
+- Matchmaking and transport: Godot's high-level multiplayer (ENet or WebSocket) for direct or
+  relayed matches, or a small server. A server also stops cheating on squads.
+- PvP rules: squad limits (two generals, six creatures, as decided above), turn timers,
+  disconnects, and no recruiting.
+- Balance: classes, skills and grafts tuned for fairness, not only against wild packs.
+
+**Open:**
+- [ ] Ranked or casual? Matchmaking or friend codes?
+- [ ] Squads from your own ranch, or a draft or rental mode so bred creatures don't decide every
+      match?
+- [ ] Real-time-ish (turn timers) or asynchronous (play your turn when you like)?
 
 ## Shinies (to think on, 2026-11-02)
 

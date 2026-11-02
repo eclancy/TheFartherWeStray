@@ -78,7 +78,10 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   battle, swapped between battles. Decided points and open questions are in
   `docs/design-notes.md`, with the shinies the user wants to think on. Don't build either
   without the user.
-- Not built yet: story and cutscenes, generals, rival tamers.
+- **Online PvP is a goal** (2026-11-02, not built): see `docs/design-notes.md`. It leans on what
+  already holds: rules apart from drawing, every roll from `SeededRng`. Keep it that way: no
+  randomness or rule decisions in screens, so a match can be replayed from commands alone.
+- Not built yet: story and cutscenes, generals, rival tamers, online PvP.
 
 ## Build and check
 

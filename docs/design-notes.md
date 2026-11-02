@@ -45,11 +45,18 @@ from `SeededRng`. Two machines that start from the same seed and apply the same 
 the same state, so a match can send just the commands (move here, use this skill there) and let
 each side replay them: lockstep, the usual way turn-based games go online.
 
-**What it will need:**
-- Commands as data: every action a small serialisable record, and `Battle` driven by those.
-- A determinism check: both sides hash the battle state after each turn and compare. Floating
-  point is the risk; the rules use little of it, and what they use should be rounded or made
+**Built (2026-11-02):**
+- Commands as data: `Command` in `Tactics/Commands.cs` (move, attack, skill, berry, undo, flee,
+  end turn). The screen and the AI both act only through `Battle.Order`; `Battle.History` keeps
+  them.
+- A determinism check: `Battle.StateHash` after every turn, and `--replaytest`, which rebuilds 14
+  battles from their commands and compares hashes turn by turn (all match). Floating point is
+  still the risk across machines; the rules use little of it, and what they use should be made
   integer before matches go online.
+- A turn timer: `BattleScreen.TurnSeconds` (a clock chip counts down; the turn ends at zero),
+  `--timer=N` to try it.
+
+**What it will still need:**
 - Matchmaking and transport: Godot's high-level multiplayer (ENet or WebSocket) for direct or
   relayed matches, or a small server. A server also stops cheating on squads.
 - PvP rules: two wardens and six creatures a side, turn timers, disconnects, no recruiting.

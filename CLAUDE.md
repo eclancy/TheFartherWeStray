@@ -99,10 +99,13 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   the boost before the first turn; the Party panel (P) on the ranch fields wardens and fills slots. Details, defaults and open
   questions are in `docs/design-notes.md`, with PvP (casual, turn timers, your own squad) and
   shinies (1 in 512; the battle opens with a camera pan and a glint on each one).
-- **Online PvP is a goal** (2026-11-02, not built): see `docs/design-notes.md`. It leans on what
-  already holds: rules apart from drawing, every roll from `SeededRng`. Keep it that way: no
-  randomness or rule decisions in screens, so a match can be replayed from commands alone.
-- Not built yet: story and cutscenes, generals, rival tamers, online PvP.
+- **Online PvP is a goal** (2026-11-02, groundwork built): see `docs/design-notes.md`. Every
+  action, the player's, the AI's or a replay's, goes through `Battle.Order(Command)`
+  (`Tactics/Commands.cs`): small records a network can send. `Battle.StateHash` fingerprints the
+  state after each turn. Never change battle state from a screen except through `Order`, or a
+  match can't be replayed from its commands. `BattleScreen.TurnSeconds` is the turn timer
+  (`--timer=N`).
+- Not built yet: story and cutscenes, rival tamers, the network side of PvP.
 
 ## Build and check
 
@@ -110,6 +113,8 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
 - **Battle rules:** `"$GODOT_BIN" --headless --path . -- --autobattle=N` prints an AI-vs-AI log.
   After any rules change, run seeds 1-20: every one should end in under 30 rounds. Stalemates have
   come from kiting skittish fliers and from units stuck behind cliffs.
+- **Determinism:** `--replaytest` (headless) replays 14 AI battles from their commands alone and
+  compares the state hash after every turn. Run it after any rules change: all must match.
 - **Ranch and save file:** `--ranchtest` (headless) must report every creature identical after a
   save and load. Run it after touching `Species`, `Creature`, `PaletteSpec` or the painter's
   inputs. `--breeding=N` writes a sheet of parents and children. Use `--save=NAME` for anything

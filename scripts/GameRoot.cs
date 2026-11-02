@@ -171,7 +171,10 @@ public partial class GameRoot : Node
                     // Leave room to step back, straight away from the attacker.
                     var back = p - (near[0] - p);
                     if (!battle.Map.InBounds(back) || !battle.CanStand(defender, back) || battle.Map.HeightAt(back) != battle.Map.HeightAt(p)) continue;
-                    defender.Pos = p; friend.Pos = near[1]; attacker.Pos = ranged ? far : near[0];
+                    // The friend stands beside, never on the tile behind.
+                    var side = near.Skip(1).FirstOrDefault(q => q != back, new Godot.Vector2I(-1, -1));
+                    if (side.X < 0) continue;
+                    defender.Pos = p; friend.Pos = side; attacker.Pos = ranged ? far : near[0];
                     y = battle.Map.H; break;
                 }
                 var wearer = rx.React is Classes.ReactionKind.Protector or Classes.ReactionKind.Guard ? friend : defender;
@@ -368,6 +371,27 @@ public partial class GameRoot : Node
             return;
         }
 
+        if (args.ContainsKey("replaytest"))
+        {
+            // The lockstep check: play battles AI against AI on every map, then rebuild each one from
+            // its commands alone and compare the state's fingerprint after every turn.
+            int same = 0, total = 0, turns = 0;
+            var problems = new List<string>();
+            for (ulong seed = 1; seed <= 14; seed++)
+            {
+                string map = Tactics.BattleMap.Names[(int)(seed % (ulong)Tactics.BattleMap.Names.Length)];
+                Tactics.Battle Make() => Tactics.Encounter.Create(seed, null, map);
+                var battle = Make();
+                while (battle.Winner == null && battle.Round <= 30) { var u = battle.NextTurn(); if (u == null) break; battle.AiTurn(u); }
+                var (ok, matched) = Tactics.Battle.Replay(battle, Make);
+                total++; turns += matched;
+                if (ok) same++; else problems.Add($"seed {seed} on {map}: diverged at turn {matched} of {battle.TurnHashes.Count}");
+            }
+            GD.Print($"replay: {same}/{total} battles rebuilt identically from their commands alone ({turns} turns checked); {(problems.Count == 0 ? "no divergence" : string.Join("; ", problems))}");
+            GetTree().Quit();
+            return;
+        }
+
         if (args.ContainsKey("props"))
         {
             // Every prop in every region's colours: one row per region, each on a board tile.
@@ -436,7 +460,7 @@ public partial class GameRoot : Node
         {
             // A one-off battle with the default squad, no ranch involved.
             ulong seed = ulong.TryParse(oneOff, out var bs) ? bs : 1;
-            _home = () => new Tactics.BattleScreen { Seed = seed, AutoPlay = _autoPlay, DemoAim = args.ContainsKey("aim"), DemoShiny = args.ContainsKey("shiny"), MapName = args.TryGetValue("map", out var mapName) ? mapName : "Undercity Foundry" };
+            _home = () => new Tactics.BattleScreen { Seed = seed, AutoPlay = _autoPlay, DemoAim = args.ContainsKey("aim"), DemoShiny = args.ContainsKey("shiny"), TurnSeconds = args.TryGetValue("timer", out var timerArg) && float.TryParse(timerArg, out var timerSeconds) ? timerSeconds : 0, MapName = args.TryGetValue("map", out var mapName) ? mapName : "Undercity Foundry" };
             Show(_home());
             return;
         }

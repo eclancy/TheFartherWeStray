@@ -18,6 +18,11 @@ public partial class BattleScreen : Control
     public bool AutoPlay;   // the AI plays your side too (demos and screenshots)
     public bool DemoAim;    // on the first turn, aim a skill at the busiest tile (screenshots of the skill panel)
     public bool DemoShiny;  // make the first wild creature shiny, to see the reveal (they're 1 in 512)
+    public float TurnSeconds; // a turn timer (PvP will use one): your turn ends when it runs out; 0 for none
+    double _turnLeft;
+    Unit _timedUnit;
+    HBoxContainer _timer;
+    Label _timerText;
     public List<(Creature, Classes.Training)> Squad; // your creatures and their training; null for the default squad
     public System.Action<Battle> Finished; // set when a ranch is waiting for the result
     public System.Action<Battle> Prepare;  // before the first turn: a ranch puts its creatures under their wardens
@@ -83,6 +88,12 @@ public partial class BattleScreen : Control
         _info.AddThemeConstantOverride("separation", 8);
         _infoPanel.AddChild(_info);
         AddChild(_infoPanel);
+
+        _timer = new HBoxContainer { Position = new Vector2(150, 1010), Visible = false, MouseFilter = MouseFilterEnum.Ignore };
+        _timer.AddChild(Ui.Picture(Glyphs.Get("clock", 2), "Turn timer: the turn ends when it runs out"));
+        _timerText = Ui.Text("", 24, Ink, 6);
+        _timer.AddChild(_timerText);
+        AddChild(_timer);
 
         _skillBar = new HBoxContainer { Position = new Vector2(260, 994) };
         _skillBar.AddThemeConstantOverride("separation", 6);
@@ -238,6 +249,7 @@ public partial class BattleScreen : Control
 
     void EnterCommand()
     {
+        if (TurnSeconds > 0 && _active != _timedUnit) { _timedUnit = _active; _turnLeft = TurnSeconds; }
         _mode = Mode.Command;
         _skill = null;
         _reach = _active.Moved ? new() : _battle.Reachable(_active);
@@ -262,7 +274,7 @@ public partial class BattleScreen : Control
         {
             var foes = _battle.Alive.Where(f => f.Side != _active.Side).ToList();
             var to = _reach.Keys.OrderBy(t => foes.Min(f => System.Math.Abs(f.Pos.X - t.X) + System.Math.Abs(f.Pos.Y - t.Y))).First();
-            PlayerAct(() => _battle.Move(_active, to));
+            PlayerAct(() => _battle.Order(CommandKind.Move, _active, to));
         }
         else EndPlayerTurn();
     }
@@ -291,7 +303,7 @@ public partial class BattleScreen : Control
         if (_mode == Mode.Command && _battle.BerrySpots(_active).Count > 0)
             _skillBar.AddChild(BarSlot(SkillIcons.Action("berry", 3), "B", $"Glowberry: set one down to lure the curious ({_battle.Berries} left)", true, false, 0, BerryMode, _battle.Berries.ToString()));
         if (_mode == Mode.Command && _battle.CanUndo(_active))
-            _skillBar.AddChild(BarSlot(SkillIcons.Action("undo", 3), "Esc", "Undo the move", true, false, 0, () => PlayerAct(() => _battle.UndoMove(_active))));
+            _skillBar.AddChild(BarSlot(SkillIcons.Action("undo", 3), "Esc", "Undo the move", true, false, 0, () => PlayerAct(() => _battle.Order(CommandKind.Undo, _active))));
         if (_mode == Mode.Command)
             _skillBar.AddChild(BarSlot(SkillIcons.Action("end", 3), "Spc", "End the turn", true, false, 0, EndPlayerTurn));
     }
@@ -393,7 +405,7 @@ public partial class BattleScreen : Control
     {
         _mode = Mode.Busy;
         RefreshSkillBar();
-        _battle.EndTurn(_active);
+        _battle.Order(CommandKind.EndTurn, _active);
         await PlayEvents();
         if (_battle.Winner != null) { ShowEnd(); return; }
         RunTurns();
@@ -418,6 +430,16 @@ public partial class BattleScreen : Control
     public override void _Process(double delta)
     {
         if (_flashes.Count > 0) _overlay?.QueueRedraw();
+        // The turn timer runs only while you're choosing.
+        bool timing = TurnSeconds > 0 && !AutoPlay && _mode is Mode.Command or Mode.Skill or Mode.Berry && _active?.Side == Side.Player;
+        _timer.Visible = timing;
+        if (timing)
+        {
+            _turnLeft -= delta;
+            _timerText.Text = $"{Mathf.CeilToInt((float)Mathf.Max(0, _turnLeft))}";
+            _timerText.AddThemeColorOverride("font_color", _turnLeft <= 5 ? Ui.Bad : Ink);
+            if (_turnLeft <= 0) { _timer.Visible = false; EndPlayerTurn(); }
+        }
         // The info panel hugs its rows (a lone control doesn't shrink by itself).
         if (_infoPanel != null && _infoPanel.Size.Y != _infoPanel.GetCombinedMinimumSize().Y) _infoPanel.Size = new Vector2(PanelW, 0);
         var tile = _demoHover ?? _art?.Pick(_board.GetLocalMousePosition());
@@ -451,14 +473,14 @@ public partial class BattleScreen : Control
             if (_mode == Mode.Skill && k.Keycode is Key.Enter or Key.KpEnter && SkillAim() is { } aimed)
             {
                 var s = _skill;
-                PlayerAct(() => _battle.UseSkill(_active, s, aimed));
+                PlayerAct(() => _battle.Order(CommandKind.Skill, _active, aimed, skill: s));
                 return;
             }
             if (_mode != Mode.Command) return;
             switch (k.Keycode)
             {
                 case Key.Escape when _battle.CanUndo(_active):
-                    PlayerAct(() => _battle.UndoMove(_active));
+                    PlayerAct(() => _battle.Order(CommandKind.Undo, _active));
                     break;
                 case Key.B:
                     BerryMode();
@@ -474,7 +496,7 @@ public partial class BattleScreen : Control
         if (mb.ButtonIndex == MouseButton.Right)
         {
             if (_mode is Mode.Berry or Mode.Skill) EnterCommand();
-            else if (_mode == Mode.Command && _battle.CanUndo(_active)) PlayerAct(() => _battle.UndoMove(_active));
+            else if (_mode == Mode.Command && _battle.CanUndo(_active)) PlayerAct(() => _battle.Order(CommandKind.Undo, _active));
             return;
         }
         if (mb.ButtonIndex != MouseButton.Left || _hoverTile == null) return;
@@ -487,21 +509,21 @@ public partial class BattleScreen : Control
             if (aim != null && (!selfish || _battle.SkillArea(_active, _skill, aim.Value).Contains(tile) || _active.Tiles.Contains(tile)))
             {
                 var s = _skill;
-                PlayerAct(() => _battle.UseSkill(_active, s, aim.Value));
+                PlayerAct(() => _battle.Order(CommandKind.Skill, _active, aim.Value, skill: s));
             }
             return;
         }
         if (_mode == Mode.Berry)
         {
-            if (_battle.BerrySpots(_active).Contains(tile)) PlayerAct(() => _battle.OfferBerry(_active, tile));
+            if (_battle.BerrySpots(_active).Contains(tile)) PlayerAct(() => _battle.Order(CommandKind.Berry, _active, tile));
             return;
         }
         if (_mode != Mode.Command) return;
         var target = UnitOn(tile);
         if (target != null && !_active.Acted && _battle.Targets(_active).Contains(target))
-            PlayerAct(() => _battle.Attack(_active, target));
+            PlayerAct(() => _battle.Order(CommandKind.Attack, _active, target: target));
         else if (!_active.Moved && _reach.ContainsKey(tile))
-            PlayerAct(() => _battle.Move(_active, tile));
+            PlayerAct(() => _battle.Order(CommandKind.Move, _active, tile));
     }
 
     // ------------------------------------------------------------------ overlay data

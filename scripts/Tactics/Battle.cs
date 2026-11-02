@@ -28,7 +28,7 @@ public sealed record StatusEvent(Unit U, string Text) : BattleEvent;
 /// act (in either order, with the move undoable until you act), attitude reactions, and recruiting
 /// wild creatures by meeting their attitude's condition (game-ideas.md, section 4).
 /// </summary>
-public sealed class Battle
+public sealed partial class Battle
 {
     public readonly BattleMap Map;
     public readonly List<Unit> Units = new();
@@ -882,6 +882,16 @@ public sealed class Battle
         return spots;
     }
 
+    /// <summary>A wild creature leaves the field of its own accord (a skittish one left alone bolts).</summary>
+    public void Flee(Unit u)
+    {
+        Log($"{u.Name} bolts from the field!");
+        u.Gone = true;
+        Events.Add(new FaintEvent(u));
+        CheckEnd();
+        Active = null;
+    }
+
     public void OfferBerry(Unit u, Vector2I tile)
     {
         Berries--;
@@ -1064,7 +1074,7 @@ public sealed class Battle
     public void AiTurn(Unit u)
     {
         var foes = Alive.Where(o => o.Side != u.Side).ToList();
-        if (foes.Count == 0) { EndTurn(u); return; }
+        if (foes.Count == 0) { Order(CommandKind.EndTurn, u); return; }
         // A taunted creature has eyes only for its taunter.
         if (u.TauntedBy is { Gone: false } taunter && taunter.Side != u.Side) foes = new List<Unit> { taunter };
         var tiles = Reachable(u).Keys.Append(u.Pos).ToList();
@@ -1083,11 +1093,7 @@ public sealed class Battle
         // A skittish creature left without its pack doesn't hang around to be cornered: it bolts.
         if (u.Side == Side.Wild && mood == Attitude.Skittish && !Alive.Any(o => o != u && o.Side == Side.Wild))
         {
-            Log($"{u.Name} bolts from the field!");
-            u.Gone = true;
-            Events.Add(new FaintEvent(u));
-            CheckEnd();
-            Active = null;
+            Order(CommandKind.Flee, u);
             return;
         }
 
@@ -1125,12 +1131,12 @@ public sealed class Battle
                 }
         }
 
-        if (dest != u.Pos) Move(u, dest);
+        if (dest != u.Pos) Order(CommandKind.Move, u, dest);
         // The berry carrier sets one down where the curious target will come for it.
         if (BerryCarrier(u) && BerrySpots(u) is { Count: > 0 } spots)
         {
-            OfferBerry(u, spots.OrderBy(p => Math.Abs(p.X - Target.Pos.X) + Math.Abs(p.Y - Target.Pos.Y)).First());
-            EndTurn(u);
+            Order(CommandKind.Berry, u, spots.OrderBy(p => Math.Abs(p.X - Target.Pos.X) + Math.Abs(p.Y - Target.Pos.Y)).First());
+            Order(CommandKind.EndTurn, u);
             return;
         }
         // Skittish creatures only fight back when there is nowhere left to go.
@@ -1158,8 +1164,8 @@ public sealed class Battle
                 if (score > best.score + 0.5f) best = (s, t, score);
             }
         }
-        if (best.skill != null) UseSkill(u, best.skill, best.tile);
-        else if (fights && target != null) Attack(u, target);
-        EndTurn(u);
+        if (best.skill != null) Order(CommandKind.Skill, u, best.tile, skill: best.skill);
+        else if (fights && target != null) Order(CommandKind.Attack, u, target: target);
+        Order(CommandKind.EndTurn, u);
     }
 }

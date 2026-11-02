@@ -9,6 +9,8 @@ namespace CreatureTactics.Creatures;
 public sealed class SeededRng
 {
     ulong _state;
+    /// <summary>Where the stream is: two generators with the same state roll the same from here on.</summary>
+    public ulong State => _state;
 
     public SeededRng(ulong seed) { _state = seed; }
 

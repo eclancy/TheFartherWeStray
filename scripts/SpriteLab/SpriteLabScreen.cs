@@ -27,13 +27,13 @@ public partial class SpriteLabScreen : Control
 
     public override void _Ready()
     {
-        SetAnchorsPreset(LayoutPreset.FullRect);
-        var bg = new ColorRect { Color = new Color(0.957f, 0.937f, 0.886f) };
-        bg.SetAnchorsPreset(LayoutPreset.FullRect);
+        SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        var bg = new ColorRect { Color = new Color(0.075f, 0.06f, 0.13f) };
+        bg.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         AddChild(bg);
 
         var margin = new MarginContainer();
-        margin.SetAnchorsPreset(LayoutPreset.FullRect);
+        margin.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         foreach (var side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride($"margin_{side}", 24);
         AddChild(margin);
 
@@ -43,7 +43,7 @@ public partial class SpriteLabScreen : Control
 
         _header = new Label();
         _header.AddThemeFontSizeOverride("font_size", 22);
-        _header.AddThemeColorOverride("font_color", new Color(0.22f, 0.2f, 0.27f));
+        _header.AddThemeColorOverride("font_color", new Color(0.91f, 0.89f, 0.96f));
         col.AddChild(_header);
 
         var center = new CenterContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
@@ -55,7 +55,7 @@ public partial class SpriteLabScreen : Control
 
         _detail = new Label { CustomMinimumSize = new Vector2(0, 118) };
         _detail.AddThemeFontSizeOverride("font_size", 17);
-        _detail.AddThemeColorOverride("font_color", new Color(0.25f, 0.23f, 0.3f));
+        _detail.AddThemeColorOverride("font_color", new Color(0.78f, 0.75f, 0.86f));
         col.AddChild(_detail);
 
         Rebuild();
@@ -187,8 +187,8 @@ public partial class CreatureCard : Control
     {
         var box = new StyleBoxFlat
         {
-            BgColor = new Color(0.988f, 0.976f, 0.945f),
-            BorderColor = _hover ? new Color(0.45f, 0.4f, 0.6f) : new Color(0.88f, 0.85f, 0.78f),
+            BgColor = new Color(0.12f, 0.1f, 0.19f),
+            BorderColor = _hover ? new Color(0.31f, 0.89f, 1f) : new Color(0.24f, 0.2f, 0.33f),
         };
         box.SetBorderWidthAll(_hover ? 3 : 2);
         box.SetCornerRadiusAll(10);
@@ -202,19 +202,19 @@ public partial class CreatureCard : Control
         var ts = _tex.GetSize() * z;
         var center = new Vector2(Size.X / 2, ground - _zoom);
         DrawSetTransform(center, 0, new Vector2(1, 0.22f));
-        DrawCircle(Vector2.Zero, ts.X * 0.42f, new Color(0.2f, 0.18f, 0.25f, 0.16f));
+        DrawCircle(Vector2.Zero, ts.X * 0.42f, new Color(0, 0, 0, 0.35f));
         DrawSetTransform(Vector2.Zero, 0, Vector2.One);
         DrawTextureRect(_tex, new Rect2(new Vector2(Mathf.Round(Size.X / 2 - ts.X / 2), ground - ts.Y), ts), false);
 
         var font = GetThemeDefaultFont();
-        var ink = new Color(0.22f, 0.2f, 0.27f);
-        var soft = new Color(0.45f, 0.42f, 0.5f);
+        var ink = new Color(0.91f, 0.89f, 0.96f);
+        var soft = new Color(0.6f, 0.56f, 0.7f);
         string name = _creature.Species.Name + (_creature.Shiny ? " *" : "");
         DrawString(font, new Vector2(0, ground + 24), name, HorizontalAlignment.Center, Size.X, 19, _creature.Shiny ? new Color(0.75f, 0.5f, 0.05f) : ink);
         string line = $"{_creature.Size} {_creature.Species.Plan} · {_creature.Attitude}";
         DrawString(font, new Vector2(0, ground + 44), line, HorizontalAlignment.Center, Size.X, 14, soft);
         if (_creature.Mutation != null)
-            DrawString(font, new Vector2(0, ground + 59), _creature.Mutation, HorizontalAlignment.Center, Size.X, 13, new Color(0.6f, 0.25f, 0.5f));
+            DrawString(font, new Vector2(0, ground + 59), _creature.Mutation, HorizontalAlignment.Center, Size.X, 13, new Color(1f, 0.45f, 0.75f));
         DrawString(font, new Vector2(10, 22), $"#{_index + 1}", HorizontalAlignment.Left, -1, 13, soft);
     }
 }

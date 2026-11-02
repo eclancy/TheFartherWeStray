@@ -1,0 +1,110 @@
+using System.Collections.Generic;
+using CreatureTactics.Creatures;
+using Godot;
+
+namespace CreatureTactics.Tactics;
+
+public enum Side { Player, Wild }
+
+/// <summary>
+/// A creature on the battlefield. Its stats come from its parts the way FFTA stats come from race
+/// and equipment: body plan and size set the base, the weapon part sets reach and knockback, the
+/// armour part sets defence, wings or fins set how it moves, and strain grafts add on top.
+/// </summary>
+public sealed class Unit
+{
+    public Creature Creature;
+    public Side Side;
+    public Vector2I Pos;     // top-left tile of its footprint
+    public int Size;         // footprint width: 2 for huge creatures (2x2), else 1
+
+    public int MaxHp, Hp, Atk, Def, Spd, Move, HitBonus;
+    public MoveType MoveType;
+    public Weapon Weapon;
+    public Armor Armor;
+
+    public bool Gone;        // fainted, or fled the field
+    public bool Moved, Acted;
+    public Vector2I TurnStart;
+
+    // Recruiting and reactions.
+    public readonly HashSet<Unit> HitBy = new();
+    public Unit LastAttacker;
+    public int Weathered;    // aggressive: attacks it made that didn't drop anyone
+    public bool GuardUsed;   // loyal: has shielded an ally this round
+
+    public Attitude Attitude => Creature.Attitude;
+    public string Name => Creature.Species.Name;
+    public int Range => Weapon == Weapon.Whip ? 2 : 1;
+    public bool Knockback => Weapon is Weapon.Horns or Weapon.Hooves;
+    public int Thorns => Armor == Armor.Spines ? 3 : 0;
+
+    public IEnumerable<Vector2I> TilesAt(Vector2I p)
+    {
+        for (int dy = 0; dy < Size; dy++)
+        for (int dx = 0; dx < Size; dx++)
+            yield return p + new Vector2I(dx, dy);
+    }
+
+    public IEnumerable<Vector2I> Tiles => TilesAt(Pos);
+
+    public static Unit From(Creature c, Side side)
+    {
+        var sp = c.Species;
+        (float hp, float atk, float def, float spd, int move) = sp.Plan switch
+        {
+            BodyPlan.Quadruped => (30f, 9f, 6f, 6f, 4),
+            BodyPlan.Biped => (32f, 9f, 6f, 5f, 4),
+            BodyPlan.Serpent => (28f, 8f, 5f, 6f, 4),
+            BodyPlan.Avian => (24f, 8f, 4f, 8f, 5),
+            BodyPlan.Insectoid => (24f, 9f, 6f, 7f, 4),
+            BodyPlan.Aquatic => (28f, 8f, 5f, 6f, 4),
+            _ => (36f, 7f, 8f, 4f, 3),
+        };
+        switch (c.Size)
+        {
+            case SizeClass.Tiny: hp *= 0.6f; atk -= 2; spd += 2; break;
+            case SizeClass.Small: hp *= 0.8f; atk -= 1; spd += 1; break;
+            case SizeClass.Large: hp *= 1.25f; atk += 1; spd -= 1; break;
+            case SizeClass.Huge: hp *= 1.6f; atk += 2; spd -= 2; move -= 1; break;
+        }
+        int hit = 0;
+        switch (c.Weapon)
+        {
+            case Weapon.Claws: atk += 2; break;
+            case Weapon.Horns: atk += 2; break;
+            case Weapon.Club: atk += 3; hit -= 10; break;
+            case Weapon.Hooves: atk += 1; break;
+        }
+        switch (c.Armor)
+        {
+            case Armor.Shell: def += 4; move -= 1; break;
+            case Armor.Spines: def += 1; break;
+            case Armor.Crystal: def += 3; break;
+            case Armor.Mane: hp += 6; break;
+        }
+        var g = sp.Grafts;
+        if (g.HasFlag(Graft.Plating)) def += 3;
+        if (g.HasFlag(Graft.MetalLimb)) atk += 1;
+        if (g.HasFlag(Graft.Visor)) hit += 10;
+        if (g.HasFlag(Graft.Core)) atk += 2;
+        if (g.HasFlag(Graft.Canister) || g.HasFlag(Graft.Drips)) atk += 1;
+        if (g.HasFlag(Graft.Veins)) spd += 1;
+        if (g.HasFlag(Graft.Runes)) { def += 1; hit += 5; }
+        if (g.HasFlag(Graft.GlowTips)) atk += 1;
+        if (g.HasFlag(Graft.ExtraEyes)) hit += 10;
+        if (g.HasFlag(Graft.Cracks)) { atk += 2; def -= 1; }
+
+        // Individuals roll a little either side of their species.
+        var rng = new SeededRng(c.Seed ^ 0xBA77_1E5UL);
+        int Roll(float v) => Mathf.Max(1, Mathf.RoundToInt(v * rng.Range(0.9f, 1.1f)));
+        var u = new Unit
+        {
+            Creature = c, Side = side, Size = c.Size == SizeClass.Huge ? 2 : 1,
+            MaxHp = Roll(hp), Atk = Roll(atk), Def = Roll(def), Spd = Roll(spd), Move = Mathf.Max(2, move),
+            HitBonus = hit, MoveType = c.MoveType, Weapon = c.Weapon, Armor = c.Armor,
+        };
+        u.Hp = u.MaxHp;
+        return u;
+    }
+}

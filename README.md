@@ -1,6 +1,6 @@
 # Creature Tactics
 
-An FFTA-style grid tactics game where your units are procedurally generated creatures you
+An FFTA-style isometric tactics game where your units are procedurally generated creatures you
 recruit, breed and train. A creature's body plan works like an FFTA race, its parts are its
 equipment (horns are the weapon, a shell is the armour, wings are the movement accessory), and
 its attitude is both its reaction ability and how you recruit it in battle.
@@ -10,26 +10,22 @@ is the game, and sections 1-2 add detail.
 
 Godot 4.5 (.NET), C#.
 
-## Status: sprite generator prototype
+## Art direction
 
-The notes call the sprite generator the biggest risk ("if generated creatures don't look
-charming, nothing else matters"), so it comes first. The game is currently the **Sprite Lab**,
-a sheet of seeded creatures to judge.
+Medieval high fantasy with steampunk and neonpunk, after Arcane (Piltover brass above, Zaun neon
+below). Monsters are drawn in the spirit of FFTA and Fell Seal: lean and predatory, with small
+glowing eyes, fangs, earthy palettes and dark outlines. The tone can be dark and scary, balanced
+by plenty of natural beasts. Every species has a **strain**:
 
-Each creature is built from a seed:
-- **Species**: body plan (quadruped, biped, serpent, avian, insectoid, aquatic, blob), the part
-  in every slot (head, ears, eyes, horns, back, limbs, tail, wings, pattern), a palette family,
-  proportions and a syllable name.
-- **Individual**: size (tiny to huge, where huge is a 2x2 footprint), attitude (aggressive,
-  skittish, loyal, curious, proud: it shapes the eyes, mouth and pose), a slight shade drift,
-  and rare twists: a shiny palette (1 in 24) or a mutated part (1 in 14).
+| Strain | Share | Look |
+|---|---|---|
+| Natural | about half | earthy beasts, no glow |
+| Clockwork | | brass plating, a metal limb, a lens visor, a hextech core |
+| Chemtech | | a canister of neon chem on its back, glowing veins, dripping ooze |
+| Arcane | | glowing runes, burning horn and spike tips |
+| Abyssal | | near-black body, extra eyes, glowing cracks |
 
-Sprites are drawn as lit shapes on a small pixel grid: four tones per material with hue-shifted
-ramps, part seams, and selective outlines. A medium creature is roughly Gen 3 sized. **C**
-switches to a strict 4-colour Game Boy Color palette for comparison.
-
-The **DrawPets cast** (press **D**) is 24 pets from the DrawPets adopt shop, rebuilt as
-hand-authored species in the same part system (`scripts/Creatures/DrawPetsCast.cs`).
+Every strain except natural gets a neon rim light and glow spill.
 
 ## Run it
 
@@ -40,35 +36,67 @@ hand-authored species in the same part system (`scripts/Creatures/DrawPetsCast.c
 `GODOT_BIN` is set in `.claude/settings.json` (Godot 4.5.1 mono). Build C# with
 `dotnet build CreatureTactics.sln`. On a fresh checkout, run `"$GODOT_BIN" --headless --path . --import` once.
 
-| Key | Does |
+The game opens on a **battle**. **Tab** switches to the **Sprite Lab**.
+
+### Battle
+
+Your four creatures (from the DrawPets cast) face a wild pack of four on an isometric foundry
+yard with height, brass platforms, a chem canal and a pit. Turns go in Speed order (FFTA style).
+
+| Input | Does |
 |---|---|
-| Space / R | new random sheet |
-| Left / Right | previous / next sheet (sheets are numbered and repeatable) |
-| Click a creature | its species: 24 individuals side by side |
-| Esc / right-click | back to the sheet |
-| D | the DrawPets cast |
-| C | full palette / 4-colour |
-| Z | zoom 2x / 3x |
-| P | save the sheet as a PNG in `.shots/` |
-| F11 | fullscreen |
+| Click a blue tile | move (passes allies, climbs 1 level; flyers, climbers and swimmers differ) |
+| Click a marked enemy | attack. Hover it first for damage and hit chance |
+| B, then a green tile | set down a glowberry (lures curious creatures) |
+| Esc / right-click | undo the move, if you haven't acted yet |
+| Space | end the turn |
+| R | next encounter (after a battle) |
 
-Hover a creature to see its parts and what they mean in battle (weapon, armour, movement,
-reaction, recruit condition).
+Parts become stats: whip tails reach 2 tiles, horns and hooves knock back, spines hurt melee
+attackers, shells add defence but cost movement, high ground hits harder, and huge creatures
+take 2x2 tiles.
 
-Export without opening a window:
+Attitude is a reaction: aggressive creatures counterattack, skittish ones retreat a tile when
+hit, and a loyal one shields an adjacent ally once a round. Curious creatures grab items in
+reach, and proud ones go after whoever hit them. It also sets how you **recruit** a wild one:
+
+| Attitude | To recruit it |
+|---|---|
+| Proud | defeat it using only one of your creatures |
+| Skittish | corner it so it can't step anywhere |
+| Curious | lure it with a glowberry |
+| Aggressive | survive three of its attacks without anyone falling |
+| Loyal | recruit its packmates first (a placeholder) |
+
+### Sprite Lab
+
+A sheet of seeded creatures to judge the generator. Space rerolls, Left/Right steps through
+numbered sheets, clicking a creature shows its species' individuals, D shows the DrawPets cast,
+C toggles 4-colour mode, Z zooms, and P saves a PNG to `.shots/`. Hover a creature for its parts,
+gear, strain and attitude.
+
+### Command line
 
 ```bash
+"$GODOT_BIN" --headless --path . -- --autobattle=3
+"$GODOT_BIN" --path . -- --autoplay --shot=600
 "$GODOT_BIN" --headless --path . -- --export=.shots/sheet42.png --sheet=42
-"$GODOT_BIN" --headless --path . -- --export=.shots/cast.png --drawpets --four
-"$GODOT_BIN" --headless --path . -- --export=.shots/pip.png --species=Pip
 ```
 
-Other options: `--scale=N`, `--columns=N`, `--from=N`, `--count=N`. See `scripts/GameRoot.cs`.
+- `--autobattle=N` plays encounter N AI against AI and prints the log.
+- `--shot=N` saves frame N to `.shots/shot.png`.
+- `--export` renders a sheet without a window.
+
+The full list is in `scripts/GameRoot.cs`.
 
 ## Layout
 
-- `scripts/Creatures/`: the generator, with no UI. `Creature.cs` (species and individuals),
-  `CreaturePainter.cs` (body plans and part shapes), `PixelCanvas.cs` (shading, seams,
-  outlines, palettes), `CreaturePalette.cs`, `CreatureNames.cs`, `DrawPetsCast.cs`.
+- `scripts/Creatures/`: the generator, with no UI. `Creature.cs` (species, individuals,
+  strains and grafts, gear), `CreaturePainter.cs` (body plans, parts, faces, grafts),
+  `PixelCanvas.cs` (shading, seams, outlines, rim light), `CreaturePalette.cs`,
+  `CreatureNames.cs`, `DrawPetsCast.cs`.
+- `scripts/Tactics/`: battles. `Battle.cs` (rules, recruiting, attitude AI, with no drawing),
+  `Unit.cs` (stats from parts), `BattleMap.cs`, `Encounter.cs`, `IsoArt.cs` (pixel-art board and
+  backdrop), `BattleScreen.cs`.
 - `scripts/SpriteLab/`: the sheet screen and the PNG composer.
 - `docs/game-ideas.md`: the design notes.

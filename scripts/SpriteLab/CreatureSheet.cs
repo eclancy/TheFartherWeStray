@@ -55,9 +55,9 @@ public static class CreatureSheet
         return sb.ToString();
     }
 
-    static readonly Color Paper = new(0.957f, 0.937f, 0.886f);
-    static readonly Color Card = new(0.988f, 0.976f, 0.945f);
-    static readonly Color Shadow = new(0.2f, 0.18f, 0.25f);
+    static readonly Color Paper = new(0.075f, 0.06f, 0.13f);
+    static readonly Color Card = new(0.12f, 0.1f, 0.19f);
+    static readonly Color Shadow = new(0f, 0f, 0f);
 
     /// <summary>Lays the creatures out on a grid, each standing on a soft shadow, at an integer scale.</summary>
     public static Image Compose(List<Creature> creatures, bool fourColor, int scale, int columns)
@@ -99,7 +99,7 @@ public static class CreatureSheet
             if (x < 0 || y < 0 || x >= img.GetWidth() || y >= img.GetHeight()) continue;
             float dx = (x - cx) / rx, dy = (y - cy) / ry;
             if (dx * dx + dy * dy > 1) continue;
-            img.SetPixel(x, y, img.GetPixel(x, y).Lerp(Shadow, 0.16f));
+            img.SetPixel(x, y, img.GetPixel(x, y).Lerp(Shadow, 0.35f));
         }
     }
 }

@@ -33,4 +33,4 @@ project/assembly_name="CreatureTactics"
 textures/canvas_textures/default_texture_filter=0
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
-environment/defaults/default_clear_color=Color(0.957, 0.937, 0.886, 1)
+environment/defaults/default_clear_color=Color(0.075, 0.06, 0.13, 1)

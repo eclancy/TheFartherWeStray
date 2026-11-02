@@ -1,0 +1,27 @@
+# Godot 4+ specific ignores
+.godot/
+.nomedia
+
+# Godot-specific ignores
+.import/
+export.cfg
+export_credentials.cfg
+
+# Mono-specific ignores
+.mono/
+data_*/
+mono_crash.*.json
+
+.vs/
+.vscode/
+bin/
+obj/
+
+# Claude Code - everything else under .claude/ is committed on purpose.
+.claude/settings.local.json
+
+# Sheets saved from the Sprite Lab (P key / --export) - working files.
+.shots/
+
+# Exported game builds.
+build/

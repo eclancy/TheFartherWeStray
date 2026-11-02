@@ -1,0 +1,17 @@
+{
+  "env": {
+    "GODOT_BIN": "C:\Program Files (x86)\Godot_v4.5.1-stable_mono_win64\Godot_v4.5.1-stable_mono_win64_console.exe"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)"
+    ],
+    "deny": [
+      "Read(./.godot/**)"
+    ]
+  }
+}

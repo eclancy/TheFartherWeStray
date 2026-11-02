@@ -36,6 +36,11 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   serpent bodies swaying in a wave, wingbeats, floating auras, flickering flames, a blink every
   fourth breath. 8 frames at 8 fps; `UnitView` renders them on a worker thread and swaps them in.
   New forms' trailing parts (tatters, plumes, tendrils) want a `Trail` warp.
+- **Action poses** (2026-11-02): `Pose` Walk, Strike, Cast, Hurt, Faint, made the same way
+  (`BodyWarp` per pose, `LegWarp` for steps). `UnitView` renders every pose for both views in the
+  background and plays them: walk cycles while moving, a wind-up and lunge for attacks and melee
+  skills, a rear-up for other skills, a flinch on a hit, a collapse before fading.
+  `--forms --idle=NAME --actions` writes the whole reel as frames.
 - **Readability (2026-11-01):** icons and shorthand over sentences, after WizardSurvivors'
   stat glyphs. `scripts/UI/`: `Glyphs` (12x12 art, outlined, drawn at 2x+), `SkillIcons` (every
   skill gets a framed glyph: frame colour = attack/heal/boost/control/move, corner marks = shape and

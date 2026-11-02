@@ -7,6 +7,9 @@ namespace CreatureTactics.Creatures;
 /// <summary>Which way a creature faces on screen. The other two diagonals are these two, mirrored.</summary>
 public enum View { Front, Back }
 
+/// <summary>What a creature is doing: breathing, walking, striking, casting, flinching, falling.</summary>
+public enum Pose { Idle, Walk, Strike, Cast, Hurt, Faint }
+
 /// <summary>
 /// FFTA's camera: 30 degrees above the board, looking down a grid diagonal. Creature space is X
 /// forward, Y to its left, Z up, in sprite pixels, with the ground at Z = 0. In the front view the

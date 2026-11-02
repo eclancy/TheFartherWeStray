@@ -771,9 +771,12 @@ public partial class BattleScreen : Control
                     var color = sk.Skill.Target is Classes.TargetKind.Ally or Classes.TargetKind.Self ? Cyan : Color.FromHtml("#ff8a3d");
                     _flashes.Add((sk.Area, color, Time.GetTicksMsec() / 1000.0 + 0.45));
                     _overlay.QueueRedraw();
-                    if (sk.Center != sk.U.Pos && _views.Values.FirstOrDefault(x => x.Unit.Tiles.Contains(sk.Center)) is { } target)
-                        await view.Lunge(target);
-                    else await Wait(0.25f);
+                    var target = sk.Center != sk.U.Pos ? _views.Values.FirstOrDefault(x => x.Unit.Tiles.Contains(sk.Center) && x != view) : null;
+                    bool melee = sk.Skill.Power > 0 && (sk.Skill.Range <= 1 || sk.Skill.Leap) && !sk.Skill.AroundSelf;
+                    if (target != null) view.Face(target.Position - view.Position);
+                    else if (sk.Center != sk.U.Pos) view.Face(FeetAt(sk.U, sk.Center) - view.Position);
+                    if (melee && target != null) await view.Lunge(target);
+                    else await view.Cast();
                     break;
                 }
                 case StatusEvent st:
@@ -854,15 +857,22 @@ public partial class UnitView : Node2D
     bool _showBack, _flip;
     float _baseY;
 
-    // The idle loop: frames of a breath for each view, then a blink. They're rendered on a worker
-    // thread and swapped in as they arrive; until then the still pose shows.
+    // Animation frames for every pose and both views: the idle breath (and a blink), then the
+    // actions. They're rendered on a worker thread, idle first, and swapped in as they arrive;
+    // until a pose's frames exist the creature breathes, or holds its still pose.
     const int IdleFrames = 8;
-    const float IdleFps = 8;
-    readonly (Texture2D tex, Vector2I anchor)[][] _idle = { new (Texture2D, Vector2I)[IdleFrames + 1], new (Texture2D, Vector2I)[IdleFrames + 1] };
-    readonly System.Collections.Concurrent.ConcurrentQueue<(int view, int frame, Image img, Vector2I anchor)> _rendered = new();
+    const float IdleFps = 8, WalkFps = 10;
+    static readonly (Pose pose, int frames)[] Reel =
+        { (Pose.Idle, IdleFrames + 1), (Pose.Walk, 4), (Pose.Strike, 5), (Pose.Cast, 6), (Pose.Hurt, 4), (Pose.Faint, 6) };
+    readonly Dictionary<(Pose, int), (Texture2D tex, Vector2I anchor)[]> _frames = new();
+    readonly System.Collections.Concurrent.ConcurrentQueue<(Pose pose, int view, int frame, Image img, Vector2I anchor)> _rendered = new();
     double _clock;
     int _beatOffset;
     (Texture2D tex, Vector2I anchor, bool flip) _shown;
+    Pose _action = Pose.Idle;
+    double _actionStart;
+    float _actionLen;
+    bool _walking, _fainted;
 
     public void Setup(Unit u, BattleScreen screen)
     {
@@ -876,6 +886,8 @@ public partial class UnitView : Node2D
         _back = ImageTexture.CreateFromImage(back);
         _frontAnchor = fa;
         _backAnchor = ba;
+        foreach (var (pose, n) in Reel)
+            for (int view = 0; view < 2; view++) _frames[(pose, view)] = new (Texture2D, Vector2I)[n];
         _sprite = new Sprite2D { Centered = false };
         AddChild(_sprite);
         SetFacing(u.Side == Side.Wild, false);
@@ -885,15 +897,33 @@ public partial class UnitView : Node2D
         var creature = u.Creature;
         Task.Run(() =>
         {
-            foreach (int view in new[] { 0, 1 })
-                for (int f = 0; f <= IdleFrames; f++)
-                {
-                    bool blink = f == IdleFrames;
-                    var (img, anchor) = CreatureSculptor.Render(creature, false, view == 0 ? View.Front : View.Back, blink ? 7f / IdleFrames : f / (float)IdleFrames, blink);
-                    _rendered.Enqueue((view, f, img, anchor));
-                }
+            foreach (var (pose, n) in Reel)
+                foreach (int view in new[] { 0, 1 })
+                    for (int f = 0; f < n; f++)
+                    {
+                        bool blink = pose == Pose.Idle && f == IdleFrames;
+                        float phase = pose switch
+                        {
+                            Pose.Idle => blink ? 7f / IdleFrames : f / (float)IdleFrames,
+                            Pose.Walk => f / (float)n,
+                            _ => f / (float)(n - 1),
+                        };
+                        var (img, anchor) = CreatureSculptor.Render(creature, false, view == 0 ? View.Front : View.Back, phase, blink, pose);
+                        _rendered.Enqueue((pose, view, f, img, anchor));
+                    }
         });
     }
+
+    /// <summary>Plays a pose once over <paramref name="seconds"/>, then goes back to breathing.</summary>
+    public async Task Act(Pose pose, float seconds)
+    {
+        _action = pose;
+        _actionStart = _clock;
+        _actionLen = seconds;
+        await ToSignal(GetTree().CreateTimer(seconds), SceneTreeTimer.SignalName.Timeout);
+    }
+
+    public Task Cast() => Act(Pose.Cast, 0.45f);
 
     /// <summary>Shows the front or back view, mirrored or not, with its feet on this node.</summary>
     void SetFacing(bool back, bool flip)
@@ -903,15 +933,33 @@ public partial class UnitView : Node2D
         ShowFrame();
     }
 
-    /// <summary>The idle frame for now in the view it faces, or its still pose until that has rendered.</summary>
+    /// <summary>
+    /// The frame for now, in the view it faces: the action it's playing, the walk cycle while it
+    /// moves, or the idle breath; its still pose until those have rendered.
+    /// </summary>
     void ShowFrame()
     {
         int view = _showBack ? 1 : 0;
-        long beat = (long)(_clock * IdleFps) + _beatOffset;
-        int f = (int)(beat % IdleFrames);
-        // Every fourth breath ends in a blink.
-        if (f == IdleFrames - 1 && beat / IdleFrames % 4 == 3 && _idle[view][IdleFrames].tex != null) f = IdleFrames;
-        var (tex, a) = _idle[view][f];
+        (Texture2D tex, Vector2I a) pick = default;
+        if (_action != Pose.Idle || _fainted)
+        {
+            var pose = _fainted ? Pose.Faint : _action;
+            var frames = _frames[(pose, view)];
+            float progress = _fainted ? 1 : (float)((_clock - _actionStart) / _actionLen);
+            if (progress >= 1 && !_fainted && pose != Pose.Faint) _action = Pose.Idle;
+            else pick = frames[System.Math.Clamp((int)(progress * frames.Length), 0, frames.Length - 1)];
+        }
+        else if (_walking) pick = _frames[(Pose.Walk, view)][(int)(_clock * WalkFps) % 4];
+        if (pick.tex == null)
+        {
+            var idle = _frames[(Pose.Idle, view)];
+            long beat = (long)(_clock * IdleFps) + _beatOffset;
+            int f = (int)(beat % IdleFrames);
+            // Every fourth breath ends in a blink.
+            if (f == IdleFrames - 1 && beat / IdleFrames % 4 == 3 && idle[IdleFrames].tex != null) f = IdleFrames;
+            pick = idle[f];
+        }
+        var (tex, a) = pick;
         if (tex == null) (tex, a) = _showBack ? (_back, _backAnchor) : (Texture, _frontAnchor);
         if (_shown == (tex, a, _flip)) return;
         _shown = (tex, a, _flip);
@@ -940,7 +988,7 @@ public partial class UnitView : Node2D
     public override void _Process(double delta)
     {
         if (_flash > 0) { _flash = Mathf.Max(0, _flash - (float)delta * 4); _sprite.Modulate = Colors.White.Lerp(new Color(1, 0.3f, 0.3f), _flash); }
-        while (_rendered.TryDequeue(out var r)) _idle[r.view][r.frame] = (ImageTexture.CreateFromImage(r.img), r.anchor);
+        while (_rendered.TryDequeue(out var r)) _frames[(r.pose, r.view)][r.frame] = (ImageTexture.CreateFromImage(r.img), r.anchor);
         _clock += delta;
         ShowFrame();
         QueueRedraw();
@@ -993,6 +1041,7 @@ public partial class UnitView : Node2D
 
     public async Task Walk(List<Vector2I> path)
     {
+        _walking = true;
         var tw = CreateTween();
         for (int i = 1; i < path.Count; i++)
         {
@@ -1010,6 +1059,7 @@ public partial class UnitView : Node2D
             else tw.TweenProperty(this, "position", to, 0.1f);
         }
         await ToSignal(tw, Tween.SignalName.Finished);
+        _walking = false;
         _tile = path[^1];
     }
 
@@ -1027,10 +1077,14 @@ public partial class UnitView : Node2D
         var dir = (target.Position - Position).Normalized();
         Face(target.Position - Position);
         var home = Position;
+        // The strike pose winds up, then the body steps in as it lands.
+        var strike = Act(Pose.Strike, 0.38f);
         var tw = CreateTween();
-        tw.TweenProperty(this, "position", home + dir * 7, 0.08f);
-        tw.TweenProperty(this, "position", home, 0.1f);
+        tw.TweenInterval(0.11f);
+        tw.TweenProperty(this, "position", home + dir * 6, 0.08f);
+        tw.TweenProperty(this, "position", home, 0.14f);
         await ToSignal(tw, Tween.SignalName.Finished);
+        await strike;
     }
 
     public void Hurt(int amount, bool miss)
@@ -1038,6 +1092,7 @@ public partial class UnitView : Node2D
         if (miss) return;
         DisplayHp -= amount;
         _flash = 1;
+        _ = Act(Pose.Hurt, 0.32f);
     }
 
     public void Heal(int amount) => DisplayHp += amount;
@@ -1053,6 +1108,8 @@ public partial class UnitView : Node2D
 
     public async Task Vanish()
     {
+        await Act(Pose.Faint, 0.55f);
+        _fainted = true;
         var tw = CreateTween();
         tw.TweenProperty(this, "modulate:a", 0f, 0.35f);
         await ToSignal(tw, Tween.SignalName.Finished);

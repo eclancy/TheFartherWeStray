@@ -110,14 +110,39 @@ public static class CreatureSheet
     /// </summary>
     public static List<Image> ComposeIdle(List<Creature> creatures, int scale, int columns, int frames = 16)
     {
+        var steps = new List<(Pose, float, bool)>();
+        for (int f = 0; f < frames; f++) steps.Add((Pose.Idle, (f % (frames / 2)) / (frames / 2f), f == frames - 1));
+        return ComposeAnimation(creatures, scale, columns, steps);
+    }
+
+    /// <summary>
+    /// Every action in turn, at 8 frames a second: a breath, two walk cycles, a strike, a cast, a
+    /// flinch and a faint (held), then back to breathing.
+    /// </summary>
+    public static List<(Pose pose, float phase, bool blink)> ActionReel()
+    {
+        var steps = new List<(Pose, float, bool)>();
+        for (int f = 0; f < 8; f++) steps.Add((Pose.Idle, f / 8f, false));
+        for (int f = 0; f < 8; f++) steps.Add((Pose.Walk, (f % 4) / 4f, false));
+        for (int f = 0; f < 5; f++) steps.Add((Pose.Strike, f / 5f, false));
+        for (int f = 0; f < 3; f++) steps.Add((Pose.Idle, f / 8f, false));
+        for (int f = 0; f < 6; f++) steps.Add((Pose.Cast, f / 6f, false));
+        for (int f = 0; f < 4; f++) steps.Add((Pose.Hurt, f / 4f, false));
+        for (int f = 0; f < 2; f++) steps.Add((Pose.Idle, f / 8f, false));
+        for (int f = 0; f < 6; f++) steps.Add((Pose.Faint, f / 5f, false));
+        for (int f = 0; f < 4; f++) steps.Add((Pose.Faint, 1, false));
+        return steps;
+    }
+
+    public static List<Image> ComposeAnimation(List<Creature> creatures, int scale, int columns, List<(Pose pose, float phase, bool blink)> steps)
+    {
         var all = new List<List<(Image img, Vector2I anchor)>>();
-        for (int f = 0; f < frames; f++)
+        foreach (var (pose, phase, blink) in steps)
         {
-            float phase = (f % (frames / 2)) / (frames / 2f);
             var shots = new List<(Image img, Vector2I anchor)>();
             foreach (var c in creatures)
                 foreach (var view in new[] { View.Front, View.Back })
-                    shots.Add(CreatureSculptor.Render(c, false, view, phase, f == frames - 1));
+                    shots.Add(CreatureSculptor.Render(c, false, view, phase, blink, pose));
             all.Add(shots);
         }
         return Sheets(all, creatures.Count, scale, columns);

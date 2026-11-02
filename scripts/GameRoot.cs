@@ -322,8 +322,12 @@ public partial class GameRoot : Node
                 // The idle loop as numbered frames, for a GIF: .shots/idle/NAME/f00.png onward.
                 string dir = ProjectSettings.GlobalizePath($"res://.shots/idle/{(idleName == "" ? "loop" : idleName)}");
                 System.IO.Directory.CreateDirectory(dir);
-                var frames = CreatureSheet.ComposeIdle(list, args.TryGetValue("scale", out var isc) && int.TryParse(isc, out var isv) ? isv : 3,
-                    args.TryGetValue("columns", out var icol) && int.TryParse(icol, out var icv) ? icv : 4);
+                int iscale = args.TryGetValue("scale", out var isc) && int.TryParse(isc, out var isv) ? isv : 3;
+                int icols = args.TryGetValue("columns", out var icol) && int.TryParse(icol, out var icv) ? icv : 4;
+                // --actions plays every action in turn instead of only breathing.
+                var frames = args.ContainsKey("actions")
+                    ? CreatureSheet.ComposeAnimation(list, iscale, icols, CreatureSheet.ActionReel())
+                    : CreatureSheet.ComposeIdle(list, iscale, icols);
                 for (int fi = 0; fi < frames.Count; fi++) frames[fi].SavePng($"{dir}/f{fi:00}.png");
                 GD.Print($"wrote {frames.Count} frames to {dir}");
                 GetTree().Quit();

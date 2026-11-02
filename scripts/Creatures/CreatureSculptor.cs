@@ -49,7 +49,8 @@ public sealed partial class CreatureSculptor
     bool _faceOnBody;                // no head: the face is on the body (jellies)
     Vector3? _serpentFront;          // bodies that are all tail: where the wave down them starts
 
-    // The idle loop: phase runs 0 to 1 through one breath; negative means a still pose.
+    // The animation: which pose, and how far through it (0 to 1); a negative phase is a still pose.
+    readonly Pose _pose;
     readonly float _phase;
     readonly bool _blink;
     bool _tailSway;
@@ -58,9 +59,9 @@ public sealed partial class CreatureSculptor
     static readonly Vector3 X = new(1, 0, 0), Y = new(0, 1, 0), Z = new(0, 0, 1);
 
     /// <summary>The sprite for one view, and where the creature's ground point (its feet) lands in it.</summary>
-    public static (Image img, Vector2I anchor) Render(Creature creature, bool fourColor, View view, float phase = -1, bool blink = false)
+    public static (Image img, Vector2I anchor) Render(Creature creature, bool fourColor, View view, float phase = -1, bool blink = false, Pose pose = Pose.Idle)
     {
-        var s = new CreatureSculptor(creature, view, phase, blink);
+        var s = new CreatureSculptor(creature, view, phase, blink, pose);
         s.Build();
         var img = s._c.Resolve(creature.Palette, fourColor);
         var used = img.GetUsedRect();
@@ -69,10 +70,12 @@ public sealed partial class CreatureSculptor
         return (img.GetRegion(used), new Vector2I(Mathf.RoundToInt(origin.X) - used.Position.X, Mathf.RoundToInt(origin.Y) - used.Position.Y));
     }
 
-    CreatureSculptor(Creature cr, View view, float phase, bool blink)
+    CreatureSculptor(Creature cr, View view, float phase, bool blink, Pose pose)
     {
         _phase = phase;
-        _blink = blink;
+        _pose = pose;
+        // Eyes shut when hurt, and once a faint takes hold.
+        _blink = blink || phase >= 0 && (pose == Pose.Hurt && phase < 0.6f || pose == Pose.Faint && phase > 0.3f);
         _cr = cr;
         _sp = cr.Species;
         _p = cr.Parts;
@@ -130,30 +133,102 @@ public sealed partial class CreatureSculptor
     {
         if (!Animate) return p;
         float lift = _hover > 0 ? 1 : Mathf.Clamp((p.Z - 2 * u) / (9 * u), 0, 1);
-        var o = p + Z * (_hover > 0 ? 1.6f : 1.0f) * u * Rise * lift;
-        if (_headR > 0)
-        {
-            float w = Mathf.Clamp(1 - ((p - _headC).Length() - _headR * 1.1f) / _headR, 0, 1);
-            o += Z * 0.7f * u * Wave(0.2f) * w;
-        }
+        float head = _headR > 0 ? Mathf.Clamp(1 - ((p - _headC).Length() - _headR * 1.1f) / _headR, 0, 1) : 0;
+        float along = 0, tail = 0;
         if (_tailSway)
         {
             var rel = p - _tailRoot;
-            float along = rel.Dot(_tailAxis);
-            if (along > 0)
-            {
-                float perp = (rel - _tailAxis * along).Length();
-                float w = Mathf.Clamp(1 - (perp - 7 * u) / (5 * u), 0, 1);
-                o += _tailSide * Wave(0.1f + along / (28 * u)) * along * 0.075f * w;
-            }
+            along = rel.Dot(_tailAxis);
+            if (along > 0) tail = Mathf.Clamp(1 - ((rel - _tailAxis * along).Length() - 7 * u) / (5 * u), 0, 1);
+            else along = 0;
         }
+        float serpent = 0, sd = 0;
         if (_serpentFront is { } front)
         {
-            float d = (p - front).Length();
-            o += Y * 1.2f * u * Wave(d / (24 * u)) * Mathf.Clamp((d - 3 * u) / (10 * u), 0, 1);
+            sd = (p - front).Length();
+            serpent = Mathf.Clamp((sd - 3 * u) / (10 * u), 0, 1);
+        }
+
+        var o = p;
+        switch (_pose)
+        {
+            case Pose.Idle:
+                o += Z * (_hover > 0 ? 1.6f : 1.0f) * u * Rise * lift;
+                o += Z * 0.7f * u * Wave(0.2f) * head;
+                o += _tailSide * Wave(0.1f + along / (28 * u)) * along * 0.075f * tail;
+                o += Y * 1.2f * u * Wave(sd / (24 * u)) * serpent;
+                break;
+            case Pose.Walk:
+            {
+                // Two steps a cycle: the body rides up on each, the head bobs, the tail swings.
+                float bob = 0.5f - 0.5f * Mathf.Cos(Mathf.Tau * 2 * _phase);
+                o += Z * 1.0f * u * bob * lift + X * 0.5f * u * bob * lift;
+                o += Z * 0.6f * u * Wave(0.15f, 2) * head;
+                o += _tailSide * Wave(0.2f + along / (24 * u)) * along * 0.09f * tail;
+                o += Y * 2.0f * u * Wave(sd / (18 * u), 2) * serpent;
+                break;
+            }
+            case Pose.Strike:
+            {
+                // Wind up, lunge, recover: the body draws back, then throws itself and its head forward.
+                float t = _phase;
+                float f = t < 0.3f ? -t / 0.3f : t < 0.55f ? Mathf.Lerp(-1, 1, (t - 0.3f) / 0.25f) : Mathf.Lerp(1, 0, (t - 0.55f) / 0.45f);
+                o += X * f * 2.4f * u * lift + Z * -Mathf.Max(f, 0) * 0.8f * u * lift;
+                o += (X * f * 1.8f * u - Z * Mathf.Max(f, 0) * 1.2f * u + Z * Mathf.Max(-f, 0) * 1.0f * u) * head;
+                o += _tailSide * f * along * 0.12f * tail + Z * Mathf.Max(-f, 0) * along * 0.06f * tail;
+                o += Y * 1.6f * u * f * Mathf.Sin(sd / (6 * u)) * serpent;
+                break;
+            }
+            case Pose.Cast:
+            {
+                // Rear up and lift the head: the gathering before a skill goes off.
+                float c = Mathf.Sin(Mathf.Pi * Mathf.Clamp(_phase * 1.15f, 0, 1));
+                o += Z * c * 2.2f * u * lift - X * c * 1.0f * u * lift;
+                o += (Z * c * 1.6f * u - X * c * 0.6f * u) * head;
+                o += Z * c * along * 0.12f * tail;
+                o += Z * c * 1.2f * u * Mathf.Sin(sd / (7 * u)) * serpent;
+                break;
+            }
+            case Pose.Hurt:
+            {
+                // Knocked back: the body flinches away and the head snaps up.
+                float h = _phase < 0.25f ? _phase / 0.25f : 1 - (_phase - 0.25f) / 0.75f;
+                o += (-X * 2.2f * u - Z * 0.7f * u) * h * lift;
+                o += (-X * 1.2f * u + Z * 1.0f * u) * h * head;
+                o += _tailSide * h * along * 0.06f * tail;
+                break;
+            }
+            case Pose.Faint:
+            {
+                // It folds onto the ground and rolls onto its side; floaters drop out of the air.
+                float fall = Mathf.SmoothStep(0, 1, _phase);
+                if (_hover > 0) o.Z -= Mathf.Min(_hover, p.Z) * fall * 0.9f;
+                float z = o.Z;
+                o.Z = z * (1 - 0.5f * fall);
+                o.Y += z * 0.4f * fall;
+                o += -Z * 1.6f * u * fall * head;
+                break;
+            }
         }
         return o;
     }
+
+    /// <summary>
+    /// A leg's own motion on top of the body's: when walking, diagonal pairs (or alternate sides,
+    /// on two legs) lift and swing forward in turn, the foot moving most and the hip not at all.
+    /// Arms swing against the legs.
+    /// </summary>
+    Func<Vector3, Vector3> LegWarp(Vector3 hip, Vector3 foot, bool hand) => p =>
+    {
+        var b = BodyWarp(p);
+        if (!Animate || _pose != Pose.Walk) return b;
+        float span = Mathf.Max(0.5f, hip.Z - foot.Z);
+        float w = Mathf.Clamp((hip.Z - p.Z) / span, 0, 1);
+        float offset = (foot.Y > 0) ^ (foot.X > 0) ? 0 : 0.5f;
+        float ph = Mathf.Tau * (_phase + offset);
+        if (hand) return b + X * -Mathf.Cos(ph) * 1.6f * u * w;
+        return b + Z * Mathf.Max(0, Mathf.Sin(ph)) * 2.6f * u * w + X * Mathf.Cos(ph) * 2.2f * u * w;
+    };
 
     /// <summary>Trailing things (tatters, plumes, tendrils, flame crowns) sway more the further they reach.</summary>
     Func<Vector3, Vector3> Trail(Vector3 root, float amount = 0.07f) => p =>
@@ -172,7 +247,8 @@ public sealed partial class CreatureSculptor
         if (!Animate) return b;
         var rel = p - _wingRoot;
         float side = rel.Y >= 0 ? 1 : -1;
-        float amp = _p.Wings == Wings.Insect ? 0.32f : _sp.WingsFolded ? 0.05f : 0.2f;
+        float amp = (_p.Wings == Wings.Insect ? 0.32f : _sp.WingsFolded ? 0.05f : 0.2f)
+            * (_pose == Pose.Cast ? 2.2f : _pose == Pose.Walk ? 1.4f : _pose == Pose.Faint ? 0 : 1);
         float th = amp * Wave(0.1f, _p.Wings == Wings.Insect ? 2 : 1) * side;
         float cs = Mathf.Cos(th), sn = Mathf.Sin(th);
         var turned = new Vector3(rel.X, rel.Y * cs - rel.Z * sn, rel.Y * sn + rel.Z * cs);
@@ -262,6 +338,14 @@ public sealed partial class CreatureSculptor
 
     /// <summary>A leg through its joints, hip first: a muscled upper part tapering to the foot.</summary>
     void Leg(Vector3[] j, float r, bool metal = false, bool hand = false)
+    {
+        var before = _c.Warp;
+        _c.Warp = LegWarp(j[0], j[^1], hand);
+        LegShape(j, r, metal, hand);
+        _c.Warp = before;
+    }
+
+    void LegShape(Vector3[] j, float r, bool metal, bool hand)
     {
         int part = Part(Zone.Limb);
         var mat = metal ? Mat.Metal : Mat.Main;
@@ -1245,7 +1329,8 @@ public sealed partial class CreatureSculptor
     {
         if (_mouth is not { } m) return;
         var att = _cr.Attitude;
-        int open = att == Attitude.Aggressive ? (_headR >= 5 * u ? 2 : 1) : 0;
+        bool striking = Animate && _pose == Pose.Strike && _phase > 0.35f && _phase < 0.8f;
+        int open = att == Attitude.Aggressive || striking ? (_headR >= 5 * u ? 2 : 1) : 0;
         var seen = new List<(int x, int y)>();
         for (int k = 0; k <= 12; k++)
         {

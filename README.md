@@ -176,9 +176,12 @@ blood, so the line carries them.
 
 ### Mission board and regions
 
-Press **M** at the ranch (or **F**, then **F** again to depart). The board offers four contracts,
-and it changes after every battle. Each card shows its map, difficulty, chem reward and
-objective:
+Press **M** at the ranch for the **country map**: the city above, the undercity below, the
+wilds, and your ranch between them. Pick a place to see what's on offer there, then **Depart
+(F)**: your party travels the roads (a day each) and the battle starts. Contracts change after
+every battle. Locked places open through **main missions**, which only appear once you've done
+enough elsewhere (contracts won, creatures raised, codex parts found, rivals beaten). Each card
+shows its map, difficulty, chem reward and objective:
 
 | Objective | To succeed |
 |---|---|

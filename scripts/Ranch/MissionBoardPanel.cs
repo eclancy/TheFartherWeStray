@@ -8,13 +8,17 @@ using Godot;
 namespace CreatureTactics.Ranching;
 
 /// <summary>
-/// The mission board: this round's contracts, each with a thumbnail of its map, the objective,
-/// difficulty, chem reward and any sighting. Click one to pick it; Depart (or F) takes the squad.
+/// A list of missions as cards, each with a thumbnail of its map, the objective, difficulty, chem
+/// reward and any sighting, duel or main-mission note. Click one to pick it; Depart (or F) takes
+/// the squad. The country map shows each place's missions in one.
 /// </summary>
 public partial class MissionBoardPanel : Control
 {
     public Ranch Ranch;
     public Action<Mission> Depart;
+    public Func<List<Mission>> Source;       // the missions to show (the encounter's whole board if unset)
+    public string Heading;                   // the title over them
+    public string DepartLabel = "Depart  (F)";
 
     public List<Mission> Missions = new();
     public int Selected;
@@ -22,9 +26,10 @@ public partial class MissionBoardPanel : Control
 
     public void Refresh()
     {
-        Missions = Mission.Board(Ranch.Encounter, Ranch.Codex, rivalWins: Ranch.Rivals);
-        Selected = Math.Clamp(Selected, 0, Missions.Count - 1);
+        Missions = Source?.Invoke() ?? Mission.Board(Ranch.Encounter, Ranch.Codex, rivalWins: Ranch.Rivals);
+        Selected = Math.Clamp(Selected, 0, Math.Max(0, Missions.Count - 1));
         foreach (var child in GetChildren()) child.QueueFree();
+        if (Missions.Count == 0) return;
         var list = new VBoxContainer { Position = new Vector2(0, 30), Size = new Vector2(Size.X, Size.Y - 100) };
         list.AddThemeConstantOverride("separation", 10);
         AddChild(list);
@@ -35,7 +40,7 @@ public partial class MissionBoardPanel : Control
             card.Clicked += () => { Selected = index; Audio.Sound.Play("click"); foreach (var c in list.GetChildren().OfType<MissionCard>()) c.QueueRedraw(); };
             list.AddChild(card);
         }
-        var depart = new Button { Text = "Depart  (F)", FocusMode = FocusModeEnum.None, Position = new Vector2(Size.X - 200, Size.Y - 56), CustomMinimumSize = new Vector2(200, 48) };
+        var depart = new Button { Text = DepartLabel, FocusMode = FocusModeEnum.None, Position = new Vector2(Size.X - 200, Size.Y - 56), CustomMinimumSize = new Vector2(200, 48) };
         depart.AddThemeFontSizeOverride("font_size", 18);
         depart.Pressed += () => Depart?.Invoke(Missions[Selected]);
         AddChild(depart);
@@ -43,7 +48,7 @@ public partial class MissionBoardPanel : Control
 
     public override void _Draw()
     {
-        DrawString(GetThemeDefaultFont(), new Vector2(0, 18), $"MISSION BOARD · encounter {Ranch.Encounter}",
+        DrawString(GetThemeDefaultFont(), new Vector2(0, 18), Heading ?? $"MISSION BOARD · encounter {Ranch.Encounter}",
             HorizontalAlignment.Left, Size.X, 16, Color.FromHtml("#f2c14e"));
     }
 
@@ -117,7 +122,13 @@ public partial class MissionCard : Control
         }
         DrawString(font, new Vector2(x, 90), m.Brief(), HorizontalAlignment.Left, w, 15, ink);
         DrawString(font, new Vector2(x, 114), m.Rival?.Ideal ?? BattleMap.ByName(m.MapName).Blurb, HorizontalAlignment.Left, w, 14, dim);
-        if (m.Rival is { } rival)
+        if (m.Story is { } story)
+        {
+            // A main mission: what it opens on the country map.
+            DrawTexture(Glyphs.Get("star", 2), new Vector2(x - 4, 128));
+            DrawString(font, new Vector2(x + 26, 150), $"Main mission  ·  opens {World.Country.Get(World.StoryBook.Get(story).Opens).Name}", HorizontalAlignment.Left, w - 26, 15, gold);
+        }
+        else if (m.Rival is { } rival)
         {
             // The rival's own boost, and how often you've beaten them.
             DrawTexture(Glyphs.Get(rival.Tamer.Glyph, 2), new Vector2(x - 4, 128));

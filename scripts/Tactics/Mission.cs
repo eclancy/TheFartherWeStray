@@ -23,6 +23,8 @@ public sealed class Mission
     public Party.RivalDef Rival;  // a duel: the rival tamer whose squad you face
     public int RivalWins;         // times you've beaten them before (their squad trains harder)
     public ulong Encounter;
+    public string Location;       // where on the country map it is
+    public string Story;          // a main story mission: its id in the StoryBook
     int _sightingIndex = -1;
 
     const int CandidateCount = 24;
@@ -55,39 +57,48 @@ public sealed class Mission
                 continue;
             }
             var rng = new SeededRng(seed);
-            var m = new Mission { Seed = seed, Encounter = encounter };
             // The first card always uses a different region from the second, so the board varies.
-            m.MapName = BattleMap.Names[(i == 0 ? (int)(encounter % (ulong)BattleMap.Names.Length) : rng.Int(BattleMap.Names.Length))];
-            m.Goal = rng.Weighted((Objective.Rout, 3f), (Objective.Capture, 2f), (Objective.Hunt, 2f), (Objective.Survive, 1.5f));
-            m.Pack = m.Goal == Objective.Survive ? rng.Int(5, 6) : rng.Int(3, 5);
-            m.Rounds = m.Goal == Objective.Survive ? 4 + (m.Pack - 5) : 0;
-
-            // A sighting: some part of a likely species your codex lacks, wings and horns first.
-            var map = BattleMap.ByName(m.MapName);
-            var cands = m.Candidates();
-            if (rng.Chance(0.6f))
-            {
-                // Gear slots first (wings and horns open classes), in a shuffled order so boards vary.
-                var slots = new List<string> { "Wings", "Horns", "Back", "Tail" }.OrderBy(_ => rng.Float()).Concat(new[] { "Limbs", "Head" }).ToList();
-                foreach (var slot in slots)
-                {
-                    string KeyOf(Species s) => Ranching.Lab.Key(slot, Ranching.Lab.Get(s.Parts, slot));
-                    int idx = cands.FindIndex(s => map.Fit(s) >= 1f && !codex.Contains(KeyOf(s)) && !KeyOf(s).EndsWith("None") && !sighted.Contains(KeyOf(s)));
-                    if (idx < 0) continue;
-                    m._sightingIndex = idx;
-                    sighted.Add(Ranching.Lab.Key(slot, Ranching.Lab.Get(cands[idx].Parts, slot)));
-                    string words = Ranching.Lab.Words(slot, Ranching.Lab.Get(cands[idx].Parts, slot));
-                    string slotWord = slot.ToLowerInvariant();
-                    m.Sighting = words.Contains(slotWord.TrimEnd('s')) ? words : $"{words} {slotWord}";
-                    break;
-                }
-            }
-            m.Stars = Math.Clamp(m.Pack - 2 + (m.Goal is Objective.Hunt or Objective.Survive ? 1 : 0), 1, 5);
-            m.Reward = 6 + m.Pack * 3 + m.Goal switch { Objective.Capture => 6, Objective.Hunt => 8, Objective.Survive => 10, _ => 0 };
-            m.Title = $"{GoalWord(m.Goal)}: {m.MapName}";
-            list.Add(m);
+            string mapName = BattleMap.Names[(i == 0 ? (int)(encounter % (ulong)BattleMap.Names.Length) : rng.Int(BattleMap.Names.Length))];
+            list.Add(Contract(seed, rng, mapName, encounter, codex, sighted));
         }
         return list;
+    }
+
+    /// <summary>
+    /// A contract on a map: an objective, a pack, maybe a sighting of a part your codex lacks (none
+    /// already in <paramref name="sighted"/>). It draws from <paramref name="rng"/>, carrying on the caller's rolls.
+    /// </summary>
+    public static Mission Contract(ulong seed, SeededRng rng, string mapName, ulong encounter, ICollection<string> codex, HashSet<string> sighted)
+    {
+        var m = new Mission { Seed = seed, Encounter = encounter, MapName = mapName };
+        m.Goal = rng.Weighted((Objective.Rout, 3f), (Objective.Capture, 2f), (Objective.Hunt, 2f), (Objective.Survive, 1.5f));
+        m.Pack = m.Goal == Objective.Survive ? rng.Int(5, 6) : rng.Int(3, 5);
+        m.Rounds = m.Goal == Objective.Survive ? 4 + (m.Pack - 5) : 0;
+
+        // A sighting: some part of a likely species your codex lacks, wings and horns first.
+        var map = BattleMap.ByName(m.MapName);
+        var cands = m.Candidates();
+        if (rng.Chance(0.6f))
+        {
+            // Gear slots first (wings and horns open classes), in a shuffled order so boards vary.
+            var slots = new List<string> { "Wings", "Horns", "Back", "Tail" }.OrderBy(_ => rng.Float()).Concat(new[] { "Limbs", "Head" }).ToList();
+            foreach (var slot in slots)
+            {
+                string KeyOf(Species s) => Ranching.Lab.Key(slot, Ranching.Lab.Get(s.Parts, slot));
+                int idx = cands.FindIndex(s => map.Fit(s) >= 1f && !codex.Contains(KeyOf(s)) && !KeyOf(s).EndsWith("None") && !sighted.Contains(KeyOf(s)));
+                if (idx < 0) continue;
+                m._sightingIndex = idx;
+                sighted.Add(Ranching.Lab.Key(slot, Ranching.Lab.Get(cands[idx].Parts, slot)));
+                string words = Ranching.Lab.Words(slot, Ranching.Lab.Get(cands[idx].Parts, slot));
+                string slotWord = slot.ToLowerInvariant();
+                m.Sighting = words.Contains(slotWord.TrimEnd('s')) ? words : $"{words} {slotWord}";
+                break;
+            }
+        }
+        m.Stars = Math.Clamp(m.Pack - 2 + (m.Goal is Objective.Hunt or Objective.Survive ? 1 : 0), 1, 5);
+        m.Reward = 6 + m.Pack * 3 + m.Goal switch { Objective.Capture => 6, Objective.Hunt => 8, Objective.Survive => 10, _ => 0 };
+        m.Title = $"{GoalWord(m.Goal)}: {m.MapName}";
+        return m;
     }
 
     /// <summary>A rival tamer's challenge: their squad on one of their maps, stronger each time you win.</summary>

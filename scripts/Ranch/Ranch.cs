@@ -68,6 +68,11 @@ public sealed class Ranch
     public int Chem;                              // lab currency, earned in battle
     public HashSet<string> Codex = new();          // parts met in battle, graftable at the lab ("Wings.Bat")
     public Dictionary<string, int> Rivals = new();  // times you've beaten each rival tamer (their squads grow)
+    // The country: where your party is, the day, contracts won (a story milestone), main missions won.
+    public string Location = World.Country.Home;
+    public int Day = 1;
+    public int ContractsWon;
+    public HashSet<string> Story = new();
 
     readonly Dictionary<int, Creature> _cache = new();
 
@@ -184,6 +189,7 @@ public sealed class Ranch
     /// </summary>
     public void Tidy()
     {
+        if (World.Country.Get(Location) is not { } here || !World.Country.IsOpen(this, here)) Location = World.Country.Home;
         var joined = Party.Select(w => w.Id).ToHashSet();
         Fielded.RemoveAll(w => !joined.Contains(w));
         foreach (var w in Party)
@@ -201,6 +207,15 @@ public sealed class Ranch
     public void LeadUnits(Battle battle)
     {
         foreach (var id in Squad) battle.Lead(Get(id), LeaderOf(id));
+    }
+
+    /// <summary>Travels to a place along open roads; each road is a day. Returns the days taken.</summary>
+    public int TravelTo(string location)
+    {
+        int days = World.Country.Days(this, location);
+        Day += days;
+        Location = location;
+        return days;
     }
 
     /// <summary>Gives a creature a name (blank: back to its species' name), up to 14 letters.</summary>
@@ -284,6 +299,13 @@ public sealed class Ranch
             bool won = battle.Winner == Tactics.Side.Player;
             if (won) Chem += mission.Reward;
             Report.Add(won ? $"Mission complete: {mission.Title}. +{mission.Reward} chem." : $"Mission failed: {mission.Title}.");
+            if (won && mission.Story is { } story)
+            {
+                Story.Add(story);
+                var opened = World.Country.Get(World.StoryBook.Get(story).Opens);
+                Report.Add($"Main mission won: the road to {opened.Name} is open.");
+            }
+            else if (won) ContractsWon++;
             if (mission.Rival is { } rival)
             {
                 int wins = Rivals.GetValueOrDefault(rival.Id) + (won ? 1 : 0);

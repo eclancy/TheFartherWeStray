@@ -104,15 +104,15 @@ public sealed partial class Battle
         {
             if (Math.Abs(dx) + Math.Abs(dy) != r) continue;
             var p = anchor + new Vector2I(dx, dy);
-            if (!CanStand(u, p) || roam && !Roams(u, p, far)) continue;
+            if (!CanStand(u, p) || roam && !Reaches(u, p, at => Math.Abs(at.X - far.X) + Math.Abs(at.Y - far.Y) <= 4)) continue;
             u.Pos = u.TurnStart = p;
             Units.Add(u);
             return;
         }
     }
 
-    /// <summary>Whether a unit standing at p could walk to within a few tiles of the goal.</summary>
-    bool Roams(Unit u, Vector2I p, Vector2I goal)
+    /// <summary>Whether a unit standing at p could walk, however many turns it took, to a spot where <paramref name="goal"/> holds.</summary>
+    bool Reaches(Unit u, Vector2I p, Func<Vector2I, bool> goal)
     {
         var seen = new HashSet<Vector2I> { p };
         var open = new Queue<Vector2I>();
@@ -121,7 +121,7 @@ public sealed partial class Battle
         while (open.Count > 0)
         {
             var cur = open.Dequeue();
-            if (Math.Abs(cur.X - goal.X) + Math.Abs(cur.Y - goal.Y) <= 4) return true;
+            if (goal(cur)) return true;
             foreach (var d in dirs)
             {
                 var next = cur + d;
@@ -1139,8 +1139,24 @@ public sealed partial class Battle
 
     /// <summary>For a curious target, the creature nearest it carries the glowberry, while one's left and none is down.</summary>
     bool BerryCarrier(Unit u) =>
-        u.Side == Side.Player && Goal == Objective.Capture && Mark() is { Attitude: Attitude.Curious } q && Berries > 0 && BerryTiles.Count == 0
+        u.Side == Side.Player && Goal == Objective.Capture && Mark() is { Attitude: Attitude.Curious } q && Berries > 0 && !BerryTiles.Any(b => CanFetch(q, b))
         && Alive.Where(o => o.Side == Side.Player).OrderBy(o => Dist(o, o.Pos, q)).First() == u;
+
+    /// <summary>Whether a creature could get next to a berry there (a huge one can't squeeze everywhere a small one can).</summary>
+    bool CanFetch(Unit w, Vector2I berry) => Reaches(w, w.Pos, p =>
+        FitsAt(w, p) && w.TilesAt(p).Any(t => Math.Abs(t.X - berry.X) + Math.Abs(t.Y - berry.Y) <= 1));
+
+    /// <summary>A spot the unit's whole footprint could stand on, other units aside.</summary>
+    bool FitsAt(Unit u, Vector2I p)
+    {
+        int lo = int.MaxValue, hi = int.MinValue;
+        foreach (var t in u.TilesAt(p))
+        {
+            if (!Map.InBounds(t) || Map.Blocked(t) || TileCost(Map.TerrainAt(t), u) < 0) return false;
+            lo = Math.Min(lo, Map.HeightAt(t)); hi = Math.Max(hi, Map.HeightAt(t));
+        }
+        return hi - lo <= 1;
+    }
 
     /// <summary>
     /// Where your side's creature should stand for the objective, or null to fight as usual. Hunts
@@ -1189,6 +1205,15 @@ public sealed partial class Battle
                 // Close enough that it will come for the berry, not so close it's cornered.
                 var near = tiles.Where(p => Dist(u, p, q) >= 2).ToList();
                 return near.Count > 0 ? near.OrderBy(p => Dist(u, p, q)).First() : u.Pos;
+            }
+            // A curious one with a berry down and nothing else left to fight: stand aside, off its way to the berry.
+            if (q.Attitude == Attitude.Curious && BerryTiles.Count > 0 && !packLeft)
+            {
+                var berry = BerryTiles.First();
+                static int Gap(Vector2I a, Vector2I b) => Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
+                int way = Gap(q.Pos, berry);
+                var aside = tiles.Where(p => Dist(u, p, q) >= 2 && u.TilesAt(p).All(t => Gap(q.Pos, t) + Gap(t, berry) > way + 2)).ToList();
+                if (aside.Count > 0) return aside.OrderBy(p => Gap(p, u.Pos)).First();
             }
         }
         if (Goal == Objective.Survive)
@@ -1264,7 +1289,7 @@ public sealed partial class Battle
 
         if (dest != u.Pos) Order(CommandKind.Move, u, dest);
         // The berry carrier sets one down where the curious target will come for it.
-        if (BerryCarrier(u) && BerrySpots(u) is { Count: > 0 } spots)
+        if (BerryCarrier(u) && BerrySpots(u).Where(p => CanFetch(Mark(), p)).ToList() is { Count: > 0 } spots)
         {
             var lure = Mark().Pos;
             Order(CommandKind.Berry, u, spots.OrderBy(p => Math.Abs(p.X - lure.X) + Math.Abs(p.Y - lure.Y)).First());

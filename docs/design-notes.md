@@ -36,7 +36,7 @@ fields up to two and fills their three slots each; battles apply the boosts befo
 - [ ] Do tamers grow (levels, more boosts, a tree of their own)?
 - [ ] Who each party member is, and how they join (the story).
 
-## The world, missions and the shop (the user's direction, 2026-11-02; not built yet)
+## The world, missions and the shop (the user's direction, 2026-11-02; the map is built)
 
 **Decided by the user:**
 - **Many kinds of missions:** funny, pun-filled **dispatch** missions (send creatures off; they
@@ -50,10 +50,25 @@ fields up to two and fills their three slots each; battles apply the boosts befo
 - **A shop:** equipment for your team, and items that help lure and catch wild creatures.
 - **Sound** (begun 2026-11-02, see below).
 
+**Built (2026-11-02): the country map** (`scripts/World/`, the user's pick to build first).
+- `Country.cs`: eight places as data (the ranch, three in the city above, three in the undercity,
+  the cavern in the wilds), each with a battle map and a side, and nine roads (a day each; a lift
+  joins the Brass Bridges to the Foundry). `CountryArt` paints the map in code.
+- `CountryScreen` (M at the ranch): pick a place to see what's on offer there; Depart travels
+  along the roads (the crown walks them, days pass) and starts the battle. Locked places show as
+  "???" and say which main mission opens them and what it waits for.
+- What's on offer: one or two contracts at every open place, a rival's duel (on their home ground
+  if it's open), and the main missions that are ready.
+- `Story.cs`: five main missions, each at a place, each opening the next place, each waiting for
+  the one before and for milestones: contracts won, creatures at the ranch, codex parts, rival
+  duels won. They say only what they open; the story is still to come.
+- Saved: where you are, the day, contracts won, main missions won. Old saves start at the ranch.
+- `--country=N` plays the loop headless (main missions when ready, a duel when one is needed,
+  else the easiest nearby contract) and prints when each road opens. On 2026-11-02 four of the
+  five main missions were won in 40 battles, the third waiting on a rival duel won.
+
 **Suggested order** (each builds on the one before):
-1. **The country map:** locations (each a map and a region), roads between them, travel taking a
-   day, unlocking by story flags. The ranch becomes one location; the mission board moves onto
-   the map (missions sit at locations).
+1. ~~**The country map**~~ (built, above).
 2. **Story milestones and flags:** a data-driven list of story missions, each with conditions
    (milestones met, flags, standing with the city or undercity) and outcomes (flags, unlocked
    locations, narrative-only creatures). Cutscenes come after.

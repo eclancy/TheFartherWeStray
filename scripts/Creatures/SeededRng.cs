@@ -14,6 +14,14 @@ public sealed class SeededRng
 
     public SeededRng(ulong seed) { _state = seed; }
 
+    /// <summary>A stable seed from a name (FNV-1a; string hash codes change between runs).</summary>
+    public static ulong Hash(string name)
+    {
+        ulong h = 14695981039346656037UL;
+        foreach (char c in name) { h ^= c; h *= 1099511628211UL; }
+        return h;
+    }
+
     public ulong NextU64()
     {
         ulong z = _state += 0x9E3779B97F4A7C15UL;

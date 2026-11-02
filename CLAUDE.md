@@ -125,8 +125,18 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   2026-11-02, 30-60% wins for you in most, the Wyrm Lord hardest (2-3/10), no stalls.
   `--battle=S --duel=N [--enc=E --wins=W]` opens one on screen; `--save=X --newranch --encounter=6
   --boardmode --shot=40` shows a board with a duel card (`--encounter` jumps a ranch ahead).
-- `Battle.Place` only puts a unit where it can walk toward the far side (`Roams`): a huge creature
-  used to spawn shut in a pit on the Undercity Foundry.
+- `Battle.Place` only puts a unit where it can walk toward the far side (`Reaches`): a huge creature
+  used to spawn shut in a pit on the Undercity Foundry. Capture berries go only where the lured
+  creature can get next to them (`CanFetch`), and the squad stands aside off its way.
+- **The country map (2026-11-02, built):** `scripts/World/`. `Country` holds the places (each a
+  battle map and a side: city above, undercity, wilds; the ranch is one), the roads (a day each)
+  and what's on offer (`Country.Board`: contracts at every open place, a rival's duel, ready main
+  missions). `StoryBook` holds the main missions: each opens a place and waits for the one before
+  plus milestones (contracts won, creatures, codex parts, rival wins), so the story can't be
+  rushed. `CountryScreen` (M at the ranch, `--mapmode`) shows it all and travels before a battle.
+  `Ranch` saves `Location`, `Day`, `ContractsWon`, `Story`. `Mission.Board` is still the test
+  board for `--autoboard`. `--country=N` plays the loop headless; run it after touching missions,
+  milestones or the AI: no battle may stall.
 - **Sound (begun 2026-11-02):** `scripts/Audio/`. Every sound is made in code like the sprites:
   `SfxSynth` sums voices (square, triangle, saw, sine, noise; pitch slides, envelopes, low-pass,
   vibrato, tremolo) into 22 kHz mono, and `SoundBook` holds the 40 sounds as data (menus, steps,
@@ -145,7 +155,7 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   match can't be replayed from its commands. `BattleScreen.TurnSeconds` is the turn timer
   (`--timer=N`).
 - Not built yet: story and cutscenes (themes and three endings set by the user, in
-  `docs/story-notes.md`), the country map, story milestones, dispatch and coliseum missions,
+  `docs/story-notes.md`), story flags beyond the main-mission chain, dispatch and coliseum missions,
   wandering encounters, the shop, traits and augments, music, and the network side of PvP. The
   user's direction and a suggested build order are in `docs/design-notes.md`.
 
@@ -173,7 +183,8 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   from its icon in `SkillIcons`, so new skills get one for free. `--battle=3 --fxdemo` fires one of
   each; `"$GODOT_BIN" --fixed-fps 30 --path . -- --battle=3 --fxdemo --shot=10 --record=560` saves
   its frames to `.shots/rec/` for a GIF.
-- **Screens:** `"$GODOT_BIN" --path . -- --shot=40` (add `--autoplay` for mid-battle, `--battle=3 --aim --shot=900`
+- **Screens:** `"$GODOT_BIN" --path . -- --shot=40` (add `--autoplay` for mid-battle, `--save=X --newranch --mapmode`
+  for the country map, `--battle=3 --aim --shot=900`
   for the aimed-skill panel, `--lab` for
   the Lab) writes `.shots/shot.png`. It opens a window briefly.
 - `$GODOT_BIN` is in `.claude/settings.json`. If it is unset, say so rather than guessing.

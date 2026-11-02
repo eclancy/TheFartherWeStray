@@ -142,6 +142,46 @@ public partial class GameRoot : Node
             return;
         }
 
+        if (args.TryGetValue("country", out var countryArg))
+        {
+            // The country loop without a screen: each battle is the next main mission when it's ready,
+            // a duel when the next one wants a rival beaten, else the easiest nearby contract; recruits
+            // fill the squad. Shows when each road opens, whether any battle stalls, and that the save
+            // keeps where you are. --trace=N prints battle N's log.
+            Ranching.Ranch.SavePath = "user://country_test.json";
+            int battles = int.TryParse(countryArg, out var cbn) ? cbn : 30, countryStalls = 0;
+            var ranch = Ranching.Ranch.New();
+            int codexAll = Ranching.Lab.Slots.Sum(sl => System.Enum.GetNames(sl.Type).Count(n => n != "None"));
+            GD.Print($"codex: {World.StoryBook.Progress(ranch, World.Milestone.CodexParts)} of {codexAll} parts at the start");
+            for (int i = 0; i < battles; i++)
+            {
+                var board = World.Country.Board(ranch);
+                bool wantsDuel = World.StoryBook.Next(ranch) is { } next && next.Needs.Any(n => n.kind == World.Milestone.RivalWins && World.StoryBook.Progress(ranch, n.kind) < n.count);
+                var m = board.FirstOrDefault(x => x.Story != null) ?? (wantsDuel ? board.FirstOrDefault(x => x.Rival != null) : null)
+                    ?? board.Where(x => x.Rival == null).OrderBy(x => World.Country.Days(ranch, x.Location)).ThenBy(x => x.Stars).First();
+                ranch.TravelTo(m.Location);
+                var battle = m.CreateBattle(ranch.SquadCreatures());
+                ranch.LeadUnits(battle);
+                while (battle.Winner == null && battle.Round <= 30) { var u = battle.NextTurn(); if (u == null) break; battle.AiTurn(u); }
+                if (battle.Winner == null) countryStalls++;
+                if (args.TryGetValue("trace", out var countryTrace) && countryTrace == (i + 1).ToString())
+                {
+                    foreach (var e in battle.Events) GD.Print("    " + Tactics.Encounter.Describe(e));
+                    if (battle.Target is { } target) GD.Print($"    target {target.Name}: {battle.RecruitHint(target)}, {target.Hp} HP, gone {target.Gone}");
+                }
+                ranch.AfterBattle(battle, m);
+                foreach (var rec in ranch.Creatures) if (!ranch.Squad.Contains(rec.Id)) ranch.AddToSquad(rec.Id);
+                string result = battle.Winner == Tactics.Side.Player ? "won" : battle.Winner == null ? "STALLED" : "lost";
+                GD.Print($"{i + 1,2}. day {ranch.Day,3}  {m.Location,-10} {m.Title,-36} {result,-7} | contracts {ranch.ContractsWon,2}  creatures {ranch.Creatures.Count,2}  codex {World.StoryBook.Progress(ranch, World.Milestone.CodexParts),2}  rival wins {ranch.Rivals.Values.Sum()}  | open: {string.Join(", ", World.Country.Open(ranch).Select(l => l.Id))}");
+            }
+            ranch.Save();
+            var back = Ranching.Ranch.Load();
+            bool kept = back.Location == ranch.Location && back.Day == ranch.Day && back.ContractsWon == ranch.ContractsWon && back.Story.SetEquals(ranch.Story);
+            GD.Print($"country: {(kept ? "kept" : "DIFFERENT")} after save and load (at {back.Location}, day {back.Day}, main missions won: {string.Join(", ", back.Story)}); stalled: {countryStalls}");
+            GetTree().Quit();
+            return;
+        }
+
         if (args.TryGetValue("rivals", out var rivalTries))
         {
             // Every rival tamer at their first three turns on the board (beaten each time before), against
@@ -637,9 +677,13 @@ public partial class GameRoot : Node
         // --encounter=E jumps the ranch ahead (for looking at later boards; use it with --save=NAME).
         if (args.TryGetValue("encounter", out var encounterArg) && ulong.TryParse(encounterArg, out var encounterAt)) _ranch.Encounter = encounterAt;
         bool vatDemo = args.ContainsKey("vatdemo");
-        _home = () => new Ranching.RanchScreen { Ranch = _ranch, Fight = StartRanchBattle, VatDemo = vatDemo, AutoFight = _autoPlay, StartInLab = args.ContainsKey("labmode"), StartOnParty = args.ContainsKey("partymode"), StartOnBoard = args.ContainsKey("boardmode"), StartOnJobs = args.ContainsKey("jobsmode") };
-        Show(_home());
+        _home = () => new Ranching.RanchScreen { Ranch = _ranch, Fight = StartRanchBattle, OpenMap = ShowMap, VatDemo = vatDemo, AutoFight = _autoPlay, StartInLab = args.ContainsKey("labmode"), StartOnParty = args.ContainsKey("partymode"), StartOnJobs = args.ContainsKey("jobsmode") };
+        // --mapmode (or --boardmode, from before the map) opens on the country map.
+        if (args.ContainsKey("mapmode") || args.ContainsKey("boardmode")) ShowMap();
+        else Show(_home());
     }
+
+    void ShowMap() => Show(new World.CountryScreen { Ranch = _ranch, Fight = StartRanchBattle, Back = () => Show(_home()) });
 
     System.Func<Node> _lab, _home;
     Ranching.Ranch _ranch;
@@ -663,7 +707,7 @@ public partial class GameRoot : Node
             Finished = battle =>
             {
                 var joined = _ranch.AfterBattle(battle, mission);
-                Show(new Ranching.RanchScreen { Ranch = _ranch, Fight = StartRanchBattle, JustJoined = joined, AutoFight = _autoPlay });
+                Show(new Ranching.RanchScreen { Ranch = _ranch, Fight = StartRanchBattle, OpenMap = ShowMap, JustJoined = joined, AutoFight = _autoPlay });
             },
         });
     }

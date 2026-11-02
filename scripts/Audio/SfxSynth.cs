@@ -91,11 +91,6 @@ public static class SfxSynth
         return 440f * MathF.Pow(2, (12 * (octave + 1) + idx - 69) / 12f);
     }
 
-    /// <summary>A stable seed from a sound's name (string hash codes change between runs).</summary>
-    public static ulong Seed(string name)
-    {
-        ulong h = 14695981039346656037UL;
-        foreach (char c in name) { h ^= c; h *= 1099511628211UL; }
-        return h;
-    }
+    /// <summary>A stable seed from a sound's name.</summary>
+    public static ulong Seed(string name) => SeededRng.Hash(name);
 }

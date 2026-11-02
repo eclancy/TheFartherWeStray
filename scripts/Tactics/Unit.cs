@@ -43,8 +43,9 @@ public sealed class Unit
     public int PoisonDmg, PoisonTurns;
     public bool Stunned, Rooted;
     public Unit TauntedBy;
+    public PassiveDef Passive => ClassBook.Passive(Training?.Passive);
 
-    public int Mod(StatKind s) => Buffs.Where(b => b.stat == s).Sum(b => b.amount);
+    public int Mod(StatKind s) => Buffs.Where(b => b.stat == s).Sum(b => b.amount) + (s == StatKind.Evade ? Passive?.Evade ?? 0 : 0);
     public int AtkNow => System.Math.Max(1, Atk + Mod(StatKind.Atk));
     public int DefNow => System.Math.Max(0, Def + Mod(StatKind.Def));
     public int SpdNow => System.Math.Max(1, Spd + Mod(StatKind.Spd));
@@ -54,9 +55,9 @@ public sealed class Unit
 
     public Attitude Attitude => Creature.Attitude;
     public string Name => Creature.Species.Name;
-    public int Range => Weapon == Weapon.Whip ? 2 : 1;
+    public int Range => Weapon == Weapon.Whip || Passive is { LongReach: true } ? 2 : 1;
     public bool Knockback => Weapon is Weapon.Horns or Weapon.Hooves;
-    public int Thorns => Armor == Armor.Spines ? 3 : 0;
+    public int Thorns => (Armor == Armor.Spines ? 3 : 0) + (Passive?.Thorns ?? 0) + Mod(StatKind.Thorns);
 
     public IEnumerable<Vector2I> TilesAt(Vector2I p)
     {
@@ -106,7 +107,12 @@ public sealed class Unit
         if (training != null)
         {
             var cls = ClassBook.Class(training.Class);
-            hp += cls.Hp; atk += cls.Atk; def += cls.Def; spd += cls.Spd; move += cls.Move;
+            float lean = ClassBook.Favoured(c, cls.Id) ? 1.5f : 1f; // a favoured class suits the body better
+            hp += cls.Hp * lean; atk += cls.Atk * lean; def += cls.Def * lean; spd += cls.Spd * lean; move += cls.Move;
+            if (ClassBook.Passive(training.Passive) is { } p)
+            {
+                atk += p.Atk; def += p.Def; spd += p.Spd; move += p.Move; hit += p.Hit; hp *= 1 + p.HpPct;
+            }
         }
         var g = sp.Grafts;
         if (g.HasFlag(Graft.Plating)) def += 3;

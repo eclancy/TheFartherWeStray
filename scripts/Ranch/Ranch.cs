@@ -168,14 +168,19 @@ public sealed class Ranch
     }
 
     /// <summary>A sensible first class for a newcomer, from what it is.</summary>
-    public static string DefaultClass(Creature c) => c.Species.Strain switch
+    public static string DefaultClass(Creature c)
     {
-        Strain.Arcane => "Mystic",
-        Strain.Chemtech => "Alchemist",
-        Strain.Clockwork => "Tinker",
-        _ => c.Species.Plan is BodyPlan.Avian or BodyPlan.Insectoid ? "Skirmisher"
-            : c.Armor is Armor.Shell or Armor.Crystal || c.Species.Plan == BodyPlan.Blob ? "Guardian" : "Brawler",
-    };
+        string pick = c.Species.Strain switch
+        {
+            Strain.Arcane => "Mystic",
+            Strain.Chemtech => "Alchemist",
+            Strain.Clockwork => "Tinker",
+            _ => c.Armor is Armor.Shell or Armor.Crystal ? "Guardian" : ClassBook.Affinity[c.Species.Plan].favoured[0],
+        };
+        // Never a class the body bars or can't open yet (a tinker needs hands): fall back to its first favoured class.
+        var t = new Training();
+        return ClassBook.StandingOf(ClassBook.Class(pick), c, t) == ClassBook.Standing.Open ? pick : ClassBook.Affinity[c.Species.Plan].favoured[0];
+    }
 
     static string Roman(int n) => n switch { 2 => "II", 3 => "III", 4 => "IV", 5 => "V", 6 => "VI", 7 => "VII", 8 => "VIII", 9 => "IX", _ => n.ToString() };
 
@@ -197,9 +202,12 @@ public sealed class Ranch
         }
         foreach (var u in battle.Units.Where(u => u.Training != null))
         {
+            // A favoured class (body-plan affinity) trains half again as fast.
             int jp = 12 + (u.Gone ? 0 : 4) + (battle.Winner == Tactics.Side.Player ? 4 : 0);
-            foreach (var skill in u.Training.Earn(jp))
-                Report.Add($"{u.Name} learned {skill.Name} ({skill.Class}).");
+            jp = (int)(jp * ClassBook.JpRate(u.Creature, u.Training.Class));
+            foreach (var name in u.Training.Earn(jp))
+                Report.Add($"{u.Name} learned {name} ({u.Training.Class}).");
+            if (ClassBook.Passive(u.Training.Passive) is { ChemBonus: > 0 } pick) { Chem += pick.ChemBonus; Report.Add($"{u.Name} pocketed {pick.ChemBonus} chem."); }
         }
         // Chem for the lab: more for a win and for every wild creature driven off. Their parts enter the codex.
         int fled = battle.Units.Count(u => u.Training == null && u.Gone);

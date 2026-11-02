@@ -113,6 +113,7 @@ public sealed class Battle
         Events.Add(new TurnEvent(next, next.Side, next.Hp));
 
         // Start of turn: cooldowns tick, poison bites, a stunned creature loses its turn.
+        if (next.Passive is { Regen: > 0 } regen) HealUnit(next, Mathf.RoundToInt(next.MaxHp * regen.Regen));
         foreach (var id in next.Cooldowns.Keys.ToList()) next.Cooldowns[id]--;
         if (next.PoisonTurns > 0)
         {
@@ -132,9 +133,13 @@ public sealed class Battle
     // ------------------------------------------------------------------ movement
 
     /// <summary>How high a unit can step up or down between tiles.</summary>
-    static int Climb(MoveType m) => m switch { MoveType.Fly => 99, MoveType.Climb => 3, _ => 1 };
+    static int Climb(Unit u) => Math.Max(u.MoveType switch { MoveType.Fly => 99, MoveType.Climb => 3, _ => 1 }, u.Passive?.Climb ?? 0);
 
     /// <summary>Cost of a tile for a mover, or -1 if it can't go there.</summary>
+    /// <summary>Cost for this unit: amphibious creatures wade chem, and swimmers who are aren't slowed on land.</summary>
+    static int TileCost(Terrain t, Unit u) =>
+        u.Passive is { Amphibious: true } && t != Terrain.Pit ? 1 : TileCost(t, u.MoveType);
+
     static int TileCost(Terrain t, MoveType m) => (t, m) switch
     {
         (Terrain.Pit, MoveType.Fly) => 1,
@@ -157,7 +162,7 @@ public sealed class Battle
         int lo = int.MaxValue, hi = int.MinValue;
         foreach (var t in u.TilesAt(p))
         {
-            if (!Map.InBounds(t) || TileCost(Map.TerrainAt(t), u.MoveType) < 0 || OccupantOf(t, u) != null) return false;
+            if (!Map.InBounds(t) || TileCost(Map.TerrainAt(t), u) < 0 || OccupantOf(t, u) != null) return false;
             lo = Math.Min(lo, Map.HeightAt(t)); hi = Math.Max(hi, Map.HeightAt(t));
         }
         return hi - lo <= 1;
@@ -179,13 +184,13 @@ public sealed class Battle
         foreach (var t in u.TilesAt(to))
         {
             if (!Map.InBounds(t)) return -1;
-            int c = TileCost(Map.TerrainAt(t), u.MoveType);
+            int c = TileCost(Map.TerrainAt(t), u);
             if (c < 0) return -1;
             var occ = OccupantOf(t, u);
             if (occ != null && occ.Side != u.Side) return -1; // enemies block
             worst = Math.Max(worst, c);
         }
-        if (Math.Abs(FootHeight(u, to) - FootHeight(u, from)) > Climb(u.MoveType)) return -1;
+        if (Math.Abs(FootHeight(u, to) - FootHeight(u, from)) > Climb(u)) return -1;
         return worst;
     }
 
@@ -278,7 +283,9 @@ public sealed class Battle
     {
         int heightDiff = FootHeight(a, a.Pos) - FootHeight(t, t.Pos);
         float mult = heightDiff > 0 ? 1.15f : heightDiff < 0 ? 0.9f : 1f; // high ground hits harder
-        int dmg = Math.Max(1, Mathf.RoundToInt((a.AtkNow * 1.5f - t.DefNow * 0.75f) * mult));
+        if (a.Passive is { Predator: > 0 } pred && t.Hp * 2 < t.MaxHp) mult *= 1 + pred.Predator;
+        int atk = a.AtkNow + (a.Passive is { PackBond: true } ? Alive.Count(o => o != a && o.Side == a.Side && Dist(o, o.Pos, a) == 1) : 0);
+        int dmg = Math.Max(1, Mathf.RoundToInt((atk * 1.5f - t.DefNow * 0.75f) * mult));
         int hit = 85 + (a.SpdNow - t.SpdNow) * 3 + a.HitBonus + (heightDiff > 0 ? 5 : 0) - t.Mod(StatKind.Evade);
         if (t.Attitude == Attitude.Skittish) hit -= 15;
         if (t.Creature.Size == SizeClass.Tiny && Map.TerrainAt(t.Pos) == Terrain.Grass) hit -= 10; // hides in the moss
@@ -315,6 +322,7 @@ public sealed class Battle
         }
         int dealt = Math.Max(1, Mathf.RoundToInt(dmg * _rng.Range(0.9f, 1.1f)));
         Hurt(target, dealt, a);
+        if (a.Passive is { Drain: > 0 } thirst && !a.Gone) HealUnit(a, Mathf.RoundToInt(dealt * thirst.Drain));
 
         if (target.Thorns > 0 && !a.Gone && Dist(a, a.Pos, target) == 1)
         {
@@ -336,6 +344,7 @@ public sealed class Battle
 
     void Knock(Unit a, Unit t)
     {
+        if (t.Passive is { Unstoppable: true }) return;
         var d = (t.Pos + new Vector2(t.Size - 1, t.Size - 1) / 2f) - (a.Pos + new Vector2(a.Size - 1, a.Size - 1) / 2f);
         var dir = Math.Abs(d.X) >= Math.Abs(d.Y) ? new Vector2I(Math.Sign(d.X), 0) : new Vector2I(0, Math.Sign(d.Y));
         var dest = t.Pos + dir;
@@ -378,7 +387,7 @@ public sealed class Battle
         foreach (var d in new[] { Vector2I.Left, Vector2I.Right, Vector2I.Up, Vector2I.Down })
         {
             var p = u.Pos + d;
-            if (!CanStand(u, p) || Math.Abs(FootHeight(u, p) - FootHeight(u, u.Pos)) > Climb(u.MoveType)) continue;
+            if (!CanStand(u, p) || Math.Abs(FootHeight(u, p) - FootHeight(u, u.Pos)) > Climb(u)) continue;
             int dist = Dist(u, p, from);
             if (dist > bestD) { best = p; bestD = dist; }
         }
@@ -434,27 +443,39 @@ public sealed class Battle
         return dx + dy;
     }
 
+    /// <summary>A skill's reach for this user: ranged skills reach further with Eagle Eye.</summary>
+    public static int RangeOf(Unit u, SkillDef s) => s.Range + (s.Range > 1 ? u.Passive?.RangeBonus ?? 0 : 0);
+
     /// <summary>Tiles a skill can be aimed at from where the unit stands (self-centred skills: its own tile).</summary>
     public List<Vector2I> SkillTiles(Unit u, SkillDef s)
     {
         var tiles = new List<Vector2I>();
         if (s.Target == TargetKind.Self || s.AroundSelf) { tiles.Add(u.Pos); return tiles; }
+        int range = RangeOf(u, s);
         for (int y = 0; y < Map.H; y++)
         for (int x = 0; x < Map.W; x++)
         {
             var p = new Vector2I(x, y);
             int d = TileGap(u, u.Pos, p);
-            if (d > s.Range || (s.Target != TargetKind.Ally && d < 1)) continue;
+            if (d > range || (s.Target != TargetKind.Ally && d < 1)) continue;
+            if (s.Straight)
+            {
+                var (dx, dy) = Gap(u.Pos, u.Size, p, 1);
+                if (dx != 0 && dy != 0) continue;
+            }
             var occ = OccupantOf(p);
             switch (s.Target)
             {
                 case TargetKind.Enemy when occ != null && occ.Side != u.Side:
-                    if (s.Leap ? LeapSpot(u, occ, s.Range) != null : s.Range > 1 || InRange(u, u.Pos, occ)) tiles.Add(p);
+                    if (s.Leap ? LeapSpot(u, occ, range) != null : range > 1 || InRange(u, u.Pos, occ)) tiles.Add(p);
                     break;
                 case TargetKind.Ally when occ != null && occ.Side == u.Side:
                     tiles.Add(p);
                     break;
                 case TargetKind.Area when Map.TerrainAt(p) != Terrain.Pit:
+                    tiles.Add(p);
+                    break;
+                case TargetKind.Tile when CanStand(u, p):
                     tiles.Add(p);
                     break;
             }
@@ -500,6 +521,7 @@ public sealed class Battle
     /// <summary>Who a skill aimed at a tile would affect.</summary>
     public List<Unit> SkillTargets(Unit u, SkillDef s, Vector2I tile)
     {
+        if (s.Target == TargetKind.Tile) return new List<Unit>();
         bool friendly = s.Target is TargetKind.Ally or TargetKind.Self;
         if (s.Target == TargetKind.Self) return new List<Unit> { u };
         if (s.Radius == 0)
@@ -513,9 +535,21 @@ public sealed class Battle
 
     static bool Rolls(SkillDef s) => s.Power > 0 || s.Poison > 0 || s.StunChance > 0 || s.Root;
 
+    /// <summary>The damage multiplier of a skill on a target: its power, plus high-ground and flanking bonuses.</summary>
+    float PowerOn(Unit u, SkillDef s, Unit t)
+    {
+        float p = s.Power;
+        if (s.HighGround > 0 && FootHeight(u, u.Pos) > FootHeight(t, t.Pos)) p += s.HighGround;
+        if (s.Flank > 0 && Alive.Any(o => o != u && o.Side == u.Side && Dist(o, o.Pos, t) == 1)) p += s.Flank;
+        return p * (1 + (u.Passive?.SkillPower ?? 0));
+    }
+
+    int HitOn(Unit u, SkillDef s, Unit t) => Math.Clamp(Preview(u, t).hit + s.HitBonus, 5, 99);
+
     /// <summary>A one-line preview of a skill on a target tile (the notes ask for clear previews).</summary>
     public string SkillPreview(Unit u, SkillDef s, Vector2I tile)
     {
+        if (s.Target == TargetKind.Tile) return s.Name + ": move to this tile";
         var targets = SkillTargets(u, s, tile);
         if (targets.Count == 0) return s.Name + ": nothing there";
         var parts = new List<string>();
@@ -523,9 +557,9 @@ public sealed class Battle
         {
             if (t.Side != u.Side && Rolls(s))
             {
-                var (dmg, hit) = Preview(u, t);
-                string dmgText = s.Power > 0 ? "~" + Math.Max(1, Mathf.RoundToInt(dmg * s.Power)) + " dmg, " : "";
-                parts.Add(t.Name + " " + dmgText + Math.Clamp(hit + s.HitBonus, 5, 99) + "%");
+                var (dmg, _) = Preview(u, t);
+                string dmgText = s.Power > 0 ? "~" + Math.Max(1, Mathf.RoundToInt(dmg * PowerOn(u, s, t))) + " dmg, " : "";
+                parts.Add(t.Name + " " + dmgText + HitOn(u, s, t) + "%");
             }
             else if (s.Heal > 0) parts.Add(t.Name + " +" + Math.Min(t.MaxHp - t.Hp, Mathf.RoundToInt(t.MaxHp * s.Heal)) + " HP");
             else parts.Add(t.Name);
@@ -534,12 +568,76 @@ public sealed class Battle
         return s.Name + ": " + string.Join("; ", parts) + more;
     }
 
+    void HealUnit(Unit t, int amount)
+    {
+        amount = Math.Min(t.MaxHp - t.Hp, amount);
+        if (amount <= 0 || t.Gone) return;
+        t.Hp += amount;
+        Events.Add(new HealEvent(t, amount));
+    }
+
+    /// <summary>A boost or curse; boosts given by an Echo passive last a turn longer.</summary>
+    void Apply(Unit from, Unit t, (StatKind stat, int amount, int turns) b)
+    {
+        if (b.amount > 0 && from.Passive is { Echo: true }) b.turns++;
+        t.Buffs.Add(b);
+        Status(t, BuffText(b));
+    }
+
+    void Poison(Unit t, SkillDef s)
+    {
+        if (t.Passive is { NoPoison: true }) { Status(t, "immune"); return; }
+        t.PoisonDmg = s.Poison;
+        t.PoisonTurns = s.PoisonTurns;
+        Status(t, "poisoned");
+    }
+
+    /// <summary>Drags a unit up to n tiles toward another, stopping at anything in the way.</summary>
+    void Pull(Unit toward, Unit t, int n)
+    {
+        if (t.Passive is { Unstoppable: true }) return;
+        for (int k = 0; k < n; k++)
+        {
+            int now = Dist(t, t.Pos, toward);
+            if (now <= 1) break;
+            Vector2I? best = null;
+            foreach (var d in new[] { Vector2I.Left, Vector2I.Right, Vector2I.Up, Vector2I.Down })
+            {
+                var p = t.Pos + d;
+                if (CanStand(t, p) && Dist(t, p, toward) < now) { best = p; break; }
+            }
+            if (best == null) break;
+            t.Pos = best.Value;
+            Events.Add(new PushEvent(t, best.Value));
+        }
+    }
+
+    void Cleanse(Unit t)
+    {
+        bool any = t.PoisonTurns > 0 || t.Rooted || t.Stunned || t.TauntedBy != null || t.Buffs.Any(b => b.amount < 0);
+        t.PoisonTurns = 0;
+        t.Rooted = t.Stunned = false;
+        t.TauntedBy = null;
+        t.Buffs.RemoveAll(b => b.amount < 0);
+        if (any) Status(t, "cleansed");
+    }
+
     public void UseSkill(Unit u, SkillDef s, Vector2I tile)
     {
         u.Acted = true;
-        u.Cooldowns[s.Id] = s.Cooldown;
+        u.Cooldowns[s.Id] = Math.Max(1, s.Cooldown - (u.Passive?.CooldownCut ?? 0));
+        int range = RangeOf(u, s);
+        if (s.Target == TargetKind.Tile)
+        {
+            // Teleport.
+            Events.Add(new SkillEvent(u, s, tile, new List<Vector2I> { u.Pos, tile }));
+            Log(u.Name + " uses " + s.Name + ".");
+            Events.Add(new MoveEvent(u, new List<Vector2I> { u.Pos, tile }));
+            u.Pos = tile;
+            return;
+        }
         var primary = s.Radius == 0 && s.Target == TargetKind.Enemy ? OccupantOf(tile) : null;
-        if (s.Leap && primary != null && LeapSpot(u, primary, s.Range) is { } spot && spot != u.Pos)
+        if (s.Leap && primary != null && LeapSpot(u, primary, range) is { } spot && spot != u.Pos)
         {
             Events.Add(new MoveEvent(u, new List<Vector2I> { u.Pos, spot }));
             u.Pos = spot;
@@ -554,35 +652,58 @@ public sealed class Battle
             {
                 if (Rolls(s))
                 {
-                    var (dmg, hit) = Preview(u, t);
-                    if (_rng.Int(100) >= Math.Clamp(hit + s.HitBonus, 5, 99))
+                    var (dmg, _) = Preview(u, t);
+                    if (_rng.Int(100) >= HitOn(u, s, t))
                     {
                         Events.Add(new DamageEvent(t, 0, Miss: true));
                         continue;
                     }
                     if (s.Power > 0)
                     {
-                        Hurt(t, Math.Max(1, Mathf.RoundToInt(dmg * s.Power * _rng.Range(0.9f, 1.1f))), u);
+                        int dealt = Math.Max(1, Mathf.RoundToInt(dmg * PowerOn(u, s, t) * _rng.Range(0.9f, 1.1f)));
+                        Hurt(t, dealt, u);
+                        if (s.Drain > 0) HealUnit(u, Mathf.RoundToInt(dealt * s.Drain));
+                        if (s.HealOnKill > 0 && t.Gone) HealUnit(u, Mathf.RoundToInt(u.MaxHp * s.HealOnKill));
                         if (u.Side == Side.Wild && u.Attitude == Attitude.Aggressive) u.Weathered = t.Gone ? 0 : u.Weathered + 1;
                         if (t.Gone || t.Side == u.Side) continue; // fled, or recruited by the blow
                     }
                 }
-                if (s.Poison > 0) { t.PoisonDmg = s.Poison; t.PoisonTurns = s.PoisonTurns; Status(t, "poisoned"); }
-                if (s.StunChance > 0 && _rng.Chance(s.StunChance)) { t.Stunned = true; Status(t, "stunned"); }
-                if (s.Root) { t.Rooted = true; Status(t, "rooted"); }
+                if (s.Poison > 0) Poison(t, s);
+                if (s.StunChance > 0 && _rng.Chance(s.StunChance))
+                {
+                    if (t.Passive is { NoStun: true }) Status(t, "resists"); else { t.Stunned = true; Status(t, "stunned"); }
+                }
+                if (s.Root)
+                {
+                    if (t.Passive is { Unstoppable: true }) Status(t, "unstoppable"); else { t.Rooted = true; Status(t, "rooted"); }
+                }
                 if (s.Taunt) { t.TauntedBy = u; Status(t, "taunted"); }
-                foreach (var b in s.Buffs) { t.Buffs.Add(b); Status(t, BuffText(b)); }
+                if (s.Steal && t.Buffs.Any(b => b.amount > 0))
+                {
+                    foreach (var b in t.Buffs.Where(b => b.amount > 0).ToList()) { t.Buffs.Remove(b); u.Buffs.Add(b); }
+                    Status(u, "stole boosts");
+                }
+                foreach (var b in s.Buffs) Apply(u, t, b);
+                if (s.Pull > 0) Pull(u, t, s.Pull);
                 for (int k = 0; k < s.Knock && !t.Gone; k++) Knock(u, t);
             }
             else
             {
-                if (s.Heal > 0)
+                if (s.Cleanse) Cleanse(t);
+                if (s.Heal > 0) HealUnit(t, Mathf.RoundToInt(t.MaxHp * s.Heal));
+                foreach (var b in s.Buffs) Apply(u, t, b);
+                if (s.RandomBuff)
                 {
-                    int heal = Math.Min(t.MaxHp - t.Hp, Mathf.RoundToInt(t.MaxHp * s.Heal));
-                    t.Hp += heal;
-                    Events.Add(new HealEvent(t, heal));
+                    var pick = new[] { (StatKind.Atk, 5, 3), (StatKind.Def, 5, 3), (StatKind.Spd, 5, 3), (StatKind.Evade, 25, 3) }[_rng.Int(4)];
+                    Apply(u, t, pick);
                 }
-                foreach (var b in s.Buffs) { t.Buffs.Add(b); Status(t, BuffText(b)); }
+                if (s.CooldownCut > 0)
+                {
+                    foreach (var id in t.Cooldowns.Keys.ToList()) t.Cooldowns[id] -= s.CooldownCut;
+                    Status(t, "recharged");
+                }
+                if (s.Poison > 0) Poison(t, s); // a volatile dose: Shimmer Dose
+                if (s.Pull > 0 && t != u) Pull(u, t, s.Pull);
             }
         }
         if (s.HitAndRun && u.Moved && !u.Gone)
@@ -600,22 +721,27 @@ public sealed class Battle
     /// <summary>How much the AI likes a skill aimed at a tile (0 or less: not worth it).</summary>
     float SkillScore(Unit u, SkillDef s, Vector2I tile)
     {
+        if (s.Target == TargetKind.Tile) return 0; // the AI doesn't teleport (yet)
         float score = 0;
         foreach (var t in SkillTargets(u, s, tile))
         {
             if (t.Side != u.Side)
             {
-                var (dmg, hit) = Preview(u, t);
-                float p = Math.Clamp(hit + s.HitBonus, 5, 99) / 100f;
-                float d = dmg * s.Power;
-                score += p * (d + (d >= t.Hp ? 15 : 0) + s.Poison * s.PoisonTurns * 0.6f + s.StunChance * 10 + (s.Root ? 3 : 0) + s.Buffs.Length * 3);
+                var (dmg, _) = Preview(u, t);
+                float p = HitOn(u, s, t) / 100f;
+                float d = dmg * PowerOn(u, s, t);
+                score += p * (d + (d >= t.Hp ? 15 : 0) + s.Poison * s.PoisonTurns * 0.6f + s.StunChance * 10 + (s.Root ? 3 : 0)
+                    + s.Buffs.Length * 3 + d * s.Drain * 0.5f + (s.Steal ? t.Buffs.Count(b => b.amount > 0) * 4 : 0) + s.Pull);
                 if (s.Taunt) score += u.Hp > u.MaxHp / 2 ? 4 : -4;
             }
             else
             {
                 bool threatened = Alive.Any(o => o.Side != u.Side && Dist(o, o.Pos, t) <= 4);
                 if (s.Heal > 0 && t.Hp < t.MaxHp * 0.6f) score += Math.Min(t.MaxHp - t.Hp, t.MaxHp * s.Heal);
-                if (s.Buffs.Length > 0 && threatened && !t.Buffs.Any(b => s.Buffs.Any(sb => sb.stat == b.stat))) score += 5;
+                if ((s.Buffs.Length > 0 || s.RandomBuff) && threatened && !t.Buffs.Any(b => s.Buffs.Any(sb => sb.stat == b.stat))) score += 5;
+                if (s.Cleanse) score += (t.PoisonTurns > 0 ? 4 : 0) + (t.Rooted ? 3 : 0) + t.Buffs.Count(b => b.amount < 0) * 3;
+                if (s.CooldownCut > 0 && t != u && t.Cooldowns.Values.Any(v => v > 1)) score += 4;
+                if (s.Poison > 0) score -= 2;
             }
         }
         return score;

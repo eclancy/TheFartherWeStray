@@ -84,6 +84,58 @@ public partial class GameRoot : Node
             return;
         }
 
+        if (args.ContainsKey("skilltest"))
+        {
+            // Every skill in play: your side gets all of them and the AI fights 20 battles.
+            var used = new HashSet<string>();
+            int stalls = 0;
+            for (ulong seed = 1; seed <= 20; seed++)
+            {
+                var battle = Tactics.Encounter.Create(seed, null, Tactics.BattleMap.Names[(int)(seed % 5)]);
+                foreach (var u in battle.Units.Where(u => u.Side == Tactics.Side.Player)) u.Skills = Classes.ClassBook.Skills.ToList();
+                // Teleports aren't AI material, so try one by hand.
+                var first = battle.Units[0];
+                var blink = Classes.ClassBook.Skill("blink");
+                var spot = battle.SkillTiles(first, blink).FirstOrDefault(new Godot.Vector2I(-1, -1));
+                if (spot.X >= 0) { battle.UseSkill(first, blink, spot); first.Acted = false; first.Cooldowns.Clear(); }
+                while (battle.Winner == null && battle.Round <= 30) { var u = battle.NextTurn(); if (u == null) break; battle.AiTurn(u); }
+                if (battle.Winner == null) stalls++;
+                foreach (var e in battle.Events.OfType<Tactics.SkillEvent>()) used.Add(e.Skill.Id);
+            }
+            GD.Print($"AI sweep: {used.Count}/{Classes.ClassBook.Skills.Length} skills chosen by the AI in 20 battles; stalls: {stalls}");
+
+            // Then every skill fired once by hand, with a foe and an ally placed right beside the user.
+            int fired = 0;
+            var failed = new List<string>();
+            foreach (var sk in Classes.ClassBook.Skills)
+            {
+                var battle = Tactics.Encounter.Create(3);
+                var user = battle.Units.First(u => u.Side == Tactics.Side.Player && u.Size == 1);
+                var foe = battle.Units.First(u => u.Side == Tactics.Side.Wild && u.Size == 1);
+                var friend = battle.Units.First(u => u.Side == Tactics.Side.Player && u != user && u.Size == 1);
+                // Find open, level ground for the user with two free tiles beside it.
+                var dirs = new[] { Godot.Vector2I.Left, Godot.Vector2I.Right, Godot.Vector2I.Up, Godot.Vector2I.Down };
+                for (int y = 0; y < battle.Map.H; y++)
+                for (int x = 0; x < battle.Map.W; x++)
+                {
+                    var p = new Godot.Vector2I(x, y);
+                    if (!battle.CanStand(user, p)) continue;
+                    var free = dirs.Select(d => p + d).Where(q => battle.Map.InBounds(q) && battle.CanStand(foe, q) && battle.Map.HeightAt(q) == battle.Map.HeightAt(p)).ToList();
+                    if (free.Count < 2) continue;
+                    user.Pos = p; foe.Pos = free[0]; friend.Pos = free[1];
+                    y = battle.Map.H; break;
+                }
+                var tiles = battle.SkillTiles(user, sk);
+                var aim = tiles.OrderByDescending(t => battle.SkillTargets(user, sk, t).Count).FirstOrDefault(new Godot.Vector2I(-1, -1));
+                if (aim.X < 0) { failed.Add($"{sk.Id} (no target)"); continue; }
+                try { battle.UseSkill(user, sk, aim); fired++; }
+                catch (Exception e) { failed.Add($"{sk.Id} ({e.GetType().Name}: {e.Message})"); }
+            }
+            GD.Print($"direct: {fired}/{Classes.ClassBook.Skills.Length} skills fired without error; problems: {(failed.Count == 0 ? "none" : string.Join("; ", failed))}");
+            GetTree().Quit();
+            return;
+        }
+
         if (args.ContainsKey("ranchtest"))
         {
             // The loop without a screen: fight, recruit, breed, save, load, and check that every
@@ -102,6 +154,14 @@ public partial class GameRoot : Node
                 var (child, result) = ranch.Breed(pair[0], pair[1]);
                 GD.Print($"  bred {ranch.Get(pair[0]).Species.Name} x {ranch.Get(pair[1]).Species.Name} -> {ranch.Get(child).Species.Name} (gen {ranch.Get(child).Generation})");
             }
+            // Multiclassing: Blaze masters Brawler (and its passive), then trains as a Skirmisher with Brawler as secondary.
+            var blazeT = ranch.Record(ranch.Creatures.First(r => r.Species.Name == "Blaze").Id).Training;
+            GD.Print($"  Blaze earns: {string.Join(", ", blazeT.Earn(200))}; equipped {blazeT.Passive}");
+            blazeT.Class = "Skirmisher"; blazeT.Secondary = "Brawler";
+            GD.Print($"  Blaze earns: {string.Join(", ", blazeT.Earn(200))}; usable now: {string.Join(", ", blazeT.Usable().Select(s => s.Name))}");
+            var blazeC = ranch.Get(ranch.Creatures.First(r => r.Species.Name == "Blaze").Id);
+            GD.Print($"  Blaze job tree: " + string.Join(", ", Classes.ClassBook.Classes.Select(k => $"{k.Id}={Classes.ClassBook.StandingOf(k, blazeC, blazeT)}")));
+
             // The lab: graft wings onto Tank (a walker), fit brass, infuse chem blood, then breed him.
             ranch.Chem += 200;
             int tank = ranch.Creatures.First(r => r.Species.Name == "Tank").Id;
@@ -131,7 +191,7 @@ public partial class GameRoot : Node
                 if (before.AsSpan().SequenceEqual(after)) same++;
                 else GD.Print($"  MISMATCH after load: {ranch.Get(rec.Id).Species.Name}");
             }
-            int trained = ranch.Creatures.Count(r => { var l = loaded.Record(r.Id).Training; return l.Class == r.Training.Class && l.Innate == r.Training.Innate && l.Skills.SequenceEqual(r.Training.Skills) && l.JpIn(l.Class) == r.Training.JpIn(r.Training.Class); });
+            int trained = ranch.Creatures.Count(r => { var l = loaded.Record(r.Id).Training; return l.Class == r.Training.Class && l.Secondary == r.Training.Secondary && l.Passive == r.Training.Passive && l.Passives.SequenceEqual(r.Training.Passives) && l.Innate == r.Training.Innate && l.Skills.SequenceEqual(r.Training.Skills) && l.JpIn(l.Class) == r.Training.JpIn(r.Training.Class); });
             GD.Print($"training: {trained}/{ranch.Creatures.Count} identical after save and load; " + string.Join("; ", ranch.Creatures.Select(r => $"{ranch.Get(r.Id).Species.Name} {r.Training.Class} [{string.Join(",", r.Training.Skills)}]{(r.Training.Innate != null ? " innate " + r.Training.Innate : "")}")));
             GD.Print($"roundtrip: {same}/{ranch.Creatures.Count} creatures identical after save and load; squad {string.Join(",", loaded.Squad)}; next encounter {loaded.Encounter}");
             GetTree().Quit();
@@ -194,7 +254,7 @@ public partial class GameRoot : Node
         if (args.TryGetValue("save", out var saveName) && saveName != "") Ranching.Ranch.SavePath = $"user://{saveName}.json";
         _ranch = args.ContainsKey("newranch") ? Ranching.Ranch.New() : Ranching.Ranch.Load();
         bool vatDemo = args.ContainsKey("vatdemo");
-        _home = () => new Ranching.RanchScreen { Ranch = _ranch, Fight = StartRanchBattle, VatDemo = vatDemo, AutoFight = _autoPlay, StartInLab = args.ContainsKey("labmode"), StartOnBoard = args.ContainsKey("boardmode") };
+        _home = () => new Ranching.RanchScreen { Ranch = _ranch, Fight = StartRanchBattle, VatDemo = vatDemo, AutoFight = _autoPlay, StartInLab = args.ContainsKey("labmode"), StartOnBoard = args.ContainsKey("boardmode"), StartOnJobs = args.ContainsKey("jobsmode") };
         Show(_home());
     }
 

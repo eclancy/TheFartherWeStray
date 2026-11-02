@@ -23,6 +23,7 @@ public partial class RanchScreen : Control
     public bool AutoFight;                // --autoplay: head into the next battle on its own (an attract loop)
     public bool StartInLab;               // --labmode: open on the lab (screenshots)
     public bool StartOnBoard;             // --boardmode: open on the mission board (screenshots)
+    public bool StartOnJobs;              // --jobsmode: open on the job tree (screenshots)
 
     static readonly Color Cyan = Color.FromHtml("#4fe3ff"), Magenta = Color.FromHtml("#ff4f9a"), Gold = Color.FromHtml("#f2c14e");
     static readonly Color Ink = Color.FromHtml("#e8e2f4"), Dim = Color.FromHtml("#9a91b4");
@@ -30,12 +31,13 @@ public partial class RanchScreen : Control
     GridContainer _grid;
     Label _header, _status, _notes, _detail, _training;
     VatPanel _vats;
-    Button _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _labButton, _boardButton;
+    Button _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _labButton, _boardButton, _jobsButton;
     HBoxContainer _buttonsRow;
     LabPanel _lab;
-    enum Panel { Vats, Lab, Board }
+    enum Panel { Vats, Lab, Board, Jobs }
     Panel _panel = Panel.Vats;
     MissionBoardPanel _board;
+    JobsPanel _jobs;
     readonly List<int> _pen = new();
     int? _selected, _releaseArmed;
     double _releaseTimer;
@@ -65,7 +67,7 @@ public partial class RanchScreen : Control
         _grid.AddThemeConstantOverride("v_separation", 8);
         scroll.AddChild(_grid);
         Text(16, Dim, new Vector2(32, 1036), new Vector2(1120, 30)).Text =
-            "Click: select    Right-click: vat    Enter: breed    L: lab    M or F: missions    S: squad    Delete twice: release    Tab: Sprite Lab";
+            "Click: select    Right-click: vat    Enter: breed    J: jobs    L: lab    M or F: missions    S: squad    Delete twice: release    Tab: Sprite Lab";
 
         _vats = new VatPanel { Position = new Vector2(1170, 96), Size = new Vector2(720, 320), Screen = this, MouseFilter = MouseFilterEnum.Ignore };
         AddChild(_vats);
@@ -99,6 +101,9 @@ public partial class RanchScreen : Control
         _board = new MissionBoardPanel { Ranch = Ranch, Position = new Vector2(1170, 96), Size = new Vector2(720, 930), Visible = false };
         _board.Depart = Depart;
         AddChild(_board);
+        _jobs = new JobsPanel { Ranch = Ranch, Position = new Vector2(1170, 96), Size = new Vector2(730, 930), Visible = false };
+        _jobs.Changed = msg => { Flash(msg); Rebuild(); if (_selected is { } sid) ShowDetail(sid); };
+        AddChild(_jobs);
         Button Header(string text, float x, Action onPress)
         {
             var b = new Button { Text = text, FocusMode = FocusModeEnum.None, Position = new Vector2(x, 22), CustomMinimumSize = new Vector2(150, 40) };
@@ -107,6 +112,7 @@ public partial class RanchScreen : Control
             AddChild(b);
             return b;
         }
+        _jobsButton = Header("Jobs  (J)", 1420, () => SetPanel(_panel == Panel.Jobs ? Panel.Vats : Panel.Jobs));
         _labButton = Header("Lab  (L)", 1580, () => SetPanel(_panel == Panel.Lab ? Panel.Vats : Panel.Lab));
         _boardButton = Header("Missions  (M)", 1740, () => SetPanel(_panel == Panel.Board ? Panel.Vats : Panel.Board));
 
@@ -123,6 +129,7 @@ public partial class RanchScreen : Control
         Rebuild();
         if (StartInLab) SetPanel(Panel.Lab);
         if (StartOnBoard) SetPanel(Panel.Board);
+        if (StartOnJobs) SetPanel(Panel.Jobs);
         if (AutoFight) GetTree().CreateTimer(1.5).Timeout += () => { if (IsInsideTree() && Ranch.Squad.Count > 0) Fight?.Invoke(Mission.Board(Ranch.Encounter, Ranch.Codex)[0]); };
     }
 
@@ -167,6 +174,7 @@ public partial class RanchScreen : Control
     {
         _selected = id;
         if (_panel == Panel.Lab) _lab.ShowCreature(id);
+        if (_panel == Panel.Jobs) { _jobs.Reset(); _jobs.ShowCreature(id); }
         foreach (var card in _grid.GetChildren().OfType<RanchCard>()) card.QueueRedraw();
         ShowDetail(id);
         RefreshSelected();
@@ -199,8 +207,9 @@ public partial class RanchScreen : Control
         if (t.Secondary != null)
             lines.Add($"Secondary {t.Secondary}: {string.Join(", ", t.Skills.Where(s => ClassBook.Skill(s).Class == t.Secondary).Select(s => ClassBook.Skill(s).Name))}");
         if (t.Innate != null) lines.Add($"Innate: {ClassBook.Skill(t.Innate).Name} ({ClassBook.Skill(t.Innate).Text})");
-        foreach (var adv in ClassBook.Classes.Where(k => k.Advanced))
-            lines.Add(ClassBook.Unlocked(adv, c, t) ? $"{adv.Name}: unlocked" : $"??? - needs {ClassBook.Hint(adv, c, t)}");
+        if (ClassBook.Passive(t.Passive) is { } eq) lines.Add($"Passive: {eq.Name} ({eq.Text})");
+        var standings = ClassBook.Classes.Select(k => ClassBook.StandingOf(k, c, t)).ToList();
+        lines.Add($"Job tree: {standings.Count(s => s == ClassBook.Standing.Open)} open, {standings.Count(s => s == ClassBook.Standing.Locked)} locked, {standings.Count(s => s == ClassBook.Standing.Never)} never.  J opens it.");
         _training.Text = string.Join("\n", lines);
     }
 
@@ -211,6 +220,9 @@ public partial class RanchScreen : Control
         foreach (var c in new Control[] { _vats, _notes, _training, _buttonsRow, _detail }) c.Visible = p == Panel.Vats;
         _lab.Visible = p == Panel.Lab;
         _board.Visible = p == Panel.Board;
+        _jobs.Visible = p == Panel.Jobs;
+        _jobsButton.Text = p == Panel.Jobs ? "Vats  (J)" : "Jobs  (J)";
+        if (p == Panel.Jobs && _selected is { } jid) { _jobs.Reset(); _jobs.ShowCreature(jid); }
         _labButton.Text = p == Panel.Lab ? "Vats  (L)" : "Lab  (L)";
         _boardButton.Text = p == Panel.Board ? "Vats  (M)" : "Missions  (M)";
         if (p == Panel.Lab && _selected is { } id) _lab.ShowCreature(id);
@@ -219,6 +231,7 @@ public partial class RanchScreen : Control
         {
             Panel.Lab => "The lab: graft parts from your codex, fit brass, or infuse new blood. It all costs chem.",
             Panel.Board => "Pick a contract, then Depart (F) with your squad.",
+            Panel.Jobs => "The job tree: every class this creature could ever train, and what each still needs.",
             _ => "",
         });
     }
@@ -340,6 +353,9 @@ public partial class RanchScreen : Control
             case Key.F:
                 if (_panel != Panel.Board) SetPanel(Panel.Board);
                 else Depart(_board.Missions[_board.Selected]);
+                break;
+            case Key.J:
+                SetPanel(_panel == Panel.Jobs ? Panel.Vats : Panel.Jobs);
                 break;
             case Key.M:
                 SetPanel(_panel == Panel.Board ? Panel.Vats : Panel.Board);

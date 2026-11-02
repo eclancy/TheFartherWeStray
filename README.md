@@ -46,6 +46,7 @@ DrawPets cast. Creatures you recruit in battle move in.
 | Input | Does |
 |---|---|
 | Click a creature | select it. Its panel sets squad, class and secondary skills |
+| J | the selected creature's job tree: classes, secondary, passive |
 | S | add the selected creature to or take it out of the squad (up to 4) |
 | Right-click a creature | put it in a breeding vat (two vats) |
 | Enter | breed the pair in the vats |
@@ -66,30 +67,80 @@ the creature you want:
 Parents and newborns rest until the next battle, and a battle rests everyone. Hover a creature
 for its lineage, parts, gear and stats.
 
-### Classes and skills
+### Jobs: classes, skills and multiclassing
 
-Classes are training disciplines, as FFTA jobs are: classes teach skills, and parts (the gear)
-modify them. Each class leans the stats a little and teaches three skills. Creatures earn JP
-for their class in every battle (more if they're still standing, and more for a win) and learn
-the class's skills in order. In battle a creature can use its class's learned skills, the learned
-skills of one **secondary** class, and its **innate** skill.
+Classes are training disciplines, like FFTA's jobs. There are **24**, and every creature has its
+own **job tree**, shaped by its body, its parts and its blood. Press **J** at the ranch to see the
+selected creature's tree: every class is marked open, locked (with what it still needs and how to
+get it), or never possible for that body.
 
-| Class | Teaches |
-|---|---|
-| Brawler | Heavy Blow, Rend (bleed), Frenzy (ATK up) |
-| Skirmisher | Quick Strike (hit and run), Pounce (leap), Evasion |
-| Guardian | Shield Wall, Taunt, Second Wind |
-| Mystic (hextech) | Hex Bolt (range 4), Ward, Arc Storm (area) |
-| Alchemist (chemtech) | Toxic Flask (poison), Mend (heal), Acid Splash (area, DEF down) |
-| Tinker (clockwork) | Overclock (SPD and MOVE up), Snare (root), Shock Prod (stun) |
-| **Skydiver** | 2 Brawler and 2 Skirmisher skills, **and wings**: Dive Bomb, Gale, Updraft |
-| **Juggernaut** | 2 Brawler and 2 Guardian skills, **and horns**: Trample, Iron Hide, Earthshaker |
-| **Hexwarden** | 2 Mystic and 2 Tinker skills: Hex Cage, Overcharge, Nova |
+**Learning.** Creatures earn JP for their current class in each battle, more if they're still
+standing and more for a win. They learn the class's three skills in order, then its **passive**.
 
-Locked classes show as hints with progress, like FFTA's silhouettes. The part-gated ones are
-why you breed: a creature without wings can't become a Skydiver until wings are bred into its
-line. A bred child is born knowing one skill from a parent (its innate skill), and recruits keep
-the skill they had in the wild.
+**Multiclassing (FFTA-style).** In battle a creature can use:
+- its **class's** learned skills,
+- the learned skills of one **secondary** class it has trained in,
+- its **innate** skill (inherited from a parent, or kept from the wild),
+- one equipped **passive**, from any class it has mastered.
+
+Its attitude stays as its innate reaction.
+
+**Affinities.** Each body plan has favoured classes (marked with \*, +50% JP and stronger stat
+leanings) and a few barred ones. **Tinker** needs hands: a biped, or claws.
+
+| Body plan | Favoured | Barred |
+|---|---|---|
+| Quadruped | Brawler, Skirmisher, Howler | - |
+| Biped | Guardian, Tinker, Rogue | - |
+| Serpent | Mystic, Alchemist | Guardian |
+| Avian | Skirmisher, Mystic, Hunter | Guardian |
+| Insectoid | Skirmisher, Alchemist, Hunter | Mystic |
+| Aquatic | Mystic, Guardian | Skirmisher, Rogue |
+| Blob | Guardian, Alchemist | Skirmisher, Hunter |
+
+**Base classes** (open to any body that allows them):
+
+| Class | Skills | Passive |
+|---|---|---|
+| Brawler | Heavy Blow, Rend, Frenzy | Brute Force (ATK +2) |
+| Skirmisher | Quick Strike, Pounce, Evasion | Fleet (MOVE +1) |
+| Guardian | Shield Wall, Taunt, Second Wind | Thick Hide |
+| Mystic | Hex Bolt, Ward, Arc Storm | Focus (faster cooldowns) |
+| Alchemist | Toxic Flask, Mend, Acid Splash | Antidote (no poison) |
+| Tinker | Overclock, Snare, Shock Prod | Tuned Reflexes |
+| Hunter | Quill Shot, Pin Down, Volley | Eagle Eye (+1 range) |
+| Howler | War Cry, Screech, Lullaby | Echo (boosts last longer) |
+| Rogue | Backstab, Smoke Bomb, Pilfer | Pickpocket (+chem) |
+
+**Part classes** (master two base classes, and have the body for it):
+
+| Class | Needs | Skills |
+|---|---|---|
+| Skydiver | Brawler + Skirmisher, wings | Dive Bomb, Gale, Updraft |
+| Juggernaut | Brawler + Guardian, horns | Trample, Iron Hide, Earthshaker |
+| Bulwark | Guardian + Alchemist, a shell | Shell Up, Spiked Rampart, Haul |
+| Lasher | Brawler + Tinker, a whip tail | Crack, Snare Lash, Whirl |
+| Stalker | Rogue + Alchemist, claws | Ambush, Venom Claws, Shadow Step |
+| Leviathan | Guardian + Mystic, a swimmer's body | Tidal Crash, Undertow, Deep Shell |
+| Titan | Brawler + Guardian, huge size | Stomp, Shrug Off, Toss |
+| Trickster | Skirmisher + Mystic, tiny size | Blink, Vanish, Hex Prank |
+| Packleader | Howler + Brawler, loyal or aggressive | Rally, Pack Tactics, Alpha Howl |
+| Deadeye | Hunter + Tinker, a lens visor or extra eyes | Headshot, Mark, Ricochet |
+| Hexwarden | Mystic + Tinker | Hex Cage, Overcharge, Nova |
+
+**Blood classes** (master one base class, and carry the strain):
+
+| Class | Needs | Skills |
+|---|---|---|
+| Chemist | Alchemist, chemtech blood | Shimmer Dose, Caustic Cloud, Mutagen |
+| Runeweaver | Mystic, arcane blood | Glyph Snare, Glyph Shield, Arcane Surge |
+| Voidcaller | Brawler, abyssal blood | Dread, Siphon, Maw |
+| Artificer | Tinker, two machine grafts | Spark Coil, Repair, Overdrive |
+
+The gates are why you breed and visit the lab:
+- Breed wings, a shell or huge size into a line.
+- Graft claws to open Tinker, or fit a visor to open Deadeye.
+- Infuse blood to open a blood class.
 
 Wild creatures fight with a natural skill from their strain: chemtech beasts throw toxic flasks,
 arcane ones cast hex bolts, clockwork ones carry shock prods, abyssal ones rend, and aggressive
@@ -185,6 +236,7 @@ gear, strain and attitude.
 
 - `--autobattle=N` plays encounter N AI against AI and prints the log.
 - `--autoboard=N` plays every mission on boards 1-N AI against AI, one line each (catches stalls).
+- `--skilltest` fires every skill once by hand and lets the AI use all of them for 20 battles.
 - `--ranchtest` runs fights, recruiting and breeding headless, then checks the save file round trip.
 - `--breeding=N` writes `.shots/breeding.png`: pairs of parents and four possible children each.
 - `--autoplay` loops ranch and battle on its own (an attract mode).
@@ -205,7 +257,9 @@ The full list is in `scripts/GameRoot.cs`.
   `Unit.cs` (stats from parts), `BattleMap.cs`, `Encounter.cs`, `IsoArt.cs` (pixel-art board and
   backdrop), `BattleScreen.cs`.
 - `scripts/Creatures/Breeding.cs`: inheritance rules.
-- `scripts/Classes/Classes.cs`: every class and skill as data, training (JP, learning, unlocks).
+- `scripts/Classes/Classes.cs`: every class, skill and passive as data; affinities; training (JP, learning, unlocks).
+- `scripts/Ranch/JobsPanel.cs`: the job tree screen.
+- `docs/classes-design.md`: the job-tree design and its open questions.
 - `scripts/Ranch/`: the roster and save file (`Ranch.cs`) and the ranch screen with its vats.
 - `scripts/SpriteLab/`: the sheet screen and the PNG composer.
 - `scripts/Ranch/Lab.cs`, `LabPanel.cs`: grafting rules and the lab panel.

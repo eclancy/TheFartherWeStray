@@ -111,6 +111,7 @@ public sealed partial class CreatureSculptor
             var fwd = (X + Y * side * 0.15f - Z * 0.25f).Normalized();
             var neck = Smooth(new[] { nb, nb + V(1, side * 3, 4.5f), nb.Lerp(hc, 0.65f) + V(-1.6f, side * 1, 1.8f), hc - fwd * _headR * 0.55f }, 5);
             _c.Tube(neck, 3.0f * u, 2.2f * u, Mat.Main, _bodyPart);
+            RisingNeck(neck[0], neck[^1], 3.0f * u);
             LesserHead(hc, _headR * 0.9f, fwd);
         }
     }

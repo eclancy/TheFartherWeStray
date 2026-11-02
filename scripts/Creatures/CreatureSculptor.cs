@@ -45,6 +45,7 @@ public sealed partial class CreatureSculptor
     int _bodyPart, _headPart;
     (Vector3 front, Vector3 back)? _mouth;
     Vector3 _tailEnd;                // the far end of whatever tail was drawn
+    readonly List<(Vector3 root, float r)> _necks = new(); // where each rising neck leaves the body, and how thick
     float _hover;                    // floaters: how high it hangs (they bob instead of breathing)
     bool _faceOnBody;                // no head: the face is on the body (jellies)
     bool _bigEye;                    // one great eye is the face: no small eyes painted on
@@ -390,6 +391,14 @@ public sealed partial class CreatureSculptor
     {
         var mid = from.Lerp(to, 0.5f) + bow;
         _c.Tube(Smooth(new[] { from, mid, to }, 6), r0 * u, r1 * u, Mat.Main, _bodyPart);
+        RisingNeck(from, to, r0 * u);
+    }
+
+    /// <summary>Notes a neck that climbs out of the body's top, which shells must stop short of. Necks
+    /// that jut forward or low (a behemoth's) leave the shell alone.</summary>
+    void RisingNeck(Vector3 from, Vector3 to, float r)
+    {
+        if ((to - from).Normalized().Z > 0.35f) _necks.Add((from, r));
     }
 
     /// <summary>Where the head sits, how big, and which way it points (pitch in degrees, negative is nose down).</summary>
@@ -637,9 +646,12 @@ public sealed partial class CreatureSculptor
                     var up = UpAt(t);
                     var c0 = pt - up * ph * (_upright ? 0.4f : 0.62f) + pa * u * (k - 1);
                     float floor = _upright ? 0 : c0.Z - ph * 0.15f;
-                    float rl = len * 0.26f + 1.5f * u;
+                    float rl = len * 0.26f + 1.5f * u, full = rl;
                     float over = (c0 - shoulders).Dot(pa) + rl;
                     if (over > 0) rl = Mathf.Max(rl * 0.45f, rl - over);
+                    // And clear of every rising neck's base, however thick: a plate with no room is left off.
+                    foreach (var (root, nr) in _necks) rl = Mathf.Min(rl, (root - c0).Dot(pa) - nr - 1.2f * u);
+                    if (rl < full * 0.35f) continue;
                     // Smooth plates, no rims or knobs: the user preferred this to an armoured version.
                     _c.Ellipsoid(c0, pa, rl, pw * 1.28f, ph * 0.9f, _shellMat, Part(Zone.Body), 0.04f * k, floor);
                 }

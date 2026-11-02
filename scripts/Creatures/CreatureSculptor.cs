@@ -627,16 +627,21 @@ public sealed partial class CreatureSculptor
                 var (top, w, h, along) = SpineAt(0.45f);
                 var mid = TorsoMid;
                 float len = _spine.Count < 2 ? w * 2 : (_spine[^1].p - _spine[0].p).Length();
-                // Overlapping plates, rump to shoulders, each its own part so the seams between them show.
+                // Overlapping plates from the rump forward, each its own part so the seams between them
+                // show. They stop short of the shoulders: necks rise clear of the shell, never through it.
+                var shoulders = _spine[^1].p - (_spine.Count < 2 ? X : (_spine[^1].p - _spine[^2].p).Normalized()) * (_spine[^1].w * 0.6f + 1.5f * u);
                 for (int k = 0; k < 3; k++)
                 {
-                    float t = 0.2f + 0.3f * k;
+                    float t = 0.18f + 0.24f * k;
                     var (pt, pw, ph, pa) = SpineAt(t);
                     var up = UpAt(t);
-                    var c0 = pt - up * ph * (_upright ? 0.4f : 0.62f);
+                    var c0 = pt - up * ph * (_upright ? 0.4f : 0.62f) + pa * u * (k - 1);
                     float floor = _upright ? 0 : c0.Z - ph * 0.15f;
+                    float rl = len * 0.26f + 1.5f * u;
+                    float over = (c0 - shoulders).Dot(pa) + rl;
+                    if (over > 0) rl = Mathf.Max(rl * 0.45f, rl - over);
                     // Smooth plates, no rims or knobs: the user preferred this to an armoured version.
-                    _c.Ellipsoid(c0 + pa * u * (k - 1), pa, len * 0.26f + 1.5f * u, pw * 1.28f, ph * 0.9f, _shellMat, Part(Zone.Body), 0.04f * k, floor);
+                    _c.Ellipsoid(c0, pa, rl, pw * 1.28f, ph * 0.9f, _shellMat, Part(Zone.Body), 0.04f * k, floor);
                 }
                 break;
             }

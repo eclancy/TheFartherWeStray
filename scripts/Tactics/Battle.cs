@@ -883,9 +883,10 @@ public sealed class Battle
         u.Rooted = false;
         u.TauntedBy = null;
 
-        if (!u.Gone && u.Attitude == Attitude.Curious)
+        if (!u.Gone && u.Attitude == Attitude.Curious && u.Side == Side.Wild)
         {
-            // Curious reaction: grabs any item within reach.
+            // Curious reaction: a wild one grabs any item within reach. (Your own curious creatures
+            // leave the berries you set down for the creature they're meant to lure.)
             var berry = BerryTiles.FirstOrDefault(b => u.Tiles.Any(t => Math.Abs(t.X - b.X) + Math.Abs(t.Y - b.Y) <= 1), new Vector2I(-1, -1));
             if (berry.X >= 0)
             {
@@ -963,6 +964,84 @@ public sealed class Battle
         return dist;
     }
 
+    // ------------------------------------------------------------------ your side's plans
+
+    /// <summary>The wild creature this battle is about, while it's still out there.</summary>
+    Unit Quarry => Target is { Gone: false, Side: Side.Wild } t ? t : null;
+
+    /// <summary>
+    /// Whether the player side may hurt this creature. Capturing means not knocking the target
+    /// out (it would flee), except for the one champion a proud target has to lose to.
+    /// </summary>
+    bool MayHurt(Unit u, Unit t) =>
+        u.Side != Side.Player || Goal != Objective.Capture || t != Quarry || t.Attitude == Attitude.Proud && Champion() == u;
+
+    /// <summary>The one creature a proud target may fight: whoever has hit it already, or your strongest.</summary>
+    Unit Champion() =>
+        Quarry == null ? null
+        : Quarry.HitBy.Count > 0 ? Quarry.HitBy.First()
+        : Alive.Where(o => o.Side == Side.Player).OrderByDescending(o => o.AtkNow).ThenBy(o => Dist(o, o.Pos, Quarry)).FirstOrDefault();
+
+    /// <summary>Whether hitting this creature hurts the hitter: thorns, a counter, a shock, a burst, or an aggressive temper.</summary>
+    static bool BitesBack(Unit u) =>
+        u.Thorns > 0 || u.Attitude == Attitude.Aggressive
+        || u.Reaction?.React is ReactionKind.Counter or ReactionKind.ReturnFire or ReactionKind.Shock or ReactionKind.Burst or ReactionKind.DirtyRetort;
+
+    /// <summary>For a curious target, the creature nearest it carries the glowberry, while one's left and none is down.</summary>
+    bool BerryCarrier(Unit u) =>
+        u.Side == Side.Player && Goal == Objective.Capture && Quarry is { Attitude: Attitude.Curious } q && Berries > 0 && BerryTiles.Count == 0
+        && Alive.Where(o => o.Side == Side.Player).OrderBy(o => Dist(o, o.Pos, q)).First() == u;
+
+    /// <summary>
+    /// Where your side's creature should stand for the objective, or null to fight as usual. Hunts
+    /// close on the marked alpha; captures play to the target's temper (a champion duels the proud,
+    /// the rest ring in the skittish, the berry carrier walks to within luring range); hold-outs
+    /// keep together and out of reach.
+    /// </summary>
+    Vector2I? PlayerPlan(Unit u, List<Vector2I> tiles, List<Unit> foes, Func<Vector2I, bool> canAttack)
+    {
+        var q = Quarry;
+        Vector2I Toward(Unit goal)
+        {
+            var field = ApproachField(u, new List<Unit> { goal });
+            return tiles.OrderBy(p => field.TryGetValue(p, out int d) ? d : 1000 + Dist(u, p, goal)).First();
+        }
+        if (Goal == Objective.Hunt && q != null)
+        {
+            var at = tiles.Where(p => InRange(u, p, q)).ToList();
+            return at.Count > 0 ? at.OrderByDescending(p => FootHeight(u, p)).ThenBy(p => p == u.Pos ? 0 : 1).First() : Toward(q);
+        }
+        if (Goal == Objective.Capture && q != null)
+        {
+            if (q.Attitude == Attitude.Proud && Champion() == u)
+            {
+                var at = tiles.Where(p => InRange(u, p, q)).ToList();
+                return at.Count > 0 ? at.OrderByDescending(p => FootHeight(u, p)).First() : Toward(q);
+            }
+            if (q.Attitude == Attitude.Skittish)
+            {
+                // Take a tile beside it; stay put if already there.
+                if (Dist(u, u.Pos, q) == 1) return u.Pos;
+                var ring = tiles.Where(p => Dist(u, p, q) == 1).ToList();
+                return ring.Count > 0 ? ring.First() : Toward(q);
+            }
+            if (BerryCarrier(u))
+            {
+                // Close enough that it will come for the berry, not so close it's cornered.
+                var near = tiles.Where(p => Dist(u, p, q) >= 2).ToList();
+                return near.Count > 0 ? near.OrderBy(p => Dist(u, p, q)).First() : u.Pos;
+            }
+        }
+        if (Goal == Objective.Survive)
+        {
+            var allies = Alive.Where(o => o != u && o.Side == u.Side).ToList();
+            return tiles.OrderByDescending(p => (canAttack(p) ? 4 : 0) + allies.Count(a => Dist(u, p, a) <= 1) * 2
+                    - foes.Count(f => Dist(u, p, f) <= f.MoveNow + f.Range) * 3)
+                .ThenBy(p => p == u.Pos ? 0 : 1).First();
+        }
+        return null;
+    }
+
     public void AiTurn(Unit u)
     {
         var foes = Alive.Where(o => o.Side != u.Side).ToList();
@@ -975,9 +1054,10 @@ public sealed class Battle
         int Nearest(Vector2I p) => foes.Min(f => Dist(u, p, f));
         Unit BestTarget(Vector2I p)
         {
-            var inRange = foes.Where(f => InRange(u, p, f)).ToList();
+            var inRange = foes.Where(f => InRange(u, p, f) && MayHurt(u, f)).ToList();
             if (inRange.Count == 0) return null;
             if (mood == Attitude.Proud && u.LastAttacker != null && inRange.Contains(u.LastAttacker)) return u.LastAttacker;
+            if (u.Side == Side.Player && Goal == Objective.Hunt && Target != null && inRange.Contains(Target)) return Target;
             return inRange.OrderBy(f => f.Hp).First();
         }
 
@@ -993,7 +1073,9 @@ public sealed class Battle
         }
 
         Vector2I dest = u.Pos;
-        switch (mood)
+        var plan = u.Side == Side.Player ? PlayerPlan(u, tiles, foes, p => BestTarget(p) != null) : null;
+        if (plan is { } planned) dest = planned;
+        else switch (mood)
         {
             case Attitude.Skittish:
                 if (Nearest(u.Pos) <= 4) dest = tiles.OrderByDescending(Nearest).ThenBy(p => p == u.Pos ? 0 : 1).First();
@@ -1025,6 +1107,13 @@ public sealed class Battle
         }
 
         if (dest != u.Pos) Move(u, dest);
+        // The berry carrier sets one down where the curious target will come for it.
+        if (BerryCarrier(u) && BerrySpots(u) is { Count: > 0 } spots)
+        {
+            OfferBerry(u, spots.OrderBy(p => Math.Abs(p.X - Target.Pos.X) + Math.Abs(p.Y - Target.Pos.Y)).First());
+            EndTurn(u);
+            return;
+        }
         // Skittish creatures only fight back when there is nowhere left to go.
         bool fights = mood != Attitude.Skittish || Cornered(u);
         var target = BestTarget(u.Pos);
@@ -1043,7 +1132,10 @@ public sealed class Battle
             if (hostile && !fights) continue;
             foreach (var t in SkillTiles(u, s))
             {
+                var hits = hostile ? SkillTargets(u, s, t) : null;
+                if (hits != null && hits.Any(x => x.Side != u.Side && !MayHurt(u, x))) continue;
                 float score = SkillScore(u, s, t);
+                if (u.Side == Side.Player && Goal == Objective.Hunt && hits != null && hits.Contains(Target)) score += 8;
                 if (score > best.score + 0.5f) best = (s, t, score);
             }
         }

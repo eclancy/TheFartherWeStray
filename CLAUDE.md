@@ -76,7 +76,12 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
 - Missions (`Tactics/Mission.cs`): a board of four contracts per encounter (Rout, Capture, Hunt,
   Hold out) on five handmade regions (`BattleMap.cs`), each with a look (`Look` in `IsoArt.cs`) and
   fauna odds. Sightings promise a codex-missing part. After touching maps or AI, run
-  `--autoboard=6`: no mission may stall.
+  `--autoboard=6`: no mission may stall. Your side's AI plays the objective (`PlayerPlan` in
+  `Battle.cs`): hunts focus the alpha, hold-outs keep together and out of reach, captures never
+  land the knockout and play to the target's temper (a champion duels the proud, the squad rings
+  the skittish, a glowberry lures the curious). `--autoboard=12` on 2026-11-02: rout 12/14,
+  capture 5/11 (was 3), hunt 12/12, hold out 11/11 (was 9). Aggressive and loyal captures are the
+  weak spot. `--trace=TITLE` prints the full log of matching missions.
 - **Generals and the party (the user's direction, 2026-11-02, not built):** the player is a
   general leading three creatures, maybe on the field, always boosting or altering the team; a
   second party member later brings it to six; at most two characters and six creatures per

@@ -80,7 +80,10 @@ public partial class GameRoot : Node
                 var battle = m.CreateBattle(Tactics.Encounter.StarterSquad());
                 while (battle.Winner == null && battle.Round <= 30) { var u = battle.NextTurn(); if (u == null) break; battle.AiTurn(u); }
                 if (battle.Winner == null) stalls++;
-                GD.Print($"board {enc}: {m.Title,-34} pack {m.Pack} {new string('*', m.Stars),-5} reward {m.Reward,2}  -> {(battle.Winner == Tactics.Side.Player ? "complete" : battle.Winner == null ? "STALLED" : "failed")} in {battle.Round} rounds, recruited {battle.Recruited.Count}{(m.Sighting != null ? $", sighting: {m.Sighting}" : "")}{(battle.Target != null ? $", target {battle.Target.Name}" : "")}");
+                // --trace=TITLE prints the whole log of the missions with that title (debugging the AI).
+                if (args.TryGetValue("trace", out var trace) && m.Title.Contains(trace))
+                    foreach (var e in battle.Events) GD.Print("    " + Tactics.Encounter.Describe(e));
+                GD.Print($"board {enc}: {m.Title,-34} pack {m.Pack} {new string('*', m.Stars),-5} reward {m.Reward,2}  -> {(battle.Winner == Tactics.Side.Player ? "complete" : battle.Winner == null ? "STALLED" : "failed")} in {battle.Round} rounds, recruited {battle.Recruited.Count}{(m.Sighting != null ? $", sighting: {m.Sighting}" : "")}{(battle.Target != null ? $", target {battle.Target.Name} ({battle.Target.Attitude}{(battle.Winner != Tactics.Side.Player ? battle.Target.Gone ? ", got away" : battle.Target.Side == Tactics.Side.Player ? ", recruited" : ", still wild" : "")})" : "")}");
             }
             GD.Print($"stalled: {stalls}");
             GetTree().Quit();

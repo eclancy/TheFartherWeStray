@@ -43,10 +43,26 @@ public sealed class Unit
     public int PoisonDmg, PoisonTurns;
     public bool Stunned, Rooted;
     public Unit TauntedBy;
-    public PassiveDef Passive => ClassBook.Passive(Training?.Passive);
-    public Party.TamerDef Tamer;                   // who leads it from off the field (your side), if anyone
+    public PassiveDef ShinyPassive;                  // a shiny's own second passive, on top of the equipped one
+    /// <summary>The support passive equipped in its training.</summary>
+    public PassiveDef Equipped => ClassBook.Passive(Training?.Passive);
+    /// <summary>Every support passive in effect, as one: the equipped one, plus a shiny's own.</summary>
+    public PassiveDef Passive
+    {
+        get
+        {
+            if (ShinyPassive == null) return Equipped;
+            if (_merged == null || _mergedFor != Training?.Passive) { _merged = PassiveDef.Merge(Equipped, ShinyPassive); _mergedFor = Training?.Passive; }
+            return _merged;
+        }
+    }
+    PassiveDef _merged;
+    string _mergedFor;
+    public Party.TamerDef Tamer;                   // who leads it from off the field (yours, or a rival's), if anyone
     /// <summary>The tamer's boost, if it reaches this creature (some tamers only lead certain kinds).</summary>
     public Party.TamerDef Boost => Tamer != null && Tamer.Boosts(Creature) ? Tamer : null;
+    /// <summary>A wild creature no tamer leads: it acts on its temper and can be won over (a rival's can't).</summary>
+    public bool Free => Side == Side.Wild && Tamer == null;
     public PassiveDef Reaction => ClassBook.Passive(Training?.Reaction);
     public bool AdrenalineUsed;
 
@@ -125,6 +141,12 @@ public sealed class Unit
                 atk += ma; def += md; spd += ms; hp += mh;
             }
         }
+        // A shiny's own passive counts whatever it trains as.
+        var shine = ClassBook.ShinyPassive(c);
+        if (shine != null)
+        {
+            atk += shine.Atk; def += shine.Def; spd += shine.Spd; move += shine.Move; hit += shine.Hit; hp *= 1 + shine.HpPct;
+        }
         var g = sp.Grafts;
         if (g.HasFlag(Graft.Plating)) def += 3;
         if (g.HasFlag(Graft.MetalLimb)) atk += 1;
@@ -148,6 +170,7 @@ public sealed class Unit
         };
         u.Hp = u.MaxHp;
         u.Training = training;
+        u.ShinyPassive = shine;
         if (training != null) u.Skills = training.Usable().ToList();
         else if (ClassBook.WildSkill(c) is { } wild) u.Skills.Add(ClassBook.Skill(wild));
         return u;

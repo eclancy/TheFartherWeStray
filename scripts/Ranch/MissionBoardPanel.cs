@@ -22,7 +22,7 @@ public partial class MissionBoardPanel : Control
 
     public void Refresh()
     {
-        Missions = Mission.Board(Ranch.Encounter, Ranch.Codex);
+        Missions = Mission.Board(Ranch.Encounter, Ranch.Codex, rivalWins: Ranch.Rivals);
         Selected = Math.Clamp(Selected, 0, Missions.Count - 1);
         foreach (var child in GetChildren()) child.QueueFree();
         var list = new VBoxContainer { Position = new Vector2(0, 30), Size = new Vector2(Size.X, Size.Y - 100) };
@@ -77,7 +77,7 @@ public partial class MissionCard : Control
         if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }) Clicked?.Invoke();
     }
 
-    static string Goal(Objective o) => o switch { Objective.Survive => "clock", Objective.Hunt => "hit", Objective.Capture => "chain", _ => "fist" };
+    static string Goal(Objective o) => o switch { Objective.Survive => "clock", Objective.Hunt => "hit", Objective.Capture => "chain", Objective.Duel => "slash", _ => "fist" };
 
     public override void _Draw()
     {
@@ -116,8 +116,15 @@ public partial class MissionCard : Control
             cx += 72;
         }
         DrawString(font, new Vector2(x, 90), m.Brief(), HorizontalAlignment.Left, w, 15, ink);
-        DrawString(font, new Vector2(x, 114), BattleMap.ByName(m.MapName).Blurb, HorizontalAlignment.Left, w, 14, dim);
-        if (m.Sighting != null)
+        DrawString(font, new Vector2(x, 114), m.Rival?.Ideal ?? BattleMap.ByName(m.MapName).Blurb, HorizontalAlignment.Left, w, 14, dim);
+        if (m.Rival is { } rival)
+        {
+            // The rival's own boost, and how often you've beaten them.
+            DrawTexture(Glyphs.Get(rival.Tamer.Glyph, 2), new Vector2(x - 4, 128));
+            string record = m.RivalWins > 0 ? $"beaten {m.RivalWins}x  ·  " : "";
+            DrawString(font, new Vector2(x + 26, 150), $"{record}{rival.Tamer.Text}", HorizontalAlignment.Left, w - 26, 15, Color.FromHtml("#ff7aa8"));
+        }
+        else if (m.Sighting != null)
         {
             DrawTexture(Glyphs.Get("eye", 2), new Vector2(x - 4, 128));
             DrawString(font, new Vector2(x + 26, 150), $"{m.Sighting}  ·  new to your codex", HorizontalAlignment.Left, w - 26, 15, Color.FromHtml("#4ff0a0"));

@@ -78,6 +78,23 @@ public sealed class PassiveDef
     public int CooldownCut;          // skills cool down sooner
     public int Climb;                // can step up or down this many levels
     public int ChemBonus;            // extra chem after each battle it fights in
+
+    /// <summary>Two support passives in effect at once (a shiny's own on top of the equipped one): numbers add, flags join.</summary>
+    public static PassiveDef Merge(PassiveDef a, PassiveDef b)
+    {
+        if (a == null || b == null) return a ?? b;
+        return new PassiveDef
+        {
+            Id = a.Id + "+" + b.Id, Name = a.Name + " + " + b.Name, Class = a.Class, Text = a.Text + " " + b.Text,
+            Atk = a.Atk + b.Atk, Def = a.Def + b.Def, Spd = a.Spd + b.Spd, Move = a.Move + b.Move, Evade = a.Evade + b.Evade,
+            Hit = a.Hit + b.Hit, Thorns = a.Thorns + b.Thorns, HpPct = a.HpPct + b.HpPct,
+            NoPoison = a.NoPoison || b.NoPoison, NoStun = a.NoStun || b.NoStun, Unstoppable = a.Unstoppable || b.Unstoppable,
+            Amphibious = a.Amphibious || b.Amphibious, LongReach = a.LongReach || b.LongReach, Echo = a.Echo || b.Echo,
+            PackBond = a.PackBond || b.PackBond, Regen = a.Regen + b.Regen, Drain = a.Drain + b.Drain,
+            SkillPower = a.SkillPower + b.SkillPower, Predator = a.Predator + b.Predator, RangeBonus = a.RangeBonus + b.RangeBonus,
+            CooldownCut = a.CooldownCut + b.CooldownCut, Climb = Math.Max(a.Climb, b.Climb), ChemBonus = a.ChemBonus + b.ChemBonus,
+        };
+    }
 }
 
 /// <summary>A training discipline (FFTA's jobs): stat leanings and the skills it teaches.</summary>
@@ -691,7 +708,30 @@ public static class ClassBook
         new() { Id = "ward_sigil", Name = "Ward Sigil", Class = "Hexmark", Kind = PassiveKind.Reaction, React = ReactionKind.Brace, ReactAmount = 3, Text = "Hit: DEF +3 until its next turn." },
     };
 
-    static readonly Dictionary<string, PassiveDef> _passives = Passives.ToDictionary(p => p.Id);
+    /// <summary>
+    /// A shiny's own passive (the user's call, 2026-11-02): a second support on top of the equipped one,
+    /// unique to shinies, picked by the creature's seed so it never changes.
+    /// </summary>
+    public static readonly PassiveDef[] ShinyPassives =
+    {
+        new() { Id = "prismatic_hide", Name = "Prismatic Hide", Class = "Shiny", Evade = 10, NoPoison = true, Text = "Light bends around it: 10% harder to hit, and immune to poison." },
+        new() { Id = "gleaming_fang", Name = "Gleaming Fang", Class = "Shiny", Predator = 0.3f, Atk = 1, Text = "ATK +1, and 30% more damage to foes under half HP." },
+        new() { Id = "radiant_blood", Name = "Radiant Blood", Class = "Shiny", Regen = 0.06f, Text = "Heals 6% of max HP at the start of each turn." },
+        new() { Id = "starlit_mind", Name = "Starlit Mind", Class = "Shiny", SkillPower = 0.2f, CooldownCut = 1, Text = "Skills hit 20% harder and cool down a turn sooner." },
+        new() { Id = "mirror_scales", Name = "Mirror Scales", Class = "Shiny", Thorns = 3, Def = 1, Text = "DEF +1, and melee attackers take 3." },
+        new() { Id = "lucky_glint", Name = "Lucky Glint", Class = "Shiny", Hit = 15, Spd = 1, Text = "SPD +1 and +15% to hit." },
+        new() { Id = "unbroken", Name = "Unbroken", Class = "Shiny", NoStun = true, Unstoppable = true, HpPct = 0.1f, Text = "Max HP +10%; can't be stunned, rooted or knocked back." },
+        new() { Id = "echoing_light", Name = "Echoing Light", Class = "Shiny", Echo = true, RangeBonus = 1, Text = "Boosts it gives last a turn longer; ranged skills reach 1 further." },
+        new() { Id = "moonstep", Name = "Moonstep", Class = "Shiny", Move = 1, Climb = 2, Text = "MOVE +1, and steps up or down two levels." },
+        new() { Id = "thirsting_shine", Name = "Thirsting Shine", Class = "Shiny", Drain = 0.3f, Text = "Heals 30% of the damage its attacks deal." },
+        new() { Id = "gilded_heart", Name = "Gilded Heart", Class = "Shiny", ChemBonus = 6, HpPct = 0.1f, Text = "Max HP +10%, and 6 extra chem after every battle it fights in." },
+    };
+
+    /// <summary>The shiny passive a creature has, or null if it isn't shiny.</summary>
+    public static PassiveDef ShinyPassive(Creature c) =>
+        c.Shiny ? ShinyPassives[(int)(SeededRng.Derive(c.Seed, 0x5419) % (ulong)ShinyPassives.Length)] : null;
+
+    static readonly Dictionary<string, PassiveDef> _passives = Passives.Concat(ShinyPassives).ToDictionary(p => p.Id);
     public static PassiveDef Passive(string id) => id != null && _passives.TryGetValue(id, out var p) ? p : null;
     public static List<PassiveDef> PassivesOf(string cls) => Passives.Where(p => p.Class == cls).OrderBy(p => p.Kind).ToList();
 

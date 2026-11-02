@@ -65,6 +65,7 @@ public sealed class Ranch
     public int Bred;
     public int Chem;                              // lab currency, earned in battle
     public HashSet<string> Codex = new();          // parts met in battle, graftable at the lab ("Wings.Bat")
+    public Dictionary<string, int> Rivals = new();  // times you've beaten each rival tamer (their squads grow)
 
     readonly Dictionary<int, Creature> _cache = new();
 
@@ -269,23 +270,32 @@ public sealed class Ranch
             bool won = battle.Winner == Tactics.Side.Player;
             if (won) Chem += mission.Reward;
             Report.Add(won ? $"Mission complete: {mission.Title}. +{mission.Reward} chem." : $"Mission failed: {mission.Title}.");
+            if (mission.Rival is { } rival)
+            {
+                int wins = Rivals.GetValueOrDefault(rival.Id) + (won ? 1 : 0);
+                if (won) Rivals[rival.Id] = wins;
+                Report.Add(won ? $"{rival.Name} is beaten ({wins} {(wins == 1 ? "win" : "wins")}); they'll train harder for next time."
+                    : $"{rival.Name} wins this time.");
+            }
         }
-        foreach (var u in battle.Units.Where(u => u.Training != null))
+        // Only your own creatures train here (a rival's are rebuilt for every duel).
+        foreach (var u in battle.Units.Where(u => u.Training != null && u.Side == Tactics.Side.Player))
         {
             // A favoured class (body-plan affinity) trains half again as fast.
             int jp = 12 + (u.Gone ? 0 : 4) + (battle.Winner == Tactics.Side.Player ? 4 : 0);
             jp = (int)(jp * ClassBook.JpRate(u.Creature, u.Training.Class));
             foreach (var name in u.Training.Earn(jp))
                 Report.Add($"{u.Name} learned {name} ({u.Training.Class}).");
-            if (ClassBook.Passive(u.Training.Passive) is { ChemBonus: > 0 } pick) { Chem += pick.ChemBonus; Report.Add($"{u.Name} pocketed {pick.ChemBonus} chem."); }
+            if (u.Passive is { ChemBonus: > 0 } pick) { Chem += pick.ChemBonus; Report.Add($"{u.Name} pocketed {pick.ChemBonus} chem."); }
         }
-        // Chem for the lab: more for a win and for every wild creature driven off. Their parts enter the codex.
-        int fled = battle.Units.Count(u => u.Training == null && u.Gone);
+        // Chem for the lab: more for a win and for every wild or rival creature driven off. Their parts enter the codex.
+        bool Foe(Unit u) => u.Training == null || u.Side == Tactics.Side.Wild;
+        int fled = battle.Units.Count(u => Foe(u) && u.Gone);
         int chem = (battle.Winner == Tactics.Side.Player ? 8 : 2) + 2 * fled;
         Chem += chem;
         Report.Add($"+{chem} chem (now {Chem}).");
         var before = new HashSet<string>(Codex);
-        foreach (var u in battle.Units.Where(u => u.Training == null)) Lab.Learn(this, u.Creature);
+        foreach (var u in battle.Units.Where(Foe)) Lab.Learn(this, u.Creature);
         var found = Codex.Except(before).Select(k => k.Replace(".", ": ")).ToList();
         if (found.Count > 0) Report.Add($"New in the codex: {string.Join(", ", found)}.");
 

@@ -17,13 +17,14 @@ What FFTA does that we want the equivalent of:
   undercity's own rules.
 - **Personal stakes:** a small cast whose relationships change over the campaign.
 
-## The user's direction (2026-11-02): the player is a general
+## The user's direction (2026-11-02): the player is a tamer
 
-The story revolves around **the player, who leads creatures as a general**. This replaces the
+The story revolves around **the player, who leads creatures as a tamer** (first called a general;
+the user named it Tamer on 2026-11-02, like a Pok\u00e9mon trainer). This replaces the
 earlier "no human unit" assumption. See `design-notes.md` for the mechanics as they stand:
 
 - The player starts with **three creatures**.
-- The player **might or might not be on the field**, but always acts as a general: boosting the
+- The player **stays off the field** (the user's call, 2026-11-02) and acts as a tamer: boosting the
   team's effects or giving creatures altered abilities.
 - Later in the story a **second party member** joins, so up to **six creatures** can fight.
 - More party members join over time, **each with their own specialties and passives**.
@@ -46,11 +47,11 @@ earlier "no human unit" assumption. See `design-notes.md` for the mechanics as t
 
 - [ ] The themes. What is the story *about*? (Ambition vs. nature? Who owns a creature? What the
       upper city takes from the lower?)
-- [x] Who is the player? **A general who leads creatures** (2026-11-02). Still open: their
+- [x] Who is the player? **A tamer who leads creatures** (2026-11-02). Still open: their
       background (a ranger, a lab-runner, a rancher from the undercity?).
 - [ ] Who are the other party members, and how does each join?
-- [ ] Who opposes them? Rival ranches or generals, a guild, the people behind the chem, something
-      abyssal?
+- [ ] Who opposes them? Rival ranches or tamers (five placeholder rival tamers are built, in
+      `Rivals.cs`), a guild, the people behind the chem, something abyssal?
 - [ ] Do the creatures have voices or personalities in cutscenes beyond their attitude?
 - [ ] Linear campaign, mission board with story missions, or a mix? (Section 2 asks this too.)
 - [ ] Does the story explain the procedural species, as the "frontier" and "mutating world"
@@ -61,7 +62,7 @@ earlier "no human unit" assumption. See `design-notes.md` for the mechanics as t
 - **Cutscene format:** a data-driven script (actors, moves, facings, emotes, lines,
   camera, waits) played on any battle map. Same rule as skills: content is data, not code.
 - **Sprite acting:** walk, hop, turn and idle exist; action poses are being built. Still needed:
-  emote icons (! ? ...), celebrate, and portraits for speakers. Human generals need their own
+  emote icons (! ? ...), celebrate, and portraits for speakers. Human tamers need their own
   sprites (the creature sculptor could build them).
 - **Dialogue box and portraits:** generated creatures can use a crop of their own sprite.
 - **Mission board:** a list of contracts, each a map plus a pack plus an objective, with an

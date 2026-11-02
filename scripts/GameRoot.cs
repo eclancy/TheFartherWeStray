@@ -90,6 +90,80 @@ public partial class GameRoot : Node
             return;
         }
 
+        if (args.ContainsKey("shinies"))
+        {
+            // Every shiny passive in battle: Blaze carries each one in turn against the same pack, and
+            // the PvP squad check turns away a second shiny.
+            foreach (var shine in Classes.ClassBook.ShinyPassives)
+            {
+                var battle = Tactics.Encounter.Create(5, null, "Gilded Gardens");
+                var blaze = battle.Units.First(u => u.Name == "Blaze");
+                blaze.ShinyPassive = shine;
+                int dealt = 0, healed = 0;
+                while (battle.Winner == null && battle.Round <= 30) { var u = battle.NextTurn(); if (u == null) break; battle.AiTurn(u); }
+                foreach (var e in battle.Events)
+                {
+                    if (e is Tactics.DamageEvent { Miss: false } d && battle.Events.TakeWhile(x => x != e).OfType<Tactics.StrikeEvent>().LastOrDefault()?.A == blaze) dealt += d.Amount;
+                    if (e is Tactics.HealEvent h && h.U == blaze) healed += h.Amount;
+                }
+                GD.Print($"{shine.Name,-16} in effect: {blaze.Passive.Name,-30} evade {blaze.Mod(Classes.StatKind.Evade),3}  thorns {blaze.Thorns}  dealt {dealt,3}  healed {healed,3}  -> {battle.Winner?.ToString() ?? "STALLED"} in {battle.Round} rounds");
+            }
+            var pair = Tactics.Encounter.StarterSquad().Take(2).Select(x => x.Item1).ToList();
+            foreach (var c in pair) c.Shiny = true;
+            GD.Print($"pvp check, two shinies: {string.Join(" ", Tactics.PvpRules.Problems(pair, 1))}");
+            pair[1].Shiny = false;
+            GD.Print($"pvp check, one shiny: {(Tactics.PvpRules.Problems(pair, 1).Count == 0 ? "allowed" : "refused")}");
+            GetTree().Quit();
+            return;
+        }
+
+        if (args.TryGetValue("rivals", out var rivalTries))
+        {
+            // Every rival tamer at their first three turns on the board (beaten each time before), against
+            // the starters trained about as far as a player's would be by then and led by your tamers.
+            // Prints the first squad of each (what they field and train), then plays N duels (--rivals=N,
+            // different squads and maps) and reports wins.
+            int tries = int.TryParse(rivalTries, out var rt) ? rt : 6, duelStalls = 0;
+            foreach (var rival in Party.RivalBook.All)
+            foreach (var (enc, wins) in Enumerable.Range(1, 60).Select(e => (ulong)e).Where(e => Party.RivalBook.Challenger(e) == rival).Take(3).Select((e, i) => (e, i)))
+            {
+                int youWin = 0, roundSum = 0;
+                string runs = "";
+                for (int k = 0; k < tries; k++)
+                {
+                    var m = Tactics.Mission.Duel(rival, enc, wins, SeededRng.Derive(enc, 0xD0E1 + (ulong)k));
+                    // Your side: the starters and two more of the cast, as many as you could field, trained the
+                    // way a tamer would to about this encounter, and led by the tamers who've joined.
+                    var leaders = Party.TamerBook.Joined(enc).Take(Party.TamerBook.MaxFielded).ToList();
+                    var squad = new[] { "Blaze", "Sprocket", "Tank", "Hoot", "Boulder", "Zephyr" }.Take(Party.RivalBook.SquadSize(enc))
+                        .Select(name => Creature.Specimen(Creatures.DrawPetsCast.All.First(sp => sp.Name == name), 0))
+                        .Select(c => (c, Party.RivalBook.Train(c, new[] { Ranching.Ranch.DefaultClass(c) }, 15 + 18 * ((int)enc - 1)))).ToList();
+                    var battle = m.CreateBattle(squad.Select(x => (x.c, x.Item2)));
+                    for (int i = 0; i < squad.Count; i++) battle.Lead(squad[i].c, leaders[i / Party.TamerBook.CreaturesEach]);
+                    if (k == 0)
+                    {
+                        GD.Print($"{rival.Name} at encounter {enc}, beaten {wins}x:");
+                        foreach (var u in battle.Units)
+                            GD.Print($"  {(u.Side == Tactics.Side.Wild ? "rival" : "yours")} {u.Name,-14} {u.Creature.Species.Strain,-9} {Creatures.Species.FormOf(u.Creature.Species),-10} {u.Creature.Size,-6} {u.ClassName}/{u.Training?.Secondary ?? "-"}  HP {u.MaxHp} ATK {u.Atk} DEF {u.Def} SPD {u.Spd}{(u.Boost != null ? " (boosted)" : "")}  {string.Join(", ", u.Skills.Select(s => s.Name))}{(u.Passive != null ? $"; {u.Passive.Name}" : "")}{(u.Reaction != null ? $"; {u.Reaction.Name}" : "")}");
+                    }
+                    while (battle.Winner == null && battle.Round <= 30) { var u = battle.NextTurn(); if (u == null) break; battle.AiTurn(u); }
+                    if (battle.Winner == null) duelStalls++;
+                    if (battle.Winner == Tactics.Side.Player) youWin++;
+                    roundSum += battle.Round;
+                    runs += battle.Winner == Tactics.Side.Player ? "W" : battle.Winner == null ? "S" : "l";
+                    if (args.TryGetValue("trace", out var trace) && trace == $"{rival.Id}{wins}{k}")
+                    {
+                        GD.Print($"    on {m.MapName}; still standing: {string.Join(", ", battle.Alive.Select(u => $"{u.Name} {u.Creature.Size} {u.MoveType} at {u.Pos}"))}");
+                        foreach (var e in battle.Events) GD.Print("    " + Tactics.Encounter.Describe(e));
+                    }
+                }
+                GD.Print($"  -> you win {youWin}/{tries} ({runs}: W you, l the rival, S stalled), {roundSum / (float)tries:0.0} rounds on average");
+            }
+            GD.Print($"stalled: {duelStalls}");
+            GetTree().Quit();
+            return;
+        }
+
         if (args.TryGetValue("capturetest", out var captureBoards))
         {
             // Captures by temper: on boards 1..N, each board's first mission made a capture, played once
@@ -291,6 +365,15 @@ public partial class GameRoot : Node
             string labPath = ProjectSettings.GlobalizePath("res://.shots/lab.png");
             CreatureSheet.Compose(new List<Creature> { tankBefore, tankAfter, pupC }, false, 4, 3).SavePng(labPath);
 
+            // A duel with the first rival tamer: the report, and their record kept in the save.
+            var duel = Tactics.Mission.Duel(Party.RivalBook.All[0], ranch.Encounter, 0, 77);
+            var duelBattle = duel.CreateBattle(ranch.SquadCreatures());
+            ranch.LeadUnits(duelBattle);
+            while (duelBattle.Winner == null && duelBattle.Round <= 30) { var u = duelBattle.NextTurn(); if (u == null) break; duelBattle.AiTurn(u); }
+            ranch.AfterBattle(duelBattle, duel);
+            GD.Print($"duel: {duel.Title} -> {duelBattle.Winner}; {string.Join(" ", ranch.Report.Where(l => l.Contains(duel.Rival.Name) || l.Contains("codex")))}");
+            ranch.Rivals["huntress"] = 2;
+
             ranch.Save();
             var loaded = Ranching.Ranch.Load();
             int same = 0;
@@ -304,6 +387,8 @@ public partial class GameRoot : Node
             int trained = ranch.Creatures.Count(r => { var l = loaded.Record(r.Id).Training; return l.Class == r.Training.Class && l.Secondary == r.Training.Secondary && l.Passive == r.Training.Passive && l.Reaction == r.Training.Reaction && l.Masteries.SequenceEqual(r.Training.Masteries) && l.Passives.SequenceEqual(r.Training.Passives) && l.Innate == r.Training.Innate && l.Skills.SequenceEqual(r.Training.Skills) && l.JpIn(l.Class) == r.Training.JpIn(r.Training.Class); });
             GD.Print($"training: {trained}/{ranch.Creatures.Count} identical after save and load; " + string.Join("; ", ranch.Creatures.Select(r => $"{ranch.Get(r.Id).Species.Name} {r.Training.Class} [{string.Join(",", r.Training.Skills)}]{(r.Training.Innate != null ? " innate " + r.Training.Innate : "")}")));
             GD.Print($"roundtrip: {same}/{ranch.Creatures.Count} creatures identical after save and load; squad {string.Join(",", loaded.Squad)}; next encounter {loaded.Encounter}");
+            bool rivalsKept = ranch.Rivals.Count == loaded.Rivals.Count && ranch.Rivals.All(kv => loaded.Rivals.GetValueOrDefault(kv.Key) == kv.Value);
+            GD.Print($"rivals: {(rivalsKept ? "identical" : "DIFFERENT")} after save and load; {string.Join(", ", loaded.Rivals.Select(kv => $"{kv.Key} beaten {kv.Value}x"))}");
             bool party = ranch.Fielded.SequenceEqual(loaded.Fielded) && ranch.Squad.All(id => ranch.LeaderOf(id)?.Id == loaded.LeaderOf(id)?.Id);
             GD.Print($"tamers: {(party ? "identical" : "DIFFERENT")} after save and load; fielded {string.Join(", ", loaded.Fielded)}; "
                 + string.Join("; ", loaded.Fielded.Select(w => $"{w} leads {string.Join(", ", loaded.Squad.Where(id => loaded.LeaderOf(id)?.Id == w).Select(id => loaded.Get(id).Species.Name))}")));
@@ -422,6 +507,17 @@ public partial class GameRoot : Node
                 total++; turns += matched;
                 if (ok) same++; else problems.Add($"seed {seed} on {map}: diverged at turn {matched} of {battle.TurnHashes.Count}");
             }
+            // A duel against every rival tamer: trained squads, boosts and every skill they bring.
+            foreach (var rival in Party.RivalBook.All)
+            {
+                ulong duelSeed = 100 + (ulong)total;
+                Tactics.Battle Make() => Tactics.Mission.Duel(rival, (ulong)rival.AppearsAt + 2, 1, duelSeed).CreateBattle(Tactics.Encounter.StarterSquad());
+                var battle = Make();
+                while (battle.Winner == null && battle.Round <= 30) { var u = battle.NextTurn(); if (u == null) break; battle.AiTurn(u); }
+                var (ok, matched) = Tactics.Battle.Replay(battle, Make);
+                total++; turns += matched;
+                if (ok) same++; else problems.Add($"duel with {rival.Name}: diverged at turn {matched} of {battle.TurnHashes.Count}");
+            }
             GD.Print($"replay: {same}/{total} battles rebuilt identically from their commands alone ({turns} turns checked); {(problems.Count == 0 ? "no divergence" : string.Join("; ", problems))}");
             GetTree().Quit();
             return;
@@ -496,13 +592,23 @@ public partial class GameRoot : Node
         {
             // A one-off battle with the default squad, no ranch involved.
             ulong seed = ulong.TryParse(oneOff, out var bs) ? bs : 1;
-            _home = () => new Tactics.BattleScreen { Seed = seed, AutoPlay = _autoPlay, DemoAim = args.ContainsKey("aim"), DemoFx = args.ContainsKey("fxdemo"), DemoShiny = args.ContainsKey("shiny"), TurnSeconds = args.TryGetValue("timer", out var timerArg) && float.TryParse(timerArg, out var timerSeconds) ? timerSeconds : 0, MapName = args.TryGetValue("map", out var mapName) ? mapName : "Undercity Foundry" };
+            // --duel=N: the Nth rival tamer's squad instead of a wild pack (--enc=E sets how far along, --wins=W how often beaten).
+            Tactics.Mission duel = null;
+            if (args.TryGetValue("duel", out var duelArg) && int.TryParse(duelArg, out var duelIndex))
+            {
+                ulong duelEnc = args.TryGetValue("enc", out var encArg) && ulong.TryParse(encArg, out var ev) ? ev : 4;
+                int duelWins = args.TryGetValue("wins", out var winsArg) && int.TryParse(winsArg, out var wv) ? wv : 0;
+                duel = Tactics.Mission.Duel(Party.RivalBook.All[duelIndex % Party.RivalBook.All.Length], duelEnc, duelWins, seed);
+            }
+            _home = () => new Tactics.BattleScreen { Seed = seed, Mission = duel, AutoPlay = _autoPlay, DemoAim = args.ContainsKey("aim"), DemoFx = args.ContainsKey("fxdemo"), DemoShiny = args.ContainsKey("shiny"), TurnSeconds = args.TryGetValue("timer", out var timerArg) && float.TryParse(timerArg, out var timerSeconds) ? timerSeconds : 0, MapName = args.TryGetValue("map", out var mapName) ? mapName : "Undercity Foundry" };
             Show(_home());
             return;
         }
         // The game proper: the ranch, battles from it, and back.
         if (args.TryGetValue("save", out var saveName) && saveName != "") Ranching.Ranch.SavePath = $"user://{saveName}.json";
         _ranch = args.ContainsKey("newranch") ? Ranching.Ranch.New() : Ranching.Ranch.Load();
+        // --encounter=E jumps the ranch ahead (for looking at later boards; use it with --save=NAME).
+        if (args.TryGetValue("encounter", out var encounterArg) && ulong.TryParse(encounterArg, out var encounterAt)) _ranch.Encounter = encounterAt;
         bool vatDemo = args.ContainsKey("vatdemo");
         _home = () => new Ranching.RanchScreen { Ranch = _ranch, Fight = StartRanchBattle, VatDemo = vatDemo, AutoFight = _autoPlay, StartInLab = args.ContainsKey("labmode"), StartOnParty = args.ContainsKey("partymode"), StartOnBoard = args.ContainsKey("boardmode"), StartOnJobs = args.ContainsKey("jobsmode") };
         Show(_home());

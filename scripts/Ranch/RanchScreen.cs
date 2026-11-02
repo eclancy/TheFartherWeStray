@@ -260,10 +260,11 @@ public partial class RanchScreen : Control
             var s = ClassBook.Skill(t.Innate);
             extras.AddChild(Ui.Picture(SkillIcons.Skill(s, 2), $"Innate, from a parent: {s.Name}\n{s.Text}"));
         }
-        foreach (var p in new[] { ClassBook.Passive(t.Passive), ClassBook.Passive(t.Reaction) }.Where(p => p != null))
+        var shine = ClassBook.ShinyPassive(c);
+        foreach (var p in new[] { ClassBook.Passive(t.Passive), shine, ClassBook.Passive(t.Reaction) }.Where(p => p != null))
         {
-            extras.AddChild(Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p.Kind == PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"));
-            extras.AddChild(Ui.Text(p.Name, 14, p.Kind == PassiveKind.Reaction ? Ui.Pink : Ui.Good, 4));
+            extras.AddChild(Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p == shine ? "shiny, its own" : p.Kind == PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"));
+            extras.AddChild(Ui.Text(p.Name, 14, p == shine ? Gold : p.Kind == PassiveKind.Reaction ? Ui.Pink : Ui.Good, 4));
         }
         if (extras.GetChildCount() > 0) _training.AddChild(extras);
 

@@ -42,8 +42,10 @@ public sealed partial class Battle
 
     // The mission: what counts as winning. Rout (the default) means no wild creature left standing.
     public Objective Goal = Objective.Rout;
+    public Party.TamerDef Rival; // a duel: the rival tamer leading the other side
     public Unit Target;          // Capture: recruit it. Hunt: bring it down.
     public int SurviveRounds;    // Survive: still standing after this many rounds
+    public const int DuelRounds = 20; // Duel: if both squads still stand after this many rounds, the one with more HP left wins
     public Mission Mission;
 
     readonly SeededRng _rng;
@@ -66,7 +68,23 @@ public sealed partial class Battle
     public void Lead(Creature c, Party.TamerDef w)
     {
         var u = Units.FirstOrDefault(x => x.Creature == c && x.Side == Side.Player);
-        if (u == null || w == null) return;
+        if (u != null && w != null) Apply(u, w);
+    }
+
+    /// <summary>A duel: a rival tamer's trained squad takes the far side, each under the rival's boost.</summary>
+    public void Challenge(Party.TamerDef rival, IEnumerable<(Creature creature, Training training)> squad)
+    {
+        Rival = rival;
+        foreach (var (c, t) in squad)
+        {
+            var u = Unit.From(c, Side.Wild, t);
+            Place(u, Map.WildAnchor);
+            Apply(u, rival);
+        }
+    }
+
+    void Apply(Unit u, Party.TamerDef w)
+    {
         u.Tamer = w;
         if (u.Boost is not { } b) return;
         u.Atk += b.Atk; u.Def += b.Def; u.Spd += b.Spd; u.Move += b.Move; u.HitBonus += b.Hit;
@@ -76,18 +94,41 @@ public sealed partial class Battle
 
     void Place(Unit u, Vector2I anchor)
     {
-        // The nearest free spot to the anchor, searching outward.
+        // The nearest free spot to the anchor, searching outward, from which it can make its way across
+        // the map (a huge creature can be shut in a pit a smaller one walks out of); any free spot if none can.
+        var far = anchor == Map.PlayerAnchor ? Map.WildAnchor : Map.PlayerAnchor;
+        foreach (bool roam in new[] { true, false })
         for (int r = 0; r < Map.W + Map.H; r++)
         for (int dy = -r; dy <= r; dy++)
         for (int dx = -r; dx <= r; dx++)
         {
             if (Math.Abs(dx) + Math.Abs(dy) != r) continue;
             var p = anchor + new Vector2I(dx, dy);
-            if (!CanStand(u, p)) continue;
+            if (!CanStand(u, p) || roam && !Roams(u, p, far)) continue;
             u.Pos = u.TurnStart = p;
             Units.Add(u);
             return;
         }
+    }
+
+    /// <summary>Whether a unit standing at p could walk to within a few tiles of the goal.</summary>
+    bool Roams(Unit u, Vector2I p, Vector2I goal)
+    {
+        var seen = new HashSet<Vector2I> { p };
+        var open = new Queue<Vector2I>();
+        open.Enqueue(p);
+        var dirs = new[] { Vector2I.Left, Vector2I.Right, Vector2I.Up, Vector2I.Down };
+        while (open.Count > 0)
+        {
+            var cur = open.Dequeue();
+            if (Math.Abs(cur.X - goal.X) + Math.Abs(cur.Y - goal.Y) <= 4) return true;
+            foreach (var d in dirs)
+            {
+                var next = cur + d;
+                if (!seen.Contains(next) && StepCost(u, cur, next) >= 0) { seen.Add(next); open.Enqueue(next); }
+            }
+        }
+        return false;
     }
 
     // ------------------------------------------------------------------ turns
@@ -115,6 +156,16 @@ public sealed partial class Battle
                 Log("You held out!");
                 Winner = Side.Player;
                 Events.Add(new EndEvent(Side.Player));
+                return null;
+            }
+            if (Goal == Objective.Duel && Round > DuelRounds)
+            {
+                // Time: the squad with the larger share of its HP still standing takes it (a tie goes to the rival).
+                float Share(Side s) => Units.Where(u => u.Side == s).Sum(u => u.Gone ? 0 : u.Hp) / (float)Math.Max(1, Units.Where(u => u.Side == s).Sum(u => u.MaxHp));
+                float yours = Share(Side.Player), theirs = Share(Side.Wild);
+                Log($"Time! You have {yours:P0} of your HP left, {Rival?.Name ?? "the rival"} {theirs:P0}.");
+                Winner = yours > theirs ? Side.Player : Side.Wild;
+                Events.Add(new EndEvent(Winner.Value));
                 return null;
             }
             _queue.AddRange(SpeedOrder());
@@ -364,7 +415,7 @@ public sealed partial class Battle
     {
         u.Hp -= amount;
         Events.Add(new DamageEvent(u, amount, Miss: false));
-        if (by != null && by.Side == Side.Player && u.Side == Side.Wild) u.HitBy.Add(by);
+        if (by != null && by.Side == Side.Player && u.Free) u.HitBy.Add(by);
         if (by != null) u.LastAttacker = by;
         if (u.Hp <= 0) Defeat(u);
         else if (u.Reaction is { React: ReactionKind.Adrenaline } adr && !u.AdrenalineUsed && u.Hp * 2 < u.MaxHp)
@@ -404,7 +455,7 @@ public sealed partial class Battle
     void AfterHit(Unit a, Unit target, bool survived, bool counter)
     {
         // An aggressive wild creature is won over by enduring it (counted when it attacks).
-        if (!counter && a.Side == Side.Wild && a.Attitude == Attitude.Aggressive && target.Side == Side.Player)
+        if (!counter && a.Free && a.Attitude == Attitude.Aggressive && target.Side == Side.Player)
             a.Weathered = target.Gone ? 0 : a.Weathered + 1;
 
         if (!survived || counter || a.Gone) return;
@@ -500,7 +551,7 @@ public sealed partial class Battle
     void Defeat(Unit u)
     {
         if (u.Gone) return;
-        if (u.Side == Side.Wild && u.Attitude == Attitude.Proud && u.HitBy.Count == 1)
+        if (u.Free && u.Attitude == Attitude.Proud && u.HitBy.Count == 1)
         {
             Recruit(u, $"bested one on one by {u.HitBy.First().Name}");
             return;
@@ -508,7 +559,7 @@ public sealed partial class Battle
         u.Gone = true;
         u.Hp = 0;
         Events.Add(new FaintEvent(u));
-        Log(u.Side == Side.Wild ? $"{u.Name} flees!" : $"{u.Name} is knocked out.");
+        Log(u.Free ? $"{u.Name} flees!" : $"{u.Name} is knocked out.");
         CheckEnd();
     }
 
@@ -912,7 +963,7 @@ public sealed partial class Battle
         u.Rooted = false;
         u.TauntedBy = null;
 
-        if (!u.Gone && u.Attitude == Attitude.Curious && u.Side == Side.Wild)
+        if (!u.Gone && u.Attitude == Attitude.Curious && u.Free)
         {
             // Curious reaction: a wild one grabs any item within reach. (Your own curious creatures
             // leave the berries you set down for the creature they're meant to lure.)
@@ -928,10 +979,10 @@ public sealed partial class Battle
                 if (u.Side == Side.Wild) Recruit(u, "lured with a glowberry");
             }
         }
-        if (!u.Gone && u.Side == Side.Wild && u.Attitude == Attitude.Aggressive && u.Weathered >= 3)
+        if (!u.Gone && u.Free && u.Attitude == Attitude.Aggressive && u.Weathered >= 3)
             Recruit(u, "its fury weathered for three attacks");
 
-        foreach (var w in Alive.Where(w => w.Side == Side.Wild).ToList())
+        foreach (var w in Alive.Where(w => w.Free).ToList())
         {
             if (w.Attitude == Attitude.Skittish && Cornered(w)) Recruit(w, "cornered with nowhere to run");
             else if (w.Attitude == Attitude.Loyal && Recruited.Count > 0 && !Alive.Any(o => o != w && o.Side == Side.Wild))
@@ -1157,7 +1208,8 @@ public sealed partial class Battle
         // A taunted creature has eyes only for its taunter.
         if (u.TauntedBy is { Gone: false } taunter && taunter.Side != u.Side) foes = new List<Unit> { taunter };
         var tiles = Reachable(u).Keys.Append(u.Pos).ToList();
-        var mood = u.Side == Side.Player || u.TauntedBy != null ? Attitude.Aggressive : u.Attitude;
+        // Creatures a tamer leads (yours, or a rival's) fight as trained; only free wild ones act on their temper.
+        var mood = !u.Free || u.TauntedBy != null ? Attitude.Aggressive : u.Attitude;
 
         int Nearest(Vector2I p) => foes.Min(f => Dist(u, p, f));
         Unit BestTarget(Vector2I p)

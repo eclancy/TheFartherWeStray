@@ -36,10 +36,38 @@ fields up to two and fills their three slots each; battles apply the boosts befo
 - [ ] Do tamers grow (levels, more boosts, a tree of their own)?
 - [ ] Who each party member is, and how they join (the story).
 
+## Rival tamers (the user's pick, 2026-11-02)
+
+**Decided by the user:** build rival tamers next (2026-11-02). The rest was defaulted to build a
+first version, and is open to change.
+
+**Built (first version, 2026-11-02):** `scripts/Party/Rivals.cs`.
+- Five rivals as data, each breeding toward an ideal: the Brass Baron (armoured clockwork, from
+  encounter 2), the Chem Witch (chem-filled creatures, 4), the Huntress (natural predators, 6),
+  the Occultist (arcane beasts and auras, 8) and the Wyrm Lord (the biggest beasts, 10). The titles
+  are placeholders for characters the story will bring, like your own party's.
+- Each leads from off the field with a boost of their own (a `TamerDef`, like yours), and fields
+  species to their taste, given their blood (infusions) and machine grafts, trained in their
+  favourite classes.
+- A **duel** contract takes the board's last card on a rival's debut and on every other board
+  after (they take turns). They field as many creatures as you bring, three at least, six at most.
+- A tamer's creatures fight as trained (no temper-driven fleeing) and **can't be recruited**.
+- A duel still undecided after **20 rounds** goes to the side with more of its HP left (a tie to the
+  rival), so two walls of shields can't stall forever. PvP will want the same rule.
+- Winning pays more chem than a contract, puts their parts in your codex, and counts: each win
+  makes their squad train harder and fits their grafts to one more creature.
+
+**Open:**
+- [ ] Who the rivals are (names, looks, why they breed what they breed): the story.
+- [ ] Should beating a rival give something unique (an egg from their line, a graft, a title)?
+- [ ] How often they come back (now: every other board, taking turns), and whether you can refuse.
+- [ ] The round limit and its tie-break (defaulted, for duels and later PvP).
+
 ## Online PvP battles (a goal, the user's direction, 2026-11-02)
 
 **Decided by the user:** casual matches, turn timers, each player using their own squad (tamers
-and creatures from their ranch). More to come later.
+and creatures from their ranch), **only one shiny fielded at a time** (2026-11-02), and
+**matchmaking, kept basic for now** (2026-11-02). More to come later.
 
 **What already helps:** the rules live in `Battle`, apart from any drawing, and every roll comes
 from `SeededRng`. Two machines that start from the same seed and apply the same commands reach
@@ -57,9 +85,20 @@ each side replay them: lockstep, the usual way turn-based games go online.
 - A turn timer: `BattleScreen.TurnSeconds` (a clock chip counts down; the turn ends at zero),
   `--timer=N` to try it.
 
+**Matchmaking plan (basic, 2026-11-02; not built):**
+- One "Quick match" button. The game connects to a small matchmaking server over WebSocket and
+  waits in a single queue; the server pairs the first two players who are waiting. No ranks,
+  ratings, regions or lobbies yet.
+- Once paired, the server sends both players a match seed and who goes first, then relays each
+  side's commands to the other (lockstep, as above). Relaying through the server avoids NAT and
+  port-forwarding trouble and lets it check squads (one shiny, six creatures, two tamers).
+- Each side sends its squad (tamers, creatures, training) when the match starts; the battle is
+  built from both squads and the seed, then only commands travel.
+- After every turn both sides send `StateHash`; a mismatch ends the match as a draw and logs it.
+- Later, not now: friend codes or private rooms, a rating, reconnecting after a drop, spectating.
+
 **What it will still need:**
-- Matchmaking and transport: Godot's high-level multiplayer (ENet or WebSocket) for direct or
-  relayed matches, or a small server. A server also stops cheating on squads.
+- The server itself (a small one: a queue and a relay) and Godot's `WebSocketPeer` on the client.
 - PvP rules: two tamers and six creatures a side, turn timers, disconnects, no recruiting.
 - Balance: classes, skills and grafts tuned for fairness, not only against wild packs.
 
@@ -67,7 +106,9 @@ each side replay them: lockstep, the usual way turn-based games go online.
 - [x] Ranked or casual? **Casual.**
 - [x] Squads? **Your own** tamers and creatures.
 - [x] Pace? **Turn timers.**
-- [ ] Matchmaking or friend codes? Timer length? What happens on a disconnect?
+- [x] Matchmaking or friend codes? **Matchmaking**, basic: one queue, first two paired.
+- [x] Shinies? **One** fielded per side.
+- [ ] Timer length? What happens on a disconnect?
 
 ## Shinies (the user's direction, 2026-11-02)
 
@@ -75,10 +116,19 @@ each side replay them: lockstep, the usual way turn-based games go online.
 - **Much rarer:** 1 in 512 for now (was 1 in 24), easy to change.
 - **The reveal:** when a battle starts, the camera pans to each shiny and shows a glint animation.
 
-**Today:** a shiny is a palette swap (`PaletteSpec.Shiny`), the reveal above, and a "shiny" tag in
-the ranch detail.
+- **They matter:** a shiny has a special unique skill, a second passive on top of its equipped one
+  (2026-11-02).
+- **PvP:** only one shiny fielded at a time (2026-11-02).
+
+**Built (2026-11-02):** a palette swap (`PaletteSpec.Shiny`), the reveal above, a "shiny" tag in the
+ranch detail, and a **shiny passive**: one of eleven (`ClassBook.ShinyPassives`: Prismatic Hide,
+Gleaming Fang, Radiant Blood, Starlit Mind, Mirror Scales, Lucky Glint, Unbroken, Echoing Light,
+Moonstep, Thirsting Shine, Gilded Heart), picked by the creature's seed so it never changes, in
+effect alongside the equipped passive whatever it trains as, with a gold-framed icon. Wild and
+rival shinies have theirs too. The one-shiny PvP rule is a squad check (`PvpRules.Problems`) for
+the matchmaking to call.
 
 **Open:**
-- [ ] Only cosmetic, or do they matter (a stat edge, a unique skill, a rarer form)?
+- [x] Only cosmetic, or do they matter? **A unique second passive.**
 - [ ] Inheritance: can breeding pass it on, or raise the odds?
 - [ ] Hunting: sightings of shinies on the mission board, a codex of shiny species.

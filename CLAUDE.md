@@ -105,15 +105,34 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   them as data (a specialty boost, which creatures it reaches, the encounter they join at: a
   placeholder for the story); `Ranch.Fielded`/`LedBy` save who leads whom; `Battle.Lead` applies
   the boost before the first turn; the Party panel (P) on the ranch fields tamers and fills slots. Details, defaults and open
-  questions are in `docs/design-notes.md`, with PvP (casual, turn timers, your own squad) and
-  shinies (1 in 512; the battle opens with a camera pan and a glint on each one).
+  questions are in `docs/design-notes.md`, with PvP (casual, turn timers, your own squad, one
+  shiny, basic matchmaking planned) and shinies (1 in 512; the battle opens with a camera pan and
+  a glint on each one; each has a unique second passive, `ClassBook.ShinyPassives`, picked by its
+  seed and merged into `Unit.Passive`; `--shinies` checks them all).
+- **Rival tamers (2026-11-02, built):** `scripts/Party/Rivals.cs` holds five rivals as data (a
+  `TamerDef` boost, an ideal they breed toward, a taste in species, a blood infusion, machine
+  grafts, a class order, home maps; the titles are placeholders for the story). A duel
+  (`Objective.Duel`, `Mission.Duel`) takes the board's last card on a rival's debut and on every
+  other board after. They field as many creatures as you bring (three, up to six once a second
+  tamer joins), trained by `RivalBook.Train` to about your level; each win you have against them
+  (`Ranch.Rivals`, saved) trains them harder and fits their grafts to one more creature. Their
+  creatures are `Side.Wild` with a `Tamer`, so they fight as trained and can't be recruited: use
+  `Unit.Free` for anything about wild tempers or recruiting. A duel still undecided after
+  `Battle.DuelRounds` (20) goes to the side with the larger share of its HP left. `--rivals=N`
+  plays each rival at their first three board appearances against starters trained to match: on
+  2026-11-02, 30-60% wins for you in most, the Wyrm Lord hardest (2-3/10), no stalls.
+  `--battle=S --duel=N [--enc=E --wins=W]` opens one on screen; `--save=X --newranch --encounter=6
+  --boardmode --shot=40` shows a board with a duel card (`--encounter` jumps a ranch ahead).
+- `Battle.Place` only puts a unit where it can walk toward the far side (`Roams`): a huge creature
+  used to spawn shut in a pit on the Undercity Foundry.
 - **Online PvP is a goal** (2026-11-02, groundwork built): see `docs/design-notes.md`. Every
   action, the player's, the AI's or a replay's, goes through `Battle.Order(Command)`
   (`Tactics/Commands.cs`): small records a network can send. `Battle.StateHash` fingerprints the
   state after each turn. Never change battle state from a screen except through `Order`, or a
   match can't be replayed from its commands. `BattleScreen.TurnSeconds` is the turn timer
   (`--timer=N`).
-- Not built yet: story and cutscenes, rival tamers, the network side of PvP.
+- Not built yet: story and cutscenes, the network side of PvP (basic matchmaking is planned in
+  `docs/design-notes.md`).
 
 ## Build and check
 

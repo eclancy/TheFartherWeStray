@@ -150,6 +150,7 @@ public partial class BattleScreen : Control
             c.Spec = c.Spec.Shiny(new SeededRng(SeededRng.Derive(c.Seed, 0x5414)));
             c.Palette = Creature.BuildPalette(c.Spec, c.Species);
             c.Shiny = true;
+            demo.ShinyPassive = Classes.ClassBook.ShinyPassive(c);
         }
         _art = new IsoArt(_battle.Map);
         _backdrop.Texture = ImageTexture.CreateFromImage(IsoArt.PaintBackdrop(480, 270, Seed, _battle.Map.Theme));
@@ -182,23 +183,34 @@ public partial class BattleScreen : Control
             var foes = _views.Where(o => o.Key.Side != u.Side).Select(o => o.Value.Position).ToList();
             if (foes.Count > 0) v.Face(foes.Aggregate(Vector2.Zero, (a, b) => a + b) / foes.Count - v.Position);
         }
-        AddLog($"{_battle.Map.Name}. A wild pack blocks the way.");
+        AddLog(_battle.Rival != null ? $"{_battle.Map.Name}. {_battle.Rival.Name} is waiting." : $"{_battle.Map.Name}. A wild pack blocks the way.");
         RefreshObjective();
         Opening();
     }
 
-    /// <summary>Before the first turn: the camera visits every shiny in the wild pack, and each one glints.</summary>
+    /// <summary>
+    /// Before the first turn: a rival tamer announces the duel, then the camera visits every shiny on
+    /// the far side, and each one glints.
+    /// </summary>
     async void Opening()
     {
         _mode = Mode.Busy;
         var home = _board.Position;
+        if (_battle.Rival is { } rival)
+        {
+            _banner.Text = $"{rival.Name.ToUpperInvariant()}\nchallenges you";
+            _banner.Visible = true;
+            AddLog($"{rival.Name} sends out {_battle.Units.Count(u => u.Side == Side.Wild)} creatures (a tamer's can't be recruited). {rival.Specialty}: {rival.Text}");
+            await Wait(1.6f);
+            _banner.Visible = false;
+        }
         foreach (var (u, v) in _views.Where(p => p.Key.Side == Side.Wild && p.Key.Creature.Shiny).ToList())
         {
             var centre = new Vector2(740, 520) - (v.Position + new Vector2(0, -v.SpriteHeight / 2)) * Scale;
             var pan = CreateTween();
             pan.TweenProperty(_board, "position", centre, 0.7f).SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
             await ToSignal(pan, Tween.SignalName.Finished);
-            AddLog($"A shiny {u.Name} appears!");
+            AddLog($"A shiny {u.Name} appears! {u.ShinyPassive?.Name}: {u.ShinyPassive?.Text}");
             Popup(v, "shiny!", Gold, -12, UI.Glyphs.Mini("star", 2));
             await v.Glint();
             await Wait(0.3f);
@@ -460,9 +472,9 @@ public partial class BattleScreen : Control
         _mode = Mode.Over;
         _overlay.QueueRedraw();
         int n = _battle.Recruited.Count;
-        _banner.Text = _battle.Winner == Side.Player
-            ? $"VICTORY\n{(n == 0 ? "no creatures recruited" : n == 1 ? "1 creature joins you" : $"{n} creatures join you")}"
-            : "DEFEAT";
+        _banner.Text = _battle.Winner != Side.Player ? "DEFEAT"
+            : _battle.Rival is { } rival ? $"VICTORY\n{rival.Name} is beaten"
+            : $"VICTORY\n{(n == 0 ? "no creatures recruited" : n == 1 ? "1 creature joins you" : $"{n} creatures join you")}";
         _banner.Visible = true;
         AddLog(Finished != null ? "Enter: back to the ranch" : "R: next encounter    Tab: Sprite Lab");
         if (AutoPlay && Finished != null) GetTree().CreateTimer(2.5).Timeout += () => { if (IsInsideTree()) Finished(_battle); };
@@ -714,12 +726,12 @@ public partial class BattleScreen : Control
             var icons = new HFlowContainer();
             icons.AddThemeConstantOverride("h_separation", 4);
             foreach (var s in u.Skills) icons.AddChild(UI.Ui.Picture(SkillIcons.Skill(s, 2), $"{s.Name} ({s.Class})\n{s.Text}"));
-            foreach (var p in new[] { u.Passive, u.Reaction }.Where(p => p != null))
-                icons.AddChild(UI.Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p.Kind == Classes.PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"));
+            foreach (var p in new[] { u.Equipped, u.ShinyPassive, u.Reaction }.Where(p => p != null))
+                icons.AddChild(UI.Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p == u.ShinyPassive ? "shiny" : p.Kind == Classes.PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"));
             _info.AddChild(icons);
         }
 
-        if (u.Side == Side.Wild)
+        if (u.Free)
         {
             var hint = UI.Ui.Text(RecruitShort(u), 16, Gold, 4);
             hint.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -786,6 +798,7 @@ public partial class BattleScreen : Control
         var target = _battle.Target?.Creature;
         string text = Mission != null ? Mission.Brief(target) : "Rout the pack: drive off or recruit every wild creature.";
         if (_battle.Goal == Objective.Survive) text += $"   Round {System.Math.Max(1, _battle.Round)}/{_battle.SurviveRounds}";
+        if (_battle.Goal == Objective.Duel) text += $"   Round {System.Math.Max(1, _battle.Round)}/{Battle.DuelRounds}";
         if (Mission?.Sighting != null) text += $"   Sighting: {Mission.Sighting}";
         _objective.Text = text;
     }

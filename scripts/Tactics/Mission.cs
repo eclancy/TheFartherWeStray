@@ -6,12 +6,12 @@ using CreatureTactics.Creatures;
 
 namespace CreatureTactics.Tactics;
 
-public enum Objective { Rout, Capture, Hunt, Survive }
+public enum Objective { Rout, Capture, Hunt, Survive, Duel }
 
 /// <summary>
 /// A contract on the mission board (FFTA's board): a region, a wild pack drawn from that region's
 /// fauna, an objective and a chem reward. Some carry a sighting: a part your codex doesn't have yet,
-/// guaranteed on one creature in the pack.
+/// guaranteed on one creature in the pack. A duel puts a rival tamer's squad there instead.
 /// </summary>
 public sealed class Mission
 {
@@ -20,6 +20,9 @@ public sealed class Mission
     public Objective Goal;
     public int Pack, Rounds, Reward, Stars;
     public string Title, Sighting;
+    public Party.RivalDef Rival;  // a duel: the rival tamer whose squad you face
+    public int RivalWins;         // times you've beaten them before (their squad trains harder)
+    public ulong Encounter;
     int _sightingIndex = -1;
 
     const int CandidateCount = 24;
@@ -33,19 +36,26 @@ public sealed class Mission
         Objective.Capture => $"Capture {target?.Species.Name ?? "the marked creature"}: recruit it before it gets away.",
         Objective.Hunt => $"Hunt {target?.Species.Name ?? "the alpha"}: bring down the marked alpha.",
         Objective.Survive => $"Survive {Rounds} rounds against a large pack.",
+        Objective.Duel => $"Beat {Rival.Name}'s squad in {Battle.DuelRounds} rounds.",
         _ => "Rout the pack: drive off or recruit every wild creature.",
     };
 
-    /// <summary>A board of missions. It changes after every battle (the seed is the encounter number).</summary>
-    public static List<Mission> Board(ulong encounter, ICollection<string> codex, int count = 4)
+    /// <summary>A board of missions. It changes after every battle (the seed is the encounter number).
+    /// On some boards a rival tamer's duel takes the last place; <paramref name="rivalWins"/> counts your wins against each.</summary>
+    public static List<Mission> Board(ulong encounter, ICollection<string> codex, int count = 4, IReadOnlyDictionary<string, int> rivalWins = null)
     {
         var list = new List<Mission>();
         var sighted = new HashSet<string>(); // no two cards promise the same part
         for (int i = 0; i < count; i++)
         {
             ulong seed = SeededRng.Derive(encounter * 977UL, (ulong)i + 1);
+            if (i == count - 1 && Party.RivalBook.Challenger(encounter) is { } rival)
+            {
+                list.Add(Duel(rival, encounter, rivalWins?.GetValueOrDefault(rival.Id) ?? 0, seed));
+                continue;
+            }
             var rng = new SeededRng(seed);
-            var m = new Mission { Seed = seed };
+            var m = new Mission { Seed = seed, Encounter = encounter };
             // The first card always uses a different region from the second, so the board varies.
             m.MapName = BattleMap.Names[(i == 0 ? (int)(encounter % (ulong)BattleMap.Names.Length) : rng.Int(BattleMap.Names.Length))];
             m.Goal = rng.Weighted((Objective.Rout, 3f), (Objective.Capture, 2f), (Objective.Hunt, 2f), (Objective.Survive, 1.5f));
@@ -78,6 +88,19 @@ public sealed class Mission
             list.Add(m);
         }
         return list;
+    }
+
+    /// <summary>A rival tamer's challenge: their squad on one of their maps, stronger each time you win.</summary>
+    public static Mission Duel(Party.RivalDef rival, ulong encounter, int wins, ulong seed)
+    {
+        var rng = new SeededRng(seed);
+        var m = new Mission { Seed = seed, Encounter = encounter, Goal = Objective.Duel, Rival = rival, RivalWins = wins };
+        m.MapName = rival.Turf[rng.Int(rival.Turf.Length)];
+        m.Pack = Party.RivalBook.SquadSize(encounter);
+        m.Stars = Math.Clamp(m.Pack / 2 + wins, 1, 5);
+        m.Reward = 20 + m.Pack * 4 + wins * 6;
+        m.Title = $"Duel: {rival.Name}";
+        return m;
     }
 
     static string GoalWord(Objective o) => o switch
@@ -116,6 +139,15 @@ public sealed class Mission
 
     public Battle CreateBattle(IEnumerable<(Creature, Training)> squad)
     {
+        if (Rival != null)
+        {
+            // A fair fight: they field as many creatures as you bring, at least three and at most Pack.
+            var yours = squad.ToList();
+            var duel = new Battle(BattleMap.ByName(MapName), yours, Array.Empty<Creature>(), Seed) { Goal = Goal, Mission = this };
+            int count = Math.Clamp(yours.Count, Party.TamerBook.CreaturesEach, Pack);
+            duel.Challenge(Rival.Tamer, Party.RivalBook.Squad(Rival, Encounter, RivalWins, Seed, count));
+            return duel;
+        }
         var (pack, target) = Wild();
         var battle = new Battle(BattleMap.ByName(MapName), squad, pack, Seed) { Goal = Goal, SurviveRounds = Rounds };
         battle.Target = target == null ? null : battle.Units.FirstOrDefault(u => u.Creature == target);

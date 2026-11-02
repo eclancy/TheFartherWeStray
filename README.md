@@ -186,6 +186,11 @@ objective:
 | Capture | recruit the marked creature before it gets away |
 | Hunt | bring down the marked alpha (one size bigger than the rest of its pack) |
 | Hold out | still have someone standing after N rounds against a big pack |
+| Duel | beat a rival tamer's trained squad, matched to yours, within 20 rounds (no recruiting) |
+
+**Rival tamers** challenge you on some boards: the Brass Baron, the Chem Witch, the Huntress,
+the Occultist and the Wyrm Lord, each breeding toward their own ideal creature and leading it with
+a boost of their own. Every win against one makes their next squad train harder.
 
 Some cards carry a **sighting**: a part your codex lacks (wings, horns, a shell...), promised on a
 creature in that pack. Meeting it adds the part to the codex for the lab, and recruiting it

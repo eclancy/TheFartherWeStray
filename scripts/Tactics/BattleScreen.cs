@@ -17,6 +17,7 @@ public partial class BattleScreen : Control
     public ulong Seed = 1;
     public bool AutoPlay;   // the AI plays your side too (demos and screenshots)
     public bool DemoAim;    // on the first turn, aim a skill at the busiest tile (screenshots of the skill panel)
+    public bool DemoShiny;  // make the first wild creature shiny, to see the reveal (they're 1 in 512)
     public List<(Creature, Classes.Training)> Squad; // your creatures and their training; null for the default squad
     public System.Action<Battle> Finished; // set when a ranch is waiting for the result
     public Mission Mission;               // the contract being played; null for a one-off rout
@@ -128,6 +129,13 @@ public partial class BattleScreen : Control
         _banner.Visible = false;
 
         _battle = Mission != null ? Mission.CreateBattle(Squad ?? Encounter.StarterSquad().ToList()) : Encounter.Create(Seed, Squad, MapName);
+        if (DemoShiny && _battle.Units.FirstOrDefault(x => x.Side == Side.Wild) is { } demo && !demo.Creature.Shiny)
+        {
+            var c = demo.Creature;
+            c.Spec = c.Spec.Shiny(new SeededRng(SeededRng.Derive(c.Seed, 0x5414)));
+            c.Palette = Creature.BuildPalette(c.Spec, c.Species);
+            c.Shiny = true;
+        }
         _art = new IsoArt(_battle.Map);
         _backdrop.Texture = ImageTexture.CreateFromImage(IsoArt.PaintBackdrop(480, 270, Seed, _battle.Map.Theme));
         _board.Position = new Vector2((1480 - _art.Width * Scale) / 2f, (1080 - _art.Height * Scale) / 2f + 60);
@@ -151,6 +159,31 @@ public partial class BattleScreen : Control
         }
         AddLog($"{_battle.Map.Name}. A wild pack blocks the way.");
         RefreshObjective();
+        Opening();
+    }
+
+    /// <summary>Before the first turn: the camera visits every shiny in the wild pack, and each one glints.</summary>
+    async void Opening()
+    {
+        _mode = Mode.Busy;
+        var home = _board.Position;
+        foreach (var (u, v) in _views.Where(p => p.Key.Side == Side.Wild && p.Key.Creature.Shiny).ToList())
+        {
+            var centre = new Vector2(740, 520) - (v.Position + new Vector2(0, -v.SpriteHeight / 2)) * Scale;
+            var pan = CreateTween();
+            pan.TweenProperty(_board, "position", centre, 0.7f).SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+            await ToSignal(pan, Tween.SignalName.Finished);
+            AddLog($"A shiny {u.Name} appears!");
+            Popup(v, "shiny!", Gold, -12, UI.Glyphs.Mini("star", 2));
+            await v.Glint();
+            await Wait(0.3f);
+        }
+        if (_board.Position != home)
+        {
+            var back = CreateTween();
+            back.TweenProperty(_board, "position", home, 0.6f).SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+            await ToSignal(back, Tween.SignalName.Finished);
+        }
         RunTurns();
     }
 
@@ -873,6 +906,8 @@ public partial class UnitView : Node2D
     double _actionStart;
     float _actionLen;
     bool _walking, _fainted;
+    readonly System.Threading.CancellationTokenSource _stopRendering = new();
+    Task _rendering;
 
     public void Setup(Unit u, BattleScreen screen)
     {
@@ -895,12 +930,14 @@ public partial class UnitView : Node2D
         // Each creature breathes on its own beat.
         _beatOffset = (int)(u.Creature.Seed % IdleFrames);
         var creature = u.Creature;
-        Task.Run(() =>
+        var stop = _stopRendering.Token;
+        _rendering = Task.Run(() =>
         {
             foreach (var (pose, n) in Reel)
                 foreach (int view in new[] { 0, 1 })
                     for (int f = 0; f < n; f++)
                     {
+                        if (stop.IsCancellationRequested) return;
                         bool blink = pose == Pose.Idle && f == IdleFrames;
                         float phase = pose switch
                         {
@@ -914,6 +951,16 @@ public partial class UnitView : Node2D
         });
     }
 
+    /// <summary>
+    /// Leaving the board (a battle ends, the game quits): stop rendering frames and let the one in
+    /// hand finish, so no image is left half-made on a worker thread.
+    /// </summary>
+    public override void _ExitTree()
+    {
+        _stopRendering.Cancel();
+        _rendering?.Wait(2000);
+    }
+
     /// <summary>Plays a pose once over <paramref name="seconds"/>, then goes back to breathing.</summary>
     public async Task Act(Pose pose, float seconds)
     {
@@ -924,6 +971,28 @@ public partial class UnitView : Node2D
     }
 
     public Task Cast() => Act(Pose.Cast, 0.45f);
+
+    /// <summary>The shiny reveal: a flash of light, then stars bursting and twinkling out around it.</summary>
+    public async Task Glint()
+    {
+        var flash = CreateTween();
+        flash.TweenProperty(_sprite, "modulate", new Color(2.2f, 2.2f, 2.4f), 0.08f);
+        flash.TweenProperty(_sprite, "modulate", Colors.White, 0.35f);
+        float h = SpriteHeight;
+        var spots = new[] { new Vector2(-10, -0.85f), new Vector2(9, -0.6f), new Vector2(-4, -0.3f), new Vector2(12, -0.95f), new Vector2(-13, -0.5f), new Vector2(3, -1.05f) };
+        for (int i = 0; i < spots.Length; i++)
+        {
+            var star = new Sprite2D { Texture = UI.Glyphs.Mini("star", 1), Position = new Vector2(spots[i].X, spots[i].Y * h), Scale = Vector2.Zero, ZIndex = 5 };
+            AddChild(star);
+            var tw = CreateTween();
+            tw.TweenInterval(0.07f * i);
+            tw.TweenProperty(star, "scale", new Vector2(1.6f, 1.6f), 0.14f);
+            tw.TweenProperty(star, "rotation", Mathf.Pi / 2, 0.3f);
+            tw.Parallel().TweenProperty(star, "modulate:a", 0f, 0.3f).SetDelay(0.1f);
+            tw.TweenCallback(Callable.From(star.QueueFree));
+        }
+        await ToSignal(GetTree().CreateTimer(0.07f * spots.Length + 0.5f), SceneTreeTimer.SignalName.Timeout);
+    }
 
     /// <summary>Shows the front or back view, mirrored or not, with its feet on this node.</summary>
     void SetFacing(bool back, bool flip)

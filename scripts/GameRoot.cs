@@ -397,7 +397,7 @@ public partial class GameRoot : Node
         {
             // A one-off battle with the default squad, no ranch involved.
             ulong seed = ulong.TryParse(oneOff, out var bs) ? bs : 1;
-            _home = () => new Tactics.BattleScreen { Seed = seed, AutoPlay = _autoPlay, DemoAim = args.ContainsKey("aim"), MapName = args.TryGetValue("map", out var mapName) ? mapName : "Undercity Foundry" };
+            _home = () => new Tactics.BattleScreen { Seed = seed, AutoPlay = _autoPlay, DemoAim = args.ContainsKey("aim"), DemoShiny = args.ContainsKey("shiny"), MapName = args.TryGetValue("map", out var mapName) ? mapName : "Undercity Foundry" };
             Show(_home());
             return;
         }

@@ -75,7 +75,7 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   stations as data (`StationDef`: id, name, glyph, prop letter, `Built` rule, what opens it): the
   gate (the country map), the pens (roster and squad), the training yard (jobs), the armory
   (gear, after a contract), the breeding vats (after two), the war table (party, when a second
-  tamer joins), the lab (after `main_foundry`). Unlocks come from progress (no save change); an
+  tamer joins), the lab (after `main_foundry`); the user kept this order (2026-11-02). Unlocks come from progress (no save change); an
   unbuilt station is `Prop.Scaffold`; `used:ID` flags mark the NEW ones. `Ranch/BaseScreen.cs`
   is home: you as a person (`SceneActor`), click to walk (`Paths.Find`) or WASD, E or click a
   station to use it, the herd wandering the pens, the camera following; it asks the pending

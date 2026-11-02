@@ -135,12 +135,12 @@ opening one part of the old ranch screen: the gate (the country map), the pens (
 names), the training yard (jobs), the armory (gear), the breeding vats, the war table (tamers),
 the lab. Your creatures wander the pens. Unbuilt stations stand in scaffolding with a sign.
 
-**Defaulted, for the user to change:** the unlock order (gate, pens and yard from the start; the
-armory after a contract; the vats after two; the war table when a second tamer joins; the lab after
-the road to the Foundry). The farmhouse and the lab are closed buildings for now.
+**Decided by the user (2026-11-02):** keep the unlock order: gate, pens and yard from the start;
+the armory after a contract; the vats after two; the war table when a second tamer joins; the lab
+after the road to the Foundry. (Defaulted: the farmhouse and the lab are closed buildings for now.)
 
 **Open:**
-- [ ] The unlock order and conditions (story beats would suit better than counts, once there is a story).
+- [x] The unlock order (kept by the user, 2026-11-02). Story beats may replace the counts once there is a story.
 - [ ] More stations: a dispatch board, a trophy hall for cups and rival titles, a shop or trader
   at home, a codex wall, the Sprite Lab as a breeder's studio?
 - [ ] Interiors (walking into the farmhouse and the lab), and the base growing visibly (upgrades).

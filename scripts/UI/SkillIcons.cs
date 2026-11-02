@@ -68,6 +68,7 @@ public static class SkillIcons
         // Augments' attacks.
         ["piston_punch"] = "fist", ["rivet_volley"] = "gear", ["targeting_beam"] = "eye", ["core_discharge"] = "bolt",
         ["acid_spray"] = "flask", ["chem_rush"] = "flask", ["strobe_flash"] = "stun", ["toxic_drip"] = "poison",
+        ["gear_grind"] = "gear", ["piston_charge"] = "knock", ["smoke_screen"] = "smoke", ["steam_vent"] = "wind",
     };
 
     /// <summary>Each class's emblem.</summary>

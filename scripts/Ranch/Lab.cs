@@ -30,7 +30,8 @@ public static class Lab
     };
 
     /// <summary>Machine grafts: bolted on, never inherited.</summary>
-    public const Graft MachineGrafts = Graft.Plating | Graft.MetalLimb | Graft.Visor | Graft.Core;
+    public const Graft MachineGrafts = Graft.Plating | Graft.MetalLimb | Graft.Visor | Graft.Core
+        | Graft.Gears | Graft.Pistons | Graft.Smokestack | Graft.Pipework;
 
     public static readonly (Strain strain, Graft grafts, int cost)[] Infusions =
     {

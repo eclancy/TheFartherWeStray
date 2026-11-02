@@ -67,6 +67,8 @@ public enum Graft
 {
     None = 0, Plating = 1, MetalLimb = 2, Visor = 4, Core = 8, Canister = 16, Veins = 32, Drips = 64,
     Runes = 128, GlowTips = 256, ExtraEyes = 512, Cracks = 1024,
+    // Steampunk work (2026-11-02): exposed gears or copper pipework on the flank, pistons or a smokestack on the back.
+    Gears = 2048, Pistons = 4096, Smokestack = 8192, Pipework = 16384,
 }
 
 public enum Weapon { Bite, Claws, Horns, Club, Whip, Hooves }

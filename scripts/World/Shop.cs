@@ -59,6 +59,10 @@ public static class ShopBook
         new() { Id = "drip_feed", Price = 70, At = new[] { "sump" } },
         new() { Id = "chem_veins", Price = 90, At = new[] { "lantern" }, OpenedBy = "main_coast" },
         new() { Id = "strobe_tips", Price = 85, At = new[] { "lantern" }, Cup = "bronze" },
+        new() { Id = "gear_grinder", Price = 80, At = new[] { "foundry" } },
+        new() { Id = "pressure_pipes", Price = 70, At = new[] { "foundry", "lantern" } },
+        new() { Id = "smokestack", Price = 75, At = new[] { "foundry" }, OpenedBy = "main_bridges" },
+        new() { Id = "steam_pistons", Price = 95, At = new[] { "foundry" }, OpenedBy = "main_sump" },
     };
 
     /// <summary>What a place sells now.</summary>

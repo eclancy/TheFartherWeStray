@@ -74,8 +74,27 @@ public sealed class Species
         var later = LaterFormsFor(s.Plan);
         var lrng = new SeededRng(SeededRng.Derive(seed, 0xF0E4));
         if (later.Length > 0 && lrng.Chance(0.33f)) s.Form = later[lrng.Int(later.Length)];
+        s.Grafts |= SteamworkFor(s, new SeededRng(SeededRng.Derive(seed, 0x57EA)));
         s.Aura = AuraOf(s);
         return s;
+    }
+
+    /// <summary>
+    /// The steampunk work a new species carries (the user's direction, 2026-11-02: more mech and
+    /// steampunk): clockwork ones mostly, chemtech ones now and then their pipework. At most one piece on
+    /// the flank (gears or pipework) and one on the back (pistons or a smokestack). Rolled from a stream of
+    /// its own, after everything else, so no older roll changes; saved species keep the grafts they have.
+    /// </summary>
+    public static Graft SteamworkFor(Species s, SeededRng rng)
+    {
+        Graft g = Graft.None;
+        if (s.Strain == Strain.Clockwork)
+        {
+            if (rng.Chance(0.6f)) g |= rng.Chance(0.5f) ? Graft.Gears : Graft.Pipework;
+            if (rng.Chance(0.6f)) g |= rng.Chance(0.5f) ? Graft.Pistons : Graft.Smokestack;
+        }
+        else if (s.Strain == Strain.Chemtech && rng.Chance(0.35f)) g |= Graft.Pipework;
+        return g;
     }
 
     /// <summary>The forms each body plan can take.</summary>

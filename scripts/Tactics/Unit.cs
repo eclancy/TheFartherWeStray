@@ -167,6 +167,10 @@ public sealed class Unit
         if (g.HasFlag(Graft.GlowTips)) atk += 1;
         if (g.HasFlag(Graft.ExtraEyes)) hit += 10;
         if (g.HasFlag(Graft.Cracks)) { atk += 2; def -= 1; }
+        if (g.HasFlag(Graft.Gears)) spd += 1;
+        if (g.HasFlag(Graft.Pistons)) atk += 1;
+        if (g.HasFlag(Graft.Smokestack)) { atk += 1; def += 1; }
+        if (g.HasFlag(Graft.Pipework)) { def += 1; hit += 5; }
 
         // Individuals roll a little either side of their species.
         var rng = new SeededRng(c.Seed ^ 0xBA77_1E5UL);

@@ -33,6 +33,11 @@ public static class AugmentBook
         new() { Id = "chem_veins", Name = "Chem Veins", Graft = Graft.Veins, Skill = "chem_rush", Chem = true },
         new() { Id = "strobe_tips", Name = "Strobe Tips", Graft = Graft.GlowTips, Skill = "strobe_flash", Chem = true },
         new() { Id = "drip_feed", Name = "Drip Feed", Graft = Graft.Drips, Skill = "toxic_drip", Chem = true },
+        // Steamwork (2026-11-02): the clockwork's gears, pistons, smokestack and pipes, fitted to anyone.
+        new() { Id = "gear_grinder", Name = "Gear Grinder", Graft = Graft.Gears, Skill = "gear_grind" },
+        new() { Id = "steam_pistons", Name = "Steam Pistons", Graft = Graft.Pistons, Skill = "piston_charge" },
+        new() { Id = "smokestack", Name = "Smokestack", Graft = Graft.Smokestack, Skill = "smoke_screen" },
+        new() { Id = "pressure_pipes", Name = "Pressure Pipes", Graft = Graft.Pipework, Skill = "steam_vent" },
     };
 
     public static readonly SkillDef[] Skills =
@@ -53,6 +58,14 @@ public static class AugmentBook
             Text = "A blinding neon flash at range 2 (x0.3): 50% to stun." },
         new() { Id = "toxic_drip", Name = "Toxic Drip", Class = "Augment", Cooldown = 2, Power = 0.8f, Poison = 5, PoisonTurns = 3,
             Text = "A bite laced with chem (x0.8): poison, 5 a turn for 3 turns." },
+        new() { Id = "gear_grind", Name = "Gear Grind", Class = "Augment", Cooldown = 2, Power = 1.2f, Buffs = new[] { (StatKind.Def, -2, 2) },
+            Text = "Grinding cogs (x1.2) that chew through armour: DEF -2 for 2 turns." },
+        new() { Id = "piston_charge", Name = "Piston Charge", Class = "Augment", Cooldown = 3, Range = 3, Leap = true, Power = 1.1f, Knock = 1,
+            Text = "The pistons fire it up to 3 tiles onto a foe (x1.1), knocking it back." },
+        new() { Id = "smoke_screen", Name = "Smoke Screen", Class = "Augment", Cooldown = 4, Target = TargetKind.Ally, Range = 0, AroundSelf = true, Radius = 1,
+            Buffs = new[] { (StatKind.Evade, 25, 2) }, Text = "Belches smoke: it and allies beside it are 25% harder to hit for 2 turns." },
+        new() { Id = "steam_vent", Name = "Steam Vent", Class = "Augment", Cooldown = 3, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 1, Power = 0.8f, Knock = 1,
+            Text = "Vents scalding steam: every foe beside it (x0.8), knocked back." },
     };
 
     public static AugmentDef Get(string id) => All.FirstOrDefault(a => a.Id == id);

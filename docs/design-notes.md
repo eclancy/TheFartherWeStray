@@ -111,7 +111,7 @@ fields up to two and fills their three slots each; battles apply the boosts befo
   lost every rival duel, so the main mission wanting a rival win stayed shut. Rivals may want
   easing, or that milestone a softer form.
 
-## Traits, augments and names (the user's direction, 2026-11-02; built, the sculptor's steampunk parts still to do)
+## Traits, augments and names (the user's direction, 2026-11-02; built)
 
 **Decided by the user:**
 - **Players can name their creatures.**
@@ -138,6 +138,12 @@ fields up to two and fills their three slots each; battles apply the boosts befo
   Toxic Drip). Sold only at undercity shops (the Foundry, Lantern Row, the Sump), some after a
   main mission or a cup; fitted at the lab, which no longer sells brass directly. Never
   inherited: breeding reads the parents as they were born.
+- **Steamwork** (the sculptor's new steampunk parts): gears and pipework with a pressure gauge on
+  the flank, twin pistons and a steaming smokestack on the back, all moving with the idle. New
+  clockwork species carry up to two (one each place); four more augments fit them to anyone:
+  Gear Grinder (Gear Grind: chews armour), Steam Pistons (Piston Charge: a leaping, knocking
+  charge), Smokestack (Smoke Screen: it and allies beside it harder to hit), Pressure Pipes
+  (Steam Vent: scalds and knocks back every foe beside it).
 
 **Defaulted, open to change:**
 - [x] Augment slots: **two** per creature; a third scraps the oldest (no removing them back).

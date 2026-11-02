@@ -206,6 +206,96 @@ public partial class GameRoot : Node
             return;
         }
 
+        if (args.ContainsKey("steampunk"))
+        {
+            // The steampunk work: clockwork creatures of every body plan, front and back, then one of
+            // each piece through its idle (cogs turning, pistons pumping, soot rising, the gauge's needle).
+            var picks = new List<Creature>();
+            var plans = new Dictionary<BodyPlan, int>();
+            for (ulong k = 0; picks.Count < 8 && k < 20000; k++)
+            {
+                var steam = Species.Generate(SeededRng.Derive(0x57EA, k));
+                if (steam.Strain != Strain.Clockwork || (steam.Grafts & (Graft.Gears | Graft.Pistons | Graft.Smokestack | Graft.Pipework)) == 0) continue;
+                if (plans.GetValueOrDefault(steam.Plan) >= 2) continue;
+                plans[steam.Plan] = plans.GetValueOrDefault(steam.Plan) + 1;
+                picks.Add(Creature.Specimen(steam, 0));
+            }
+            string sheetPath = ProjectSettings.GlobalizePath("res://.shots/steampunk.png");
+            CreatureSheet.ComposeViews(picks, false, 4, 4).SavePng(sheetPath);
+            GD.Print($"wrote {picks.Count} clockwork creatures: " + string.Join("; ", picks.Select(c => $"{c.Species.Name} ({c.Species.Plan}, {c.Species.Grafts})")));
+            // The four starters, each fitted with one piece of steamwork as an augment would.
+            var fitted = new List<Creature>();
+            var pieces = new[] { Graft.Gears, Graft.Pistons, Graft.Smokestack, Graft.Pipework };
+            foreach (var (name, i) in new[] { "Blaze", "Sprocket", "Tank", "Hoot" }.Select((n, i) => (n, i)))
+            {
+                var starter = Creature.Specimen(DrawPetsCast.All.First(x => x.Name == name), 0);
+                starter.Species = starter.Species.Clone();
+                starter.Species.Grafts |= pieces[i];
+                fitted.Add(starter);
+            }
+            CreatureSheet.ComposeViews(fitted, false, 4, 4).SavePng(ProjectSettings.GlobalizePath("res://.shots/steampunk_fitted.png"));
+            // One creature per piece, close up: a four-legged one of fair size where there is one, four frames of its idle in a row.
+            var rows = new List<Image>();
+            foreach (var piece in new[] { Graft.Gears, Graft.Pistons, Graft.Smokestack, Graft.Pipework })
+            {
+                Creature who = null;
+                for (ulong k = 0; who == null && k < 40000; k++)
+                {
+                    var steam = Species.Generate(SeededRng.Derive(0x57EB, k));
+                    if (steam.Strain == Strain.Clockwork && steam.Grafts.HasFlag(piece) && steam.Plan == BodyPlan.Quadruped && steam.BaseSize >= (args["steampunk"] == "large" ? SizeClass.Large : SizeClass.Medium))
+                        who = Creature.Specimen(steam, 0);
+                }
+                who ??= picks.FirstOrDefault(c => c.Species.Grafts.HasFlag(piece));
+                if (who == null) continue;
+                // Without its steampunk work first, to see what the work adds; then the idle with it.
+                var bare = Creature.Specimen(who.Species.Clone(), 0);
+                bare.Species.Grafts &= ~(Graft.Gears | Graft.Pistons | Graft.Smokestack | Graft.Pipework);
+                var frames = new[] { CreatureSculptor.Render(bare, false, View.Front, 0).img }
+                    .Concat(Enumerable.Range(0, 3).Select(fr => CreatureSculptor.Render(who, false, View.Front, fr / 3f).img)).ToList();
+                int fw = frames.Max(i => i.GetWidth()), fh = frames.Max(i => i.GetHeight());
+                var row = Image.CreateEmpty(fw * 4, fh, false, Image.Format.Rgba8);
+                row.Fill(Color.FromHtml("#16121f"));
+                for (int fr = 0; fr < 4; fr++) row.BlendRect(frames[fr], new Rect2I(Vector2I.Zero, frames[fr].GetSize()), new Vector2I(fr * fw + (fw - frames[fr].GetWidth()) / 2, fh - frames[fr].GetHeight()));
+                row.Resize(row.GetWidth() * 5, row.GetHeight() * 5, Image.Interpolation.Nearest);
+                GD.Print($"  {piece}: {who.Species.Name} ({who.Species.Plan}, {who.Size}, {who.Species.Grafts})");
+                rows.Add(row);
+            }
+            // The showcase's idle as frames (.shots/steamidle/f00.png...), for a GIF: one creature per piece, side by side.
+            var shown = new HashSet<ulong>();
+            var showcase = new[] { Graft.Smokestack, Graft.Pistons, Graft.Pipework, Graft.Gears }.Select(piece =>
+            {
+                for (ulong k = 0; k < 40000; k++)
+                {
+                    var steam = Species.Generate(SeededRng.Derive(0x57EC, k));
+                    if (steam.Strain == Strain.Clockwork && steam.Grafts.HasFlag(piece) && steam.Plan == BodyPlan.Quadruped && steam.BaseSize >= SizeClass.Large
+                        && steam.Parts.Wings == Wings.None && shown.Add(steam.Seed)) return Creature.Specimen(steam, 0);
+                }
+                return null;
+            }).Where(c => c != null).ToList();
+            string frameDir = ProjectSettings.GlobalizePath("res://.shots/steamidle");
+            System.IO.Directory.CreateDirectory(frameDir);
+            for (int fr = 0; fr < 8; fr++)
+            {
+                var shots = showcase.Select(c => CreatureSculptor.Render(c, false, View.Front, fr / 8f)).ToList();
+                int cw = shots.Max(x => x.img.GetWidth()) + 8, ch = shots.Max(x => x.anchor.Y) + 6;
+                var frame = Image.CreateEmpty(cw * shots.Count, ch, false, Image.Format.Rgba8);
+                frame.Fill(Color.FromHtml("#16121f"));
+                for (int i = 0; i < shots.Count; i++)
+                    frame.BlendRect(shots[i].img, new Rect2I(Vector2I.Zero, shots[i].img.GetSize()), new Vector2I(i * cw + (cw - shots[i].img.GetWidth()) / 2, ch - 4 - shots[i].anchor.Y));
+                frame.Resize(frame.GetWidth() * 4, frame.GetHeight() * 4, Image.Interpolation.Nearest);
+                frame.SavePng($"{frameDir}/f{fr:00}.png");
+            }
+            GD.Print("showcase: " + string.Join(", ", showcase.Select(c => $"{c.Species.Name} ({c.Species.Grafts})")));
+            int w = rows.Max(r => r.GetWidth()), h = rows.Sum(r => r.GetHeight());
+            var strip = Image.CreateEmpty(w, h, false, Image.Format.Rgba8);
+            strip.Fill(Color.FromHtml("#16121f"));
+            int y = 0;
+            foreach (var r in rows) { strip.BlitRect(r, new Rect2I(Vector2I.Zero, r.GetSize()), new Vector2I(0, y)); y += r.GetHeight(); }
+            strip.SavePng(ProjectSettings.GlobalizePath("res://.shots/steampunk_idle.png"));
+            GetTree().Quit();
+            return;
+        }
+
         if (args.ContainsKey("traits"))
         {
             // Traits and augments without a screen: how often wild creatures are born with traits, how

@@ -1000,6 +1000,98 @@ public sealed partial class CreatureSculptor
             _c.Sphere(b, 2.6f * u, Mat.Metal, tank);
             _c.Tube(Smooth(new[] { b, b + along * 3 * u + up * 1.5f * u, front + along * u }, 4), 0.6f * u, 0.6f * u, Mat.Metal, Part(Zone.Body));
         }
+        Steamwork();
+    }
+
+    /// <summary>
+    /// Steampunk work (2026-11-02): meshing cogs or copper pipework with a pressure gauge on the flank;
+    /// twin pistons or a smokestack on the back. The cogs turn, the pistons pump, the soot rises and
+    /// the gauge's needle wavers, all with the breath.
+    /// </summary>
+    void Steamwork()
+    {
+        float phase = Animate ? _phase : 0;
+        var side = -Y;
+        if (Has(Graft.Gears))
+        {
+            var (top, w, h, along) = SpineAt(0.3f);
+            var hub = top - Z * h * 1.1f + side * (w + 0.7f * u);
+            float r = Mathf.Max(2.2f * u, h * 0.62f), turn = phase * Mathf.Tau / 2;
+            Cog(hub, along, side, r, 8, turn);
+            Cog(hub + along * r * 1.5f + Z * r * 0.6f, along, side, r * 0.62f, 6, -turn * 8 / 6f + 0.3f);
+        }
+        if (Has(Graft.Pipework))
+        {
+            var (fore, fw, fh, along) = SpineAt(0.78f);
+            var (aft, aw, ah, _) = SpineAt(0.22f);
+            int pipes = Part(Zone.Body);
+            for (int k = 0; k < 2; k++)
+            {
+                float drop = 0.45f + k * 0.35f;
+                var a = fore - Z * fh * drop + side * fw * 0.95f;
+                var b = aft - Z * ah * drop + side * aw * 0.95f;
+                _c.Tube(Smooth(new[] { a, a.Lerp(b, 0.5f) + side * 0.7f * u - Z * 0.5f * u, b }, 4), 0.45f * u, 0.45f * u, Mat.Metal, pipes);
+            }
+            // The gauge at the back end of the pipes: a glowing dial, its needle wavering.
+            var g = aft - Z * ah * 0.6f + side * aw * 1.1f;
+            _c.Ellipsoid(g, along, Z, side, new Vector3(1.6f * u, 1.6f * u, 0.55f * u), Mat.Metal, Part(Zone.Body));
+            _c.Ellipsoid(g + side * 0.4f * u, along, Z, side, new Vector3(1.15f * u, 1.15f * u, 0.3f * u), Mat.Glow, Part(Zone.Body), 0.1f, 0, true);
+            float swing = 0.9f + Mathf.Sin(Mathf.Tau * phase * 2) * 0.35f;
+            var pivot = g + side * 0.7f * u;
+            _c.Tube(new[] { pivot, pivot + (along * Mathf.Cos(swing) + Z * Mathf.Sin(swing)) * 1.0f * u }, 0.22f * u, 0.14f * u, Mat.Line, Part(Zone.Body), 0.15f);
+        }
+        if (Has(Graft.Pistons))
+        {
+            // Twin pistons astride the spine, their rods pumping.
+            var (top, w, _, _) = SpineAt(0.72f);
+            var up = UpAt(0.72f);
+            float stroke = 0.5f + 0.5f * Mathf.Sin(Mathf.Tau * phase);
+            foreach (int s in new[] { -1, 1 })
+            {
+                var b = top + Y * s * w * 0.6f - up * 0.6f * u;
+                var mouth = b + up * 3.2f * u;
+                int cylinder = Part(Zone.Body);
+                _c.Tube(new[] { b, mouth }, 1.45f * u, 1.3f * u, Mat.Metal, cylinder, 0.1f);
+                _c.Sphere(mouth, 1.0f * u, Mat.Glow, cylinder, 0.2f, 0, true);
+                var head = mouth + up * (1.0f + stroke * 1.6f) * u;
+                int rod = Part(Zone.Body);
+                _c.Tube(new[] { mouth, head }, 0.55f * u, 0.55f * u, Mat.Metal, rod, 0.1f);
+                _c.Sphere(head, 1.05f * u, Mat.Metal, rod, 0.1f);
+            }
+        }
+        if (Has(Graft.Smokestack))
+        {
+            // A flared stack toward the rear, puffing soot that rises and drifts back.
+            var (top, _, _, along) = SpineAt(0.3f);
+            var up = UpAt(0.3f);
+            int stack = Part(Zone.Body);
+            var b = top - up * 0.6f * u;
+            var lip = b + up * 5.0f * u;
+            _c.Tube(new[] { b, lip }, 1.5f * u, 1.2f * u, Mat.Metal, stack, 0.1f);
+            _c.Tube(new[] { lip, lip + up * 1.1f * u }, 1.9f * u, 2.0f * u, Mat.Metal, stack, 0.1f);
+            _c.Sphere(lip + up * 1.2f * u, 1.3f * u, Mat.Line, stack, 0.2f, 0, true);
+            // Steam: pale puffs rising and drifting back, swelling as they go.
+            for (int k = 0; k < 3; k++)
+            {
+                float f = (phase + k / 3f) % 1f;
+                var puff = lip + up * (2.8f + f * 6f) * u - along * f * 4f * u;
+                _c.Sphere(puff, (1.0f + f * 1.4f) * u, Mat.EyeWhite, Part(Zone.Aura), -0.4f);
+            }
+        }
+    }
+
+    /// <summary>A brass cog standing on <paramref name="normal"/>: a disc, its teeth turned by <paramref name="turn"/>, a glowing hub.</summary>
+    void Cog(Vector3 hub, Vector3 along, Vector3 normal, float r, int teeth, float turn)
+    {
+        int part = Part(Zone.Body);
+        var up = normal.Cross(along).Normalized();
+        _c.Ellipsoid(hub, along, up, normal, new Vector3(r, r, 0.8f * u), Mat.Metal, part, 0.15f);
+        for (int k = 0; k < teeth; k++)
+        {
+            float a = turn + k * Mathf.Tau / teeth;
+            _c.Sphere(hub + (along * Mathf.Cos(a) + up * Mathf.Sin(a)) * r * 1.12f, Mathf.Max(0.6f * u, r * 0.22f), Mat.Metal, part, 0.15f);
+        }
+        _c.Sphere(hub + normal * 0.7f * u, Mathf.Max(0.6f * u, r * 0.3f), Mat.Glow, Part(Zone.Body), 0.2f, 0, true);
     }
 
     // ---------------------------------------------------------------- element themes

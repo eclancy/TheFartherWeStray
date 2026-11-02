@@ -168,9 +168,11 @@ off, and 5 for each creature you release.
   the parts you've met on creatures you fought or recruited. Wings cost the most (40), since they
   give flight and open Skydiver.
 - **Augments:** bought at undercity shops and fitted here, two to a creature, never inherited.
-  Four mechanical (Piston Fist, Rivet Gun, Lens Visor, Hextech Core) and four chemical (Acid
-  Canister, Chem Veins, Strobe Tips, Drip Feed); each bolts on its brass or neon work and teaches
-  an attack.
+  Four mechanical (Piston Fist, Rivet Gun, Lens Visor, Hextech Core), four chemical (Acid
+  Canister, Chem Veins, Strobe Tips, Drip Feed) and four steamwork (Gear Grinder, Steam Pistons,
+  Smokestack, Pressure Pipes); each bolts on its brass, neon or steam work and teaches an attack.
+  Clockwork creatures are often born with steamwork of their own: turning cogs, pumping pistons,
+  a steaming stack, copper pipes and a pressure gauge.
 - **Traits** aren't made here: creatures are born with them (Keen Nose, Quick Healer, Stout...) and
   pass them down when bred.
 - **Infusions:** chemtech, arcane or abyssal blood for a natural creature.

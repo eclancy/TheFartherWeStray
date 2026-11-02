@@ -32,6 +32,14 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   the body, set the anchors (head, spine, tail root, wing root); the shared parts do the rest.
   A form that should stay one clean shape sets `_sparse` (the watcher: no ears, back plates or
   tail, smaller grafts kept off its eye). `--forms --only=Watcher --many=6` shows six of a form.
+  **Steamwork (2026-11-02, the user's ask for more mech and steampunk):** grafts `Gears` (meshing
+  cogs on the flank, turning), `Pipework` (copper pipes and a glowing pressure gauge, its needle
+  wavering), `Pistons` (twin pumping pistons at the shoulders) and `Smokestack` (a flared stack
+  puffing steam), sculpted in `Steamwork()`. New clockwork species roll up to one flank piece and
+  one back piece (`Species.SteamworkFor`, a stream of its own, so older rolls don't change; saved
+  species keep their grafts); chemtech ones sometimes pipework. They're machine grafts (not
+  inherited) and augments too. `--steampunk` writes `.shots/steampunk*.png` (clockwork creatures,
+  each piece's idle with and without it, the starters fitted).
   **The user approved this look as built ("the creatures all look great", 2026-11-02): refine
   and extend it, don't replace it.** Of the eight fixes on 2026-11-02 the user kept seven and
   preferred the original shell: smooth overlapping plates, no dark rims or knobs.
@@ -191,8 +199,8 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   match can't be replayed from its commands. `BattleScreen.TurnSeconds` is the turn timer
   (`--timer=N`).
 - Not built yet: story and cutscenes (themes and three endings set by the user, in
-  `docs/story-notes.md`), story flags and standing with the two sides, more steampunk parts in
-  the sculptor, music, and the network side of PvP. The
+  `docs/story-notes.md`), story flags and standing with the two sides, music, and the network
+  side of PvP. The
   user's direction and a suggested build order are in `docs/design-notes.md`.
 
 ## Build and check

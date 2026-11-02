@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using CreatureTactics.Classes;
 using CreatureTactics.Creatures;
+using CreatureTactics.Party;
 using CreatureTactics.Tactics;
 using Godot;
 
@@ -50,11 +51,15 @@ public sealed class CreatureRecord
 /// </summary>
 public sealed class Ranch
 {
-    public const int SquadSize = 4;
     public static string SavePath = "user://ranch.json";
 
     public List<CreatureRecord> Creatures = new();
     public List<int> Squad = new();
+    // The wardens going into the next battle (at most two), and which of them leads each squad creature.
+    public List<string> Fielded = new() { WardenBook.You };
+    public Dictionary<int, string> LedBy = new();
+    /// <summary>Three creatures for each warden in the field.</summary>
+    [JsonIgnore] public int SquadSize => WardenBook.CreaturesEach * Fielded.Count;
     public ulong Encounter = 1;
     public int NextId = 1;
     public int Bred;
@@ -80,6 +85,7 @@ public sealed class Ranch
             if (ranch != null && ranch.Creatures.Count > 0) {
                 // Saves from before the lab: fill the codex from the roster.
                 if (ranch.Codex.Count == 0) foreach (var r in ranch.Creatures) Lab.Learn(ranch, ranch.Get(r.Id));
+                ranch.Tidy();
                 return ranch;
             }
         }
@@ -98,7 +104,7 @@ public sealed class Ranch
         {
             int id = r.Add(c);
             r.Record(id).Training = t;
-            r.Squad.Add(id);
+            r.AddToSquad(id);
         }
         foreach (var rec in r.Creatures) Lab.Learn(r, r.Get(rec.Id));
         return r;
@@ -130,6 +136,70 @@ public sealed class Ranch
 
     public List<(Creature, Training)> SquadCreatures() => Squad.Select(id => (Get(id), Record(id).Training)).ToList();
 
+    // ------------------------------------------------------------------ wardens
+
+    [JsonIgnore] public IEnumerable<WardenDef> Party => WardenBook.Joined(Encounter);
+    public WardenDef LeaderOf(int id) => LedBy.TryGetValue(id, out var w) ? WardenBook.Get(w) : null;
+    public int Led(string warden) => Squad.Count(id => LeaderOf(id)?.Id == warden);
+
+    /// <summary>Into the squad under the first fielded warden with room; false if every warden's hands are full.</summary>
+    public bool AddToSquad(int id, string warden = null)
+    {
+        if (Squad.Contains(id)) RemoveFromSquad(id);
+        warden ??= Fielded.FirstOrDefault(w => Led(w) < WardenBook.CreaturesEach);
+        if (warden == null || !Fielded.Contains(warden) || Led(warden) >= WardenBook.CreaturesEach) return false;
+        Squad.Add(id);
+        LedBy[id] = warden;
+        return true;
+    }
+
+    public void RemoveFromSquad(int id)
+    {
+        Squad.Remove(id);
+        LedBy.Remove(id);
+    }
+
+    /// <summary>Sends a warden into the field, or stands them down (their creatures leave the squad with them).</summary>
+    public bool ToggleField(string warden)
+    {
+        if (Fielded.Contains(warden))
+        {
+            if (Fielded.Count == 1) return false; // someone has to lead
+            Fielded.Remove(warden);
+            foreach (var id in Squad.Where(id => LedBy.GetValueOrDefault(id) == warden).ToList()) RemoveFromSquad(id);
+            return true;
+        }
+        if (Fielded.Count >= WardenBook.MaxFielded || !Party.Any(w => w.Id == warden)) return false;
+        Fielded.Add(warden);
+        return true;
+    }
+
+    /// <summary>
+    /// Keeps the party consistent: only wardens who've joined are fielded, a newcomer takes the field
+    /// if there's room, and every squad creature has a fielded leader with room (older saves had a
+    /// squad of four and no wardens).
+    /// </summary>
+    public void Tidy()
+    {
+        var joined = Party.Select(w => w.Id).ToHashSet();
+        Fielded.RemoveAll(w => !joined.Contains(w));
+        foreach (var w in Party)
+            if (Fielded.Count < WardenBook.MaxFielded && !Fielded.Contains(w.Id)) Fielded.Add(w.Id);
+        if (Fielded.Count == 0) Fielded.Add(WardenBook.You);
+        var squad = Squad.ToList();
+        var leaders = squad.ToDictionary(id => id, id => LedBy.GetValueOrDefault(id));
+        Squad.Clear();
+        LedBy.Clear();
+        foreach (var id in squad)
+            if (!(leaders[id] is { } w && Fielded.Contains(w) && AddToSquad(id, w))) AddToSquad(id);
+    }
+
+    /// <summary>Puts each squad creature in a battle under its warden.</summary>
+    public void LeadUnits(Battle battle)
+    {
+        foreach (var id in Squad) battle.Lead(Get(id), LeaderOf(id));
+    }
+
     /// <summary>Rebuilds a creature after the lab changes its record.</summary>
     public void Refresh(int id) => _cache.Remove(id);
 
@@ -137,7 +207,7 @@ public sealed class Ranch
     {
         Chem += 5; // salvage
         Creatures.RemoveAll(r => r.Id == id);
-        Squad.Remove(id);
+        RemoveFromSquad(id);
         _cache.Remove(id);
     }
 
@@ -227,7 +297,11 @@ public sealed class Ranch
             joined.Add(id);
         }
         foreach (var r in Creatures) r.Rested = true;
+        var party = Party.Select(w => w.Id).ToHashSet();
         Encounter++;
+        foreach (var w in Party.Where(w => !party.Contains(w.Id)))
+            Report.Add($"{w.Name} joins your party: {w.Specialty}. {w.Text}");
+        Tidy();
         Save();
         return joined;
     }

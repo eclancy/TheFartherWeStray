@@ -44,10 +44,13 @@ public sealed class Unit
     public bool Stunned, Rooted;
     public Unit TauntedBy;
     public PassiveDef Passive => ClassBook.Passive(Training?.Passive);
+    public Party.WardenDef Warden;                   // who leads it from off the field (your side), if anyone
+    /// <summary>The warden's boost, if it reaches this creature (some wardens only lead certain kinds).</summary>
+    public Party.WardenDef Boost => Warden != null && Warden.Boosts(Creature) ? Warden : null;
     public PassiveDef Reaction => ClassBook.Passive(Training?.Reaction);
     public bool AdrenalineUsed;
 
-    public int Mod(StatKind s) => Buffs.Where(b => b.stat == s).Sum(b => b.amount) + (s == StatKind.Evade ? Passive?.Evade ?? 0 : 0);
+    public int Mod(StatKind s) => Buffs.Where(b => b.stat == s).Sum(b => b.amount) + (s == StatKind.Evade ? (Passive?.Evade ?? 0) + (Boost?.Evade ?? 0) : 0);
     public int AtkNow => System.Math.Max(1, Atk + Mod(StatKind.Atk));
     public int DefNow => System.Math.Max(0, Def + Mod(StatKind.Def));
     public int SpdNow => System.Math.Max(1, Spd + Mod(StatKind.Spd));
@@ -59,7 +62,7 @@ public sealed class Unit
     public string Name => Creature.Species.Name;
     public int Range => Weapon == Weapon.Whip || Passive is { LongReach: true } ? 2 : 1;
     public bool Knockback => Weapon is Weapon.Horns or Weapon.Hooves;
-    public int Thorns => (Armor == Armor.Spines ? 3 : 0) + (Passive?.Thorns ?? 0) + Mod(StatKind.Thorns);
+    public int Thorns => (Armor == Armor.Spines ? 3 : 0) + (Passive?.Thorns ?? 0) + (Boost?.Thorns ?? 0) + Mod(StatKind.Thorns);
 
     public IEnumerable<Vector2I> TilesAt(Vector2I p)
     {

@@ -24,6 +24,12 @@ code and UI (other ideas offered: Handler, Keeper, Beastcaller, Marshal); rename
 - Until the story exists, other wardens join on a schedule of encounters (a placeholder for the
   story beats that will bring them).
 
+**Built (first version, 2026-11-02):** six wardens as data in `scripts/Party/Wardens.cs`: You
+(Steady Hand: ATK and DEF +1 for all), the Beastmaster (natural creatures), the Tinker (clockwork
+and brass), the Chemist (chemtech and abyssal), the Arcanist (arcane or aura) and the Drillmaster
+(MOVE and SPD for all), joining at encounters 3, 6, 9, 12 and 15. The ranch's Party panel (P)
+fields up to two and fills their three slots each; battles apply the boosts before the first turn.
+
 **Open:**
 - [ ] The name.
 - [ ] Do wardens grow (levels, more boosts, a tree of their own)?

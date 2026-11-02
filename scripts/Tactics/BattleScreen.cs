@@ -20,6 +20,7 @@ public partial class BattleScreen : Control
     public bool DemoShiny;  // make the first wild creature shiny, to see the reveal (they're 1 in 512)
     public List<(Creature, Classes.Training)> Squad; // your creatures and their training; null for the default squad
     public System.Action<Battle> Finished; // set when a ranch is waiting for the result
+    public System.Action<Battle> Prepare;  // before the first turn: a ranch puts its creatures under their wardens
     public Mission Mission;               // the contract being played; null for a one-off rout
     public string MapName = "Undercity Foundry";
 
@@ -129,6 +130,7 @@ public partial class BattleScreen : Control
         _banner.Visible = false;
 
         _battle = Mission != null ? Mission.CreateBattle(Squad ?? Encounter.StarterSquad().ToList()) : Encounter.Create(Seed, Squad, MapName);
+        Prepare?.Invoke(_battle);
         if (DemoShiny && _battle.Units.FirstOrDefault(x => x.Side == Side.Wild) is { } demo && !demo.Creature.Shiny)
         {
             var c = demo.Creature;
@@ -619,6 +621,7 @@ public partial class BattleScreen : Control
         // Class, then loadout and temper; the long words live in the tooltips.
         var (weapon, armor, move) = c.Loadout();
         var kit = new List<UI.Chip>();
+        if (u.Warden is { } w) kit.Add(new(w.Glyph, w.Name, u.Boost != null ? Cyan : Dim, u.Boost != null ? $"Led by {w.Name}: {w.Text}" : $"Led by {w.Name}, whose boost reaches only {w.LeadsHint}."));
         if (u.ClassName != null) kit.Add(new(SkillIcons.ClassEmblem(u.ClassName), u.ClassName, Gold, "class"));
         if (u.Training?.Secondary != null) kit.Add(new(SkillIcons.ClassEmblem(u.Training.Secondary), u.Training.Secondary, Ink, "secondary skill set"));
         _info.AddChild(UI.Ui.Chips(kit, 17));

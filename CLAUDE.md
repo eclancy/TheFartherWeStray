@@ -85,10 +85,13 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   the skittish, a glowberry lures the curious). `--autoboard=12` on 2026-11-02: rout 12/14,
   capture 5/11 (was 3), hunt 12/12, hold out 11/11 (was 9). Aggressive and loyal captures are the
   weak spot. `--trace=TITLE` prints the full log of matching missions.
-- **Wardens and the party (the user's direction, 2026-11-02):** the player leads creatures as a
-  warden (working name; the user wants something other than "general" and hasn't picked yet).
+- **Wardens and the party (the user's direction, 2026-11-02, built):** the player leads creatures
+  as a warden (working name; the user wants something other than "general" and hasn't picked yet).
   Wardens stay off the field and give passive boosts; each leads three creatures; at most two
-  wardens and six creatures per battle, swapped between battles. Details, defaults and open
+  wardens and six creatures per battle, swapped between battles. `scripts/Party/Wardens.cs` holds
+  them as data (a specialty boost, which creatures it reaches, the encounter they join at: a
+  placeholder for the story); `Ranch.Fielded`/`LedBy` save who leads whom; `Battle.Lead` applies
+  the boost before the first turn; the Party panel (P) on the ranch fields wardens and fills slots. Details, defaults and open
   questions are in `docs/design-notes.md`, with PvP (casual, turn timers, your own squad) and
   shinies (1 in 512; the battle opens with a camera pan and a glint on each one).
 - **Online PvP is a goal** (2026-11-02, not built): see `docs/design-notes.md`. It leans on what

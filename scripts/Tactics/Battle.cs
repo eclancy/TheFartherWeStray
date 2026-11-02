@@ -59,6 +59,21 @@ public sealed class Battle
         foreach (var c in wild) Place(Unit.From(c, Side.Wild), map.WildAnchor);
     }
 
+    /// <summary>
+    /// Puts one of your creatures under a warden, before the first turn: the warden's boost goes on
+    /// its stats if it reaches this kind of creature. Part of the rules, so a replay or a match sees it too.
+    /// </summary>
+    public void Lead(Creature c, Party.WardenDef w)
+    {
+        var u = Units.FirstOrDefault(x => x.Creature == c && x.Side == Side.Player);
+        if (u == null || w == null) return;
+        u.Warden = w;
+        if (u.Boost is not { } b) return;
+        u.Atk += b.Atk; u.Def += b.Def; u.Spd += b.Spd; u.Move += b.Move; u.HitBonus += b.Hit;
+        u.MaxHp = Mathf.RoundToInt(u.MaxHp * (1 + b.HpPct));
+        u.Hp = u.MaxHp;
+    }
+
     void Place(Unit u, Vector2I anchor)
     {
         // The nearest free spot to the anchor, searching outward.
@@ -114,6 +129,7 @@ public sealed class Battle
 
         // Start of turn: cooldowns tick, poison bites, a stunned creature loses its turn.
         if (next.Passive is { Regen: > 0 } regen) HealUnit(next, Mathf.RoundToInt(next.MaxHp * regen.Regen));
+        if (next.Boost is { Regen: > 0 } led) HealUnit(next, Mathf.RoundToInt(next.MaxHp * led.Regen));
         foreach (var id in next.Cooldowns.Keys.ToList()) next.Cooldowns[id]--;
         if (next.PoisonTurns > 0)
         {
@@ -624,7 +640,7 @@ public sealed class Battle
         if (s.Flank > 0 && Alive.Any(o => o != u && o.Side == u.Side && Dist(o, o.Pos, t) == 1)) p += s.Flank;
         if (s.Desperate > 0 && u.Hp * 2 < u.MaxHp) p += s.Desperate;
         if (s.Execute > 0 && t.Hp * 10 < t.MaxHp * 4) p += s.Execute;
-        return p * (1 + (u.Passive?.SkillPower ?? 0));
+        return p * (1 + (u.Passive?.SkillPower ?? 0) + (u.Boost?.SkillPower ?? 0));
     }
 
     int HitOn(Unit u, SkillDef s, Unit t) => Math.Clamp(Preview(u, t).hit + s.HitBonus, 5, 99);

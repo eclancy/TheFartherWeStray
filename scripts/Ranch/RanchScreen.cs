@@ -25,6 +25,7 @@ public partial class RanchScreen : Control
     public bool StartInLab;               // --labmode: open on the lab (screenshots)
     public bool StartOnBoard;             // --boardmode: open on the mission board (screenshots)
     public bool StartOnJobs;              // --jobsmode: open on the job tree (screenshots)
+    public bool StartOnParty;             // --partymode: open on the party (screenshots)
 
     static readonly Color Cyan = Color.FromHtml("#4fe3ff"), Magenta = Color.FromHtml("#ff4f9a"), Gold = Color.FromHtml("#f2c14e");
     static readonly Color Ink = Color.FromHtml("#e8e2f4"), Dim = Color.FromHtml("#9a91b4");
@@ -37,10 +38,12 @@ public partial class RanchScreen : Control
     Button _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _labButton, _boardButton, _jobsButton;
     HBoxContainer _buttonsRow;
     LabPanel _lab;
-    enum Panel { Vats, Lab, Board, Jobs }
+    enum Panel { Vats, Lab, Board, Jobs, Party }
     Panel _panel = Panel.Vats;
     MissionBoardPanel _board;
     JobsPanel _jobs;
+    PartyPanel _party;
+    Button _partyButton;
     readonly List<int> _pen = new();
     int? _selected, _releaseArmed;
     double _releaseTimer;
@@ -113,6 +116,9 @@ public partial class RanchScreen : Control
         _jobs = new JobsPanel { Ranch = Ranch, Position = new Vector2(1170, 96), Size = new Vector2(730, 930), Visible = false };
         _jobs.Changed = msg => { Flash(msg); Rebuild(); if (_selected is { } sid) ShowDetail(sid); };
         AddChild(_jobs);
+        _party = new PartyPanel { Ranch = Ranch, Selected = () => _selected, Position = new Vector2(1170, 96), Size = new Vector2(730, 930), Visible = false };
+        _party.Changed = msg => { Flash(msg); Rebuild(); };
+        AddChild(_party);
         Button Header(string text, float x, Action onPress)
         {
             var b = new Button { Text = text, FocusMode = FocusModeEnum.None, Position = new Vector2(x, 22), CustomMinimumSize = new Vector2(150, 40) };
@@ -121,6 +127,7 @@ public partial class RanchScreen : Control
             AddChild(b);
             return b;
         }
+        _partyButton = Header("Party  (P)", 1260, () => SetPanel(_panel == Panel.Party ? Panel.Vats : Panel.Party));
         _jobsButton = Header("Jobs  (J)", 1420, () => SetPanel(_panel == Panel.Jobs ? Panel.Vats : Panel.Jobs));
         _labButton = Header("Lab  (L)", 1580, () => SetPanel(_panel == Panel.Lab ? Panel.Vats : Panel.Lab));
         _boardButton = Header("Missions  (M)", 1740, () => SetPanel(_panel == Panel.Board ? Panel.Vats : Panel.Board));
@@ -139,6 +146,7 @@ public partial class RanchScreen : Control
         if (StartInLab) SetPanel(Panel.Lab);
         if (StartOnBoard) SetPanel(Panel.Board);
         if (StartOnJobs) SetPanel(Panel.Jobs);
+        if (StartOnParty) SetPanel(Panel.Party);
         if (AutoFight) GetTree().CreateTimer(1.5).Timeout += () => { if (IsInsideTree() && Ranch.Squad.Count > 0) Fight?.Invoke(Mission.Board(Ranch.Encounter, Ranch.Codex)[0]); };
     }
 
@@ -172,7 +180,7 @@ public partial class RanchScreen : Control
         _headerChips = Ui.Chips(new[]
         {
             new Chip("paw", Ranch.Creatures.Count.ToString(), Ink, "creatures"),
-            new Chip("fist", $"{Ranch.Squad.Count}/{Ranch.SquadSize}", Ranch.Squad.Count == 0 ? Ui.Bad : Ink, "squad"),
+            new Chip("fist", $"{Ranch.Squad.Count}/{Ranch.SquadSize}", Ranch.Squad.Count == 0 ? Ui.Bad : Ink, "squad: three creatures for each warden leading (P)"),
             new Chip("flask", Ranch.Chem.ToString(), Gold, "chem, for the lab"),
             new Chip("mountain", "#" + Ranch.Encounter, Ink, "next encounter"),
         }, 22, 2, 22);
@@ -195,6 +203,7 @@ public partial class RanchScreen : Control
         _selected = id;
         if (_panel == Panel.Lab) _lab.ShowCreature(id);
         if (_panel == Panel.Jobs) { _jobs.Reset(); _jobs.ShowCreature(id); }
+        if (_panel == Panel.Party) _party.Refresh();
         foreach (var card in _grid.GetChildren().OfType<RanchCard>()) card.QueueRedraw();
         ShowDetail(id);
         RefreshSelected();
@@ -275,6 +284,9 @@ public partial class RanchScreen : Control
         _lab.Visible = p == Panel.Lab;
         _board.Visible = p == Panel.Board;
         _jobs.Visible = p == Panel.Jobs;
+        _party.Visible = p == Panel.Party;
+        _partyButton.Text = p == Panel.Party ? "Vats  (P)" : "Party  (P)";
+        if (p == Panel.Party) _party.Refresh();
         _jobsButton.Text = p == Panel.Jobs ? "Vats  (J)" : "Jobs  (J)";
         if (p == Panel.Jobs && _selected is { } jid) { _jobs.Reset(); _jobs.ShowCreature(jid); }
         _labButton.Text = p == Panel.Lab ? "Vats  (L)" : "Lab  (L)";
@@ -286,6 +298,7 @@ public partial class RanchScreen : Control
             Panel.Lab => "The lab: graft parts from your codex, fit brass, or infuse new blood. It all costs chem.",
             Panel.Board => "Pick a contract, then Depart (F) with your squad.",
             Panel.Jobs => "The job tree: every class this creature could ever train, and what each still needs.",
+            Panel.Party => "Your wardens lead from off the field: up to two, three creatures each.",
             _ => "",
         });
     }
@@ -322,12 +335,16 @@ public partial class RanchScreen : Control
 
     void ToggleSquad(int id)
     {
-        if (InSquad(id)) Ranch.Squad.Remove(id);
-        else if (Ranch.Squad.Count < Ranch.SquadSize) Ranch.Squad.Add(id);
-        else { Flash("The squad is full: take someone out first."); return; }
+        if (InSquad(id)) Ranch.RemoveFromSquad(id);
+        else if (Ranch.AddToSquad(id)) Flash($"{Ranch.Get(id).Species.Name} joins {Ranch.LeaderOf(id).Name}'s squad.");
+        else { Flash("Every warden leads three already: take someone out first, or field another warden (P)."); return; }
         Ranch.Save();
         Rebuild();
+        if (_panel == Panel.Party) _party.Refresh();
     }
+
+    /// <summary>The short name on a squad creature's card: who leads it.</summary>
+    public string LeaderTag(int id) => Ranch.LeaderOf(id) is { } w ? (w.Id == Party.WardenBook.You ? "YOU" : w.Name.Replace("The ", "").ToUpperInvariant()) : "SQUAD";
 
     void TogglePen(int id)
     {
@@ -461,6 +478,9 @@ public partial class RanchScreen : Control
             case Key.J:
                 SetPanel(_panel == Panel.Jobs ? Panel.Vats : Panel.Jobs);
                 break;
+            case Key.P:
+                SetPanel(_panel == Panel.Party ? Panel.Vats : Panel.Party);
+                break;
             case Key.M:
                 SetPanel(_panel == Panel.Board ? Panel.Vats : Panel.Board);
                 break;
@@ -536,7 +556,7 @@ public partial class RanchCard : Control
         DrawString(font, new Vector2(0, ground + 44), $"{c.Size} {c.Species.Plan}", HorizontalAlignment.Center, Size.X, 13, Color.FromHtml("#9a91b4"));
 
         // Marks in the top corners.
-        if (squad) DrawString(font, new Vector2(8, 20), "SQUAD", HorizontalAlignment.Left, -1, 13, Color.FromHtml("#4fe3ff"));
+        if (squad) DrawString(font, new Vector2(8, 20), Screen.LeaderTag(Id), HorizontalAlignment.Left, -1, 13, Color.FromHtml("#4fe3ff"));
         if (pen >= 0) DrawString(font, new Vector2(8, squad ? 38 : 20), pen == 0 ? "VAT A" : "VAT B", HorizontalAlignment.Left, -1, 13, Color.FromHtml("#ff4f9a"));
         string tag = Screen.IsNew(Id) ? "NEW" : c.Generation > 0 ? $"GEN {c.Generation}" : "";
         if (tag != "") DrawString(font, new Vector2(0, 20), tag, HorizontalAlignment.Right, Size.X - 8, 13, Color.FromHtml("#f2c14e"));

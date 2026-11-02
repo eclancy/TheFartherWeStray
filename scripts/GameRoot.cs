@@ -219,6 +219,7 @@ public partial class GameRoot : Node
             {
                 var mission = Tactics.Mission.Board(ranch.Encounter, ranch.Codex)[0];
                 var battle = mission.CreateBattle(ranch.SquadCreatures());
+                ranch.LeadUnits(battle);
                 while (battle.Winner == null && battle.Round <= 30) { var u = battle.NextTurn(); if (u == null) break; battle.AiTurn(u); }
                 var joined = ranch.AfterBattle(battle, mission);
                 GD.Print($"encounter {ranch.Encounter - 1}: {battle.Winner}, joined: {string.Join(", ", joined.Select(id => ranch.Get(id).Species.Name))}");
@@ -267,6 +268,17 @@ public partial class GameRoot : Node
             int trained = ranch.Creatures.Count(r => { var l = loaded.Record(r.Id).Training; return l.Class == r.Training.Class && l.Secondary == r.Training.Secondary && l.Passive == r.Training.Passive && l.Reaction == r.Training.Reaction && l.Masteries.SequenceEqual(r.Training.Masteries) && l.Passives.SequenceEqual(r.Training.Passives) && l.Innate == r.Training.Innate && l.Skills.SequenceEqual(r.Training.Skills) && l.JpIn(l.Class) == r.Training.JpIn(r.Training.Class); });
             GD.Print($"training: {trained}/{ranch.Creatures.Count} identical after save and load; " + string.Join("; ", ranch.Creatures.Select(r => $"{ranch.Get(r.Id).Species.Name} {r.Training.Class} [{string.Join(",", r.Training.Skills)}]{(r.Training.Innate != null ? " innate " + r.Training.Innate : "")}")));
             GD.Print($"roundtrip: {same}/{ranch.Creatures.Count} creatures identical after save and load; squad {string.Join(",", loaded.Squad)}; next encounter {loaded.Encounter}");
+            bool party = ranch.Fielded.SequenceEqual(loaded.Fielded) && ranch.Squad.All(id => ranch.LeaderOf(id)?.Id == loaded.LeaderOf(id)?.Id);
+            GD.Print($"wardens: {(party ? "identical" : "DIFFERENT")} after save and load; fielded {string.Join(", ", loaded.Fielded)}; "
+                + string.Join("; ", loaded.Fielded.Select(w => $"{w} leads {string.Join(", ", loaded.Squad.Where(id => loaded.LeaderOf(id)?.Id == w).Select(id => loaded.Get(id).Species.Name))}")));
+            // An old save: a squad of four, no wardens, past the encounter where the second joins.
+            var old = Ranching.Ranch.New();
+            foreach (var r in old.Creatures.Take(4).ToList()) { old.Squad.Remove(r.Id); old.Squad.Add(r.Id); }
+            old.LedBy.Clear();
+            old.Fielded = new List<string> { Party.WardenBook.You };
+            old.Encounter = 4;
+            old.Tidy();
+            GD.Print($"old save: squad of {old.Squad.Count} kept under {old.Fielded.Count} wardens ({string.Join("; ", old.Fielded.Select(w => $"{w} {old.Led(w)}"))})");
             GetTree().Quit();
             return;
         }
@@ -405,7 +417,7 @@ public partial class GameRoot : Node
         if (args.TryGetValue("save", out var saveName) && saveName != "") Ranching.Ranch.SavePath = $"user://{saveName}.json";
         _ranch = args.ContainsKey("newranch") ? Ranching.Ranch.New() : Ranching.Ranch.Load();
         bool vatDemo = args.ContainsKey("vatdemo");
-        _home = () => new Ranching.RanchScreen { Ranch = _ranch, Fight = StartRanchBattle, VatDemo = vatDemo, AutoFight = _autoPlay, StartInLab = args.ContainsKey("labmode"), StartOnBoard = args.ContainsKey("boardmode"), StartOnJobs = args.ContainsKey("jobsmode") };
+        _home = () => new Ranching.RanchScreen { Ranch = _ranch, Fight = StartRanchBattle, VatDemo = vatDemo, AutoFight = _autoPlay, StartInLab = args.ContainsKey("labmode"), StartOnParty = args.ContainsKey("partymode"), StartOnBoard = args.ContainsKey("boardmode"), StartOnJobs = args.ContainsKey("jobsmode") };
         Show(_home());
     }
 
@@ -427,7 +439,7 @@ public partial class GameRoot : Node
     {
         Show(new Tactics.BattleScreen
         {
-            Seed = mission.Seed, Mission = mission, Squad = _ranch.SquadCreatures(), AutoPlay = _autoPlay,
+            Seed = mission.Seed, Mission = mission, Squad = _ranch.SquadCreatures(), AutoPlay = _autoPlay, Prepare = _ranch.LeadUnits,
             Finished = battle =>
             {
                 var joined = _ranch.AfterBattle(battle, mission);

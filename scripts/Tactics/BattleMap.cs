@@ -4,7 +4,7 @@ using Godot;
 
 namespace CreatureTactics.Tactics;
 
-public enum Terrain { Grass, Stone, Brass, Chem, Pit, Crystal, Roof, Wood, Dirt, Water }
+public enum Terrain { Grass, Stone, Brass, Chem, Pit, Crystal, Roof, Wood, Dirt, Water, Ice, Sand, Lava }
 
 /// <summary>
 /// An isometric battle map: a grid of tiles, each with a terrain and a height (FFTA-style), the props
@@ -13,7 +13,7 @@ public enum Terrain { Grass, Stone, Brass, Chem, Pit, Crystal, Roof, Wood, Dirt,
 /// MVP scope). Buildings are tiles too: roofs raised on walls, which walkers go round and fliers
 /// and climbers can stand on, as in FFTA's towns.
 /// </summary>
-public sealed class BattleMap
+public sealed partial class BattleMap
 {
     public readonly int W, H;
     public readonly string Name;
@@ -57,6 +57,9 @@ public sealed class BattleMap
                     'w' => Terrain.Wood,
                     '-' => Terrain.Dirt,
                     '=' => Terrain.Water,
+                    'i' => Terrain.Ice,
+                    's' => Terrain.Sand,
+                    'l' => Terrain.Lava,
                     _ => Terrain.Grass,
                 };
                 _height[y * W + x] = heights[y][x] - '0';
@@ -81,7 +84,11 @@ public sealed class BattleMap
         (Plans.TryGetValue(s.Plan, out float p) ? p : 1f) * (Strains.TryGetValue(s.Strain, out float st) ? st : 1f)
         * (Elements.TryGetValue(s.Element, out float e) ? e : 1f);
 
-    public static readonly string[] Names = { "Undercity Foundry", "Brass Bridges", "Sump Marsh", "Clocktower Ruins", "Hexlight Hollow", "Lantern Row", "Gilded Gardens" };
+    public static readonly string[] Names =
+    {
+        "Undercity Foundry", "Brass Bridges", "Sump Marsh", "Clocktower Ruins", "Hexlight Hollow", "Lantern Row", "Gilded Gardens",
+        "Frostfang Pass", "Sunscorch Dunes", "Cinder Rift", "Saltwind Coast", "The Grand Coliseum",
+    };
 
     public static BattleMap ByName(string name) => name switch
     {
@@ -91,6 +98,11 @@ public sealed class BattleMap
         "Hexlight Hollow" => Hollow(),
         "Lantern Row" => LanternRow(),
         "Gilded Gardens" => Gardens(),
+        "Frostfang Pass" => Frost(),
+        "Sunscorch Dunes" => Dunes(),
+        "Cinder Rift" => Cinder(),
+        "Saltwind Coast" => Coast(),
+        "The Grand Coliseum" => Coliseum(),
         _ => Foundry(),
     };
 

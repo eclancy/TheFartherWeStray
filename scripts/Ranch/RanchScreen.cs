@@ -155,7 +155,7 @@ public partial class RanchScreen : Control
         {
             if (!IsInsideTree() || Ranch.Squad.Count == 0) return;
             // The attract loop plays the story when it can, else the nearest contract.
-            var all = World.Country.Board(Ranch);
+            var all = World.Country.Board(Ranch).Where(x => x.Dispatch == null).ToList();
             var m = all.FirstOrDefault(x => x.Story != null) ?? all.OrderBy(x => World.Country.Days(Ranch, x.Location)).First();
             Ranch.TravelTo(m.Location);
             Ranch.Save();
@@ -364,6 +364,7 @@ public partial class RanchScreen : Control
     void ToggleSquad(int id)
     {
         if (InSquad(id)) Ranch.RemoveFromSquad(id);
+        else if (Ranch.Away.TryGetValue(id, out var away)) { Flash($"{Ranch.Get(id).Name} is away on a dispatch until day {away.BackOn}."); return; }
         else if (Ranch.AddToSquad(id)) Flash($"{Ranch.Get(id).Name} joins {Ranch.LeaderOf(id).Name}'s squad.");
         else { Flash("Every tamer leads three already: take someone out first, or field another tamer (P)."); return; }
         Ranch.Save();
@@ -377,6 +378,7 @@ public partial class RanchScreen : Control
     void TogglePen(int id)
     {
         if (_pen.Contains(id)) _pen.Remove(id);
+        else if (Ranch.Away.ContainsKey(id)) { Flash($"{Ranch.Get(id).Name} is away on a dispatch."); return; }
         else if (!Ranch.Record(id).Rested) { Flash($"{Ranch.Get(id).Name} is resting. Fight a battle and everyone can breed again."); return; }
         else if (_pen.Count >= 2) { Flash("Both vats are full: take one out first."); return; }
         else _pen.Add(id);
@@ -583,6 +585,8 @@ public partial class RanchCard : Control
 
         // Marks in the top corners.
         if (squad) DrawString(font, new Vector2(8, 20), Screen.LeaderTag(Id), HorizontalAlignment.Left, -1, 13, Color.FromHtml("#4fe3ff"));
+        if (Screen.Ranch.Away.TryGetValue(Id, out var away))
+            DrawString(font, new Vector2(8, 20), $"AWAY {Math.Max(0, away.BackOn - Screen.Ranch.Day)}d", HorizontalAlignment.Left, -1, 13, Color.FromHtml("#ff4f9a"));
         if (pen >= 0) DrawString(font, new Vector2(8, squad ? 38 : 20), pen == 0 ? "VAT A" : "VAT B", HorizontalAlignment.Left, -1, 13, Color.FromHtml("#ff4f9a"));
         string tag = Screen.IsNew(Id) ? "NEW" : c.Generation > 0 ? $"GEN {c.Generation}" : "";
         if (tag != "") DrawString(font, new Vector2(0, 20), tag, HorizontalAlignment.Right, Size.X - 8, 13, Color.FromHtml("#f2c14e"));

@@ -10,6 +10,13 @@ using Godot;
 
 namespace CreatureTactics.Ranching;
 
+/// <summary>A creature away on a dispatch: the job, the day it's back, its odds of doing well.</summary>
+public sealed class AwayRecord
+{
+    public string Job;
+    public int BackOn, Chance;
+}
+
 /// <summary>One creature you own, as saved: its whole species (bred species exist nowhere else) and the individual.</summary>
 public sealed class CreatureRecord
 {
@@ -73,6 +80,8 @@ public sealed class Ranch
     public int Day = 1;
     public int ContractsWon;
     public HashSet<string> Story = new();
+    public Dictionary<int, AwayRecord> Away = new(); // creatures off on dispatches
+    public HashSet<string> Cups = new();             // coliseum cups won
 
     readonly Dictionary<int, Creature> _cache = new();
 
@@ -153,6 +162,7 @@ public sealed class Ranch
     /// <summary>Into the squad under the first fielded tamer with room; false if every tamer's hands are full.</summary>
     public bool AddToSquad(int id, string tamer = null)
     {
+        if (Away.ContainsKey(id)) return false;
         if (Squad.Contains(id)) RemoveFromSquad(id);
         tamer ??= Fielded.FirstOrDefault(w => Led(w) < TamerBook.CreaturesEach);
         if (tamer == null || !Fielded.Contains(tamer) || Led(tamer) >= TamerBook.CreaturesEach) return false;
@@ -209,6 +219,33 @@ public sealed class Ranch
         foreach (var id in Squad) battle.Lead(Get(id), LeaderOf(id));
     }
 
+    /// <summary>Sends a creature off on a dispatch (out of the squad, if it was in it).</summary>
+    public string Send(int id, World.DispatchDef job)
+    {
+        int chance = System.Math.Min(96, World.DispatchBook.Chance(job, Get(id), Record(id).Training));
+        RemoveFromSquad(id);
+        Away[id] = new AwayRecord { Job = job.Id, BackOn = Day + job.Days, Chance = chance };
+        return $"{Record(id).Name} sets off on \"{job.Title}\": back in {job.Days} {(job.Days == 1 ? "day" : "days")}, {chance}% to go well.";
+    }
+
+    /// <summary>Everyone back from a dispatch by today: chem and training if it went well, a story either way.</summary>
+    public List<string> ReturnDispatches()
+    {
+        var lines = new List<string>();
+        foreach (var (id, away) in Away.Where(kv => kv.Value.BackOn <= Day).OrderBy(kv => kv.Key).ToList())
+        {
+            Away.Remove(id);
+            if (World.DispatchBook.Get(away.Job) is not { } job || !Creatures.Any(r => r.Id == id)) continue;
+            var rng = new SeededRng(SeededRng.Derive(SeededRng.Hash(job.Id) ^ (ulong)id, (ulong)away.BackOn));
+            bool well = rng.Int(100) < away.Chance;
+            var training = Record(id).Training;
+            training.Earn(well ? 25 : 10);
+            if (well) Chem += job.Reward;
+            lines.Add($"{Record(id).Name} is back from \"{job.Title}\": {(well ? job.Success : job.Failure)}{(well ? $" +{job.Reward} chem." : "")}");
+        }
+        return lines;
+    }
+
     /// <summary>Travels to a place along open roads; each road is a day. Returns the days taken.</summary>
     public int TravelTo(string location)
     {
@@ -235,6 +272,7 @@ public sealed class Ranch
 
     public void Release(int id)
     {
+        Away.Remove(id);
         Chem += 5; // salvage
         Creatures.RemoveAll(r => r.Id == id);
         RemoveFromSquad(id);
@@ -305,8 +343,14 @@ public sealed class Ranch
                 var opened = World.Country.Get(World.StoryBook.Get(story).Opens);
                 Report.Add($"Main mission won: the road to {opened.Name} is open.");
             }
-            else if (won) ContractsWon++;
-            if (mission.Rival is { } rival)
+            else if (won && mission.Cup == null) ContractsWon++;
+            if (mission.Cup is { } cupId)
+            {
+                var cup = World.CupBook.Get(cupId);
+                if (won && mission.Round == 3) { Cups.Add(cupId); Report.Add($"Champion of the {cup.Name}!"); }
+                else if (!won) Report.Add($"Out of the {cup.Name} in round {mission.Round}.");
+            }
+            else if (mission.Rival is { } rival)
             {
                 int wins = Rivals.GetValueOrDefault(rival.Id) + (won ? 1 : 0);
                 if (won) Rivals[rival.Id] = wins;
@@ -343,6 +387,9 @@ public sealed class Ranch
             joined.Add(id);
         }
         foreach (var r in Creatures) r.Rested = true;
+        // A battle takes a day; whoever's dispatch is done comes home.
+        Day++;
+        Report.AddRange(ReturnDispatches());
         var party = Party.Select(w => w.Id).ToHashSet();
         Encounter++;
         foreach (var w in Party.Where(w => !party.Contains(w.Id)))

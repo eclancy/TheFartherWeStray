@@ -205,6 +205,25 @@ public sealed class IsoArt
             Color a = default, b = default, c = default;
             switch (terrain)
             {
+                case Terrain.Grass when _map.Theme == "Frost":
+                    if (r % 3 == 0) { stamp = Glint; a = C("#ffffff"); c = C("#9fe8ff"); }
+                    else { stamp = Drift; a = _look.GrassLight; b = _look.GrassDark; }
+                    break;
+                case Terrain.Grass when _map.Theme == "Desert":
+                    if (r % 3 == 0) { stamp = Tuft; a = C("#a8a050"); b = C("#6a6a32"); }
+                    else { stamp = Pebble; a = _look.GrassLight; b = _look.GrassDark; }
+                    break;
+                case Terrain.Grass when _map.Theme == "Volcanic":
+                    if (r % 3 == 0) { stamp = Ember; a = C("#ff8a3a"); b = C("#ffd27a"); }
+                    else { stamp = Crack; b = C("#1e1a1c"); }
+                    break;
+                case Terrain.Stone when _map.Theme == "Volcanic":
+                    if (r % 3 == 0) { stamp = Crack; b = C("#ff6a2a"); } else { stamp = Pebble; a = _look.StoneLight; b = _look.StoneJoint; }
+                    break;
+                case Terrain.Sand:
+                    if (r % 4 == 0 && _map.Theme == "Coast") { stamp = Shell; a = C("#fff4e8"); b = C("#e89aa0"); }
+                    else if (r % 4 == 1) { stamp = Pebble; a = C("#f0d8a0"); b = C("#a8824e"); }
+                    break;
                 case Terrain.Grass:
                     if (r % 5 == 0 && _map.Theme != "Cavern") { stamp = Flower; a = C("#f2e07a"); c = _look.Flowers[r / 7 % (uint)_look.Flowers.Length]; b = _look.GrassDark; }
                     else if (r % 5 == 1 && _map.Theme == "Ruins") { stamp = Leaves; c = C("#c4682f"); }
@@ -219,7 +238,7 @@ public sealed class IsoArt
                     else { stamp = Pebble; a = _look.StoneLight; b = _look.StoneJoint; }
                     break;
                 case Terrain.Dirt:
-                    stamp = r % 3 == 0 ? Puddle : Pebble;
+                    stamp = r % 3 == 0 && _map.Theme is "Undercity" or "Sump" or "Ruins" or "Coast" ? Puddle : Pebble;
                     a = r % 3 == 0 ? C("#5f8fb0") : C("#9a8064"); b = C("#4a3828"); c = a;
                     break;
                 case Terrain.Wood:
@@ -241,6 +260,10 @@ public sealed class IsoArt
     static readonly string[] Pebble = { "a.", "bb" };
     static readonly string[] Puddle = { ".aa.", "aaaa", ".aa." };
     static readonly string[] Nail = { "a" };
+    static readonly string[] Glint = { ".c.", "cac", ".c." };
+    static readonly string[] Drift = { ".aa.", "abba" };
+    static readonly string[] Ember = { "a.", ".b" };
+    static readonly string[] Shell = { "aaa", ".b." };
 
     void Stamp(Image img, string[] stamp, Vector2 at, Color a, Color b, Color c)
     {
@@ -266,6 +289,9 @@ public sealed class IsoArt
         Terrain.Wood => (C("#6b4a2e"), C("#4a3220")),
         Terrain.Dirt => (C("#6a5038"), C("#4a3828")),
         Terrain.Water => (C("#1e3a5a"), C("#142a40")),
+        Terrain.Ice => (C("#6f9ab8"), C("#4f7896")),
+        Terrain.Sand => (C("#b08a52"), C("#8a6a3e")),
+        Terrain.Lava => (C("#3a1a14"), C("#26100c")),
         _ => (C("#222"), C("#111")),
     };
 
@@ -325,6 +351,32 @@ public sealed class IsoArt
                 if (r < 0.07f) return C("#cfe8ff");
                 if (r < 0.18f) return C("#7fb8e8");
                 return n % 13 == 0 ? C("#5fa0d8") : C("#3a78b8");
+            }
+            case Terrain.Ice:
+            {
+                // A frozen lake: pale and glassy, long glints and a few cracks.
+                float g = (u * 1.7f - v * 0.9f + ((x * 3 + y * 5) % 7) * 0.05f + 4) % 1f;
+                if (n % 23 == 0 && Mathf.Abs(u - v) < 0.05f) return C("#8cc4dc");
+                if (g < 0.05f) return C("#f4fcff");
+                return g < 0.3f ? C("#d4eef8") : C("#b8e0f0");
+            }
+            case Terrain.Sand:
+            {
+                // Dune ripples, lit on one side.
+                float w = (u * 3.5f + v * 1.2f + Mathf.Sin(v * 6 + x) * 0.15f + 4) % 1f;
+                if (w < 0.12f) return _look.GrassDark.Lerp(C("#b08a52"), 0.5f);
+                if (w < 0.24f) return C("#f0d8a0");
+                return n % 17 == 0 ? C("#c8a468") : C("#e0c088");
+            }
+            case Terrain.Lava:
+            {
+                // Molten rock under a cracking crust.
+                float r = (u * 2.1f + v * 1.6f + ((x * 7 + y * 3) % 5) * 0.03f) % 1f;
+                float crust = (u * 4.3f - v * 3.1f + x * 0.37f + 10) % 1f;
+                if (crust < 0.18f) return C("#3a1a14");
+                if (r < 0.08f) return C("#ffe08a");
+                if (r < 0.25f) return C("#ffa13a");
+                return n % 11 == 0 ? C("#ff7a2a") : C("#e8531c");
             }
             case Terrain.Chem:
             {
@@ -493,6 +545,30 @@ public sealed class Look
             new[] { "#6a7083", "#7b8194", "#5f6577", "#363a48", "#535869", "#383b4b" },
             new[] { "#7f9cb8", "#d9c9a8", "#b89a76" },
             new[] { "#8c8a96", "#efe2c4" }, new[] { "#6f6a70", "#e8d2a8" }, "#e6c89a"),
+        // The pass: snow over blue rock under a cold night with an aurora.
+        ["Frost"] = Make(
+            new[] { "#d8e6f0", "#f4fbff", "#a9bfd4", "#8fb0d0", "#8a9db4", "#66788f" },
+            new[] { "#6f7f96", "#8a9ab0", "#62718a", "#3e4a5e", "#55627a", "#3c465a" },
+            new[] { "#0b1530", "#2a5a7a", "#16243f" },
+            new[] { "#22304e", "#9fe8ff", "#7fffc8" }, new[] { "#16203a", "#bff4ff", "#7fd8ff" }, "#9fd0ff"),
+        // The dunes: scrub and sandstone under a burning dusk.
+        ["Desert"] = Make(
+            new[] { "#c9a868", "#e0c48a", "#a8864e", "#7a8a4a", "#a07a4a", "#7a5a36" },
+            new[] { "#c08a5a", "#d8a878", "#b07c50", "#7a5234", "#9a6a42", "#744e30" },
+            new[] { "#2a1f4a", "#d8704a", "#5a3048" },
+            new[] { "#5a3a4a", "#ffb04f" }, new[] { "#3a2430", "#ffd27a", "#ff8a4f" }, "#f2a65a"),
+        // The rift: ash and basalt under a red sky.
+        ["Volcanic"] = Make(
+            new[] { "#4a4446", "#5e5658", "#363032", "#ff7a3a", "#3a3234", "#262022" },
+            new[] { "#3a3640", "#4e4a56", "#34303a", "#1c1a20", "#2c2830", "#1e1b22" },
+            new[] { "#120608", "#4a1410", "#1e0a0a" },
+            new[] { "#2a0e0e", "#ff6a2a", "#ffb04f" }, new[] { "#1a0808", "#ff4a1a", "#ffd27a" }, "#ff6a2a"),
+        // The coast: dune grass and sea rock at twilight.
+        ["Coast"] = Make(
+            new[] { "#7a9a5a", "#9aba6a", "#5a7a46", "#e8e0b0", "#8a7a5a", "#6a5a42" },
+            new[] { "#7a8490", "#949eaa", "#6c7682", "#454c56", "#5e6672", "#454c56" },
+            new[] { "#18284a", "#5a7ab0", "#e8a87a" },
+            new[] { "#2a3a5a", "#ffd27a" }, new[] { "#1a2640", "#ffe3a8", "#7fe0e0" }, "#9fc8e8"),
         // The hollow: fungal moss and dark rock, lit by crystal.
         ["Cavern"] = Make(
             new[] { "#3a2f5a", "#57458a", "#2a2242", "#7fd8ff", "#2b2236", "#1d1726" },
@@ -520,6 +596,16 @@ public sealed class Look
         (r.WallL, r.WallR, r.Timber, r.Door) = (C("#8a7f72"), C("#6e6458"), C("#4f483f"), C("#2e2620"));
         r.Windows = new[] { C("#ffb04f"), C("#1a1a2a") };
         r.Flowers = new[] { C("#ffb04f"), C("#ff7a4f") };
+        // The pass: snow-laden roofs on log walls.
+        var f = Looks["Frost"];
+        (f.Roof, f.RoofLight, f.RoofDark) = (C("#dce8f2"), C("#f4fbff"), C("#9fb4c8"));
+        (f.WallL, f.WallR, f.Timber, f.Door) = (C("#7a5a3e"), C("#5a422e"), C("#3a2a1e"), C("#2a1e14"));
+        f.Windows = new[] { C("#ffd27a") };
+        // The coast: white plaster and blue-grey slate.
+        var co = Looks["Coast"];
+        (co.Roof, co.RoofLight, co.RoofDark) = (C("#4a6a8a"), C("#6a8aaa"), C("#2e4660"));
+        (co.WallL, co.WallR) = (C("#e8e0d0"), C("#c0b8a8"));
+        co.Flowers = new[] { C("#ffffff"), C("#ffd25a"), C("#c08aff") };
     }
 
     public static Look Get(string name) => Looks.TryGetValue(name ?? "", out var l) ? l : Looks["Undercity"];

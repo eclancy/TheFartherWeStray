@@ -19,6 +19,7 @@ public partial class CountryScreen : Control
     public Ranch Ranch;
     public Action<Mission> Fight;
     public Action Back;
+    public bool DemoDispatch;   // --dispatchdemo: open on the first dispatch's chooser (screenshots)
 
     const int Scale = 4;
     static readonly Vector2 MapAt = new(40, 112);
@@ -30,6 +31,7 @@ public partial class CountryScreen : Control
     bool _travelling;
     List<Mission> _board = new();
     MissionBoardPanel _missions;
+    PanelContainer _chooser;
     VBoxContainer _place;
     Label _status;
 
@@ -60,6 +62,7 @@ public partial class CountryScreen : Control
             ?? _board.OrderBy(m => Country.Days(Ranch, m.Location)).FirstOrDefault();
         Select(first?.Location ?? Ranch.Location);
         _status.Text = "Pick a place, then a mission; Depart (F) travels there and starts it. Esc: back to the ranch.";
+        if (DemoDispatch && _board.FirstOrDefault(m => m.Dispatch != null) is { } job) { Select(job.Location); Choose(job.Dispatch); }
     }
 
     static Vector2 Screen(LocationDef l) => MapAt + new Vector2(l.At.X, l.At.Y) * Scale;
@@ -80,7 +83,7 @@ public partial class CountryScreen : Control
 
         if (!open)
         {
-            var opener = StoryBook.All.First(m => m.Opens == id);
+            var opener = StoryBook.Get(l.OpenedBy);
             _place.AddChild(Wrap($"Locked. The main mission at {Country.Get(opener.Location).Name} opens the road here.", 16, Dim));
             if (opener.After != null && !Ranch.Story.Contains(opener.After))
                 _place.AddChild(Wrap($"First: {StoryBook.Get(opener.After).Title}.", 16, Dim));
@@ -107,7 +110,7 @@ public partial class CountryScreen : Control
         {
             _missions.Source = () => here;
             _missions.Heading = here.Count == 0 ? "NOTHING ON OFFER HERE TODAY" : $"ON OFFER AT {l.Name.ToUpperInvariant()}";
-            _missions.DepartLabel = id == Ranch.Location ? "Depart  (F)" : $"Travel {days}d & depart  (F)";
+            _missions.DepartLabelFor = m => m.Dispatch != null ? "Send a creature  (F)" : id == Ranch.Location ? "Depart  (F)" : $"Travel {days}d & depart  (F)";
             _missions.Selected = 0;
             _missions.Refresh();
             _missions.QueueRedraw();
@@ -125,7 +128,8 @@ public partial class CountryScreen : Control
 
     async void Depart(Mission m)
     {
-        if (_travelling) return;
+        if (_travelling || _chooser != null) return;
+        if (m.Dispatch != null) { Choose(m.Dispatch); return; }
         if (Ranch.Squad.Count == 0) { _status.Text = "Pick at least one creature for the squad at the ranch (S)."; return; }
         _travelling = true;
         Audio.Sound.Play("depart");
@@ -142,6 +146,66 @@ public partial class CountryScreen : Control
         Ranch.TravelTo(m.Location);
         Ranch.Save();
         Fight?.Invoke(m);
+    }
+
+    /// <summary>Who goes on a dispatch: everyone at home, best suited first, with their odds.</summary>
+    void Choose(DispatchDef job)
+    {
+        _chooser = new PanelContainer { Position = new Vector2(1170, 262), Size = new Vector2(720, 0) };
+        var box = new StyleBoxFlat { BgColor = new Color(0.07f, 0.05f, 0.12f, 0.97f), BorderColor = Gold };
+        box.SetBorderWidthAll(2);
+        box.SetCornerRadiusAll(8);
+        box.SetContentMarginAll(14);
+        _chooser.AddThemeStyleboxOverride("panel", box);
+        var col = new VBoxContainer();
+        col.AddThemeConstantOverride("separation", 6);
+        _chooser.AddChild(col);
+        col.AddChild(Wrap($"Who goes on \"{job.Title}\"? Away {job.Days} {(job.Days == 1 ? "day" : "days")}.", 18, Gold));
+        col.AddChild(Wrap("Suits: " + string.Join(", ", job.Suits.Select(s => s.hint)) + ". The better it suits, the likelier it goes well.", 15, Dim));
+        var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(690, 520), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        var rows = new VBoxContainer();
+        rows.AddThemeConstantOverride("separation", 4);
+        scroll.AddChild(rows);
+        col.AddChild(scroll);
+        var home = Ranch.Creatures.Where(r => !Ranch.Away.ContainsKey(r.Id))
+            .Select(r => (r, chance: Math.Min(96, DispatchBook.Chance(job, Ranch.Get(r.Id), r.Training))))
+            .OrderByDescending(x => x.chance).ThenBy(x => x.r.Id);
+        foreach (var (rec, chance) in home)
+        {
+            var c = Ranch.Get(rec.Id);
+            var fits = job.Suits.Where(s => s.fits(c, rec.Training)).Select(s => s.hint).ToList();
+            var b = new Button
+            {
+                Text = $"{rec.Name}  ·  {chance}%{(fits.Count > 0 ? "  ·  " + string.Join(", ", fits) : "")}{(Ranch.Squad.Contains(rec.Id) ? "  (leaves the squad)" : "")}",
+                Alignment = HorizontalAlignment.Left, FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(680, 38),
+            };
+            b.AddThemeFontSizeOverride("font_size", 16);
+            int id = rec.Id;
+            b.Pressed += () => Send(id, job);
+            rows.AddChild(b);
+        }
+        var cancel = new Button { Text = "Cancel  (Esc)", FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(160, 40), SizeFlagsHorizontal = SizeFlags.ShrinkEnd };
+        cancel.Pressed += CloseChooser;
+        col.AddChild(cancel);
+        _missions.Visible = false;
+        AddChild(_chooser);
+    }
+
+    void CloseChooser()
+    {
+        _chooser?.QueueFree();
+        _chooser = null;
+        _missions.Visible = true;
+    }
+
+    void Send(int id, DispatchDef job)
+    {
+        CloseChooser();
+        _status.Text = Ranch.Send(id, job);
+        Ranch.Save();
+        Audio.Sound.Play("depart");
+        _board = Country.Board(Ranch);
+        Select(_selected);
     }
 
     public override void _Process(double delta) => QueueRedraw(); // the token bobs and the selection pulses
@@ -165,7 +229,8 @@ public partial class CountryScreen : Control
     public override void _UnhandledInput(InputEvent e)
     {
         if (e is not InputEventKey { Pressed: true, Echo: false } k) return;
-        if (k.Keycode is Key.Escape or Key.M) { Back?.Invoke(); GetViewport().SetInputAsHandled(); }
+        if (k.Keycode == Key.Escape && _chooser != null) { CloseChooser(); GetViewport().SetInputAsHandled(); }
+        else if (k.Keycode is Key.Escape or Key.M) { Back?.Invoke(); GetViewport().SetInputAsHandled(); }
         else if (k.Keycode == Key.F && _missions.Visible && _missions.Missions.Count > 0) Depart(_missions.Missions[_missions.Selected]);
     }
 
@@ -213,8 +278,10 @@ public partial class CountryScreen : Control
             var here = _board.Where(m => m.Location == l.Id).ToList();
             float bx = p.X + 20;
             if (here.Any(m => m.Story != null)) { Badge(p + new Vector2(-30, -30), "star", Gold); }
-            if (here.Any(m => m.Rival != null)) { Badge(new Vector2(bx, p.Y - 30), "slash", Pink); bx += 24; }
-            int contracts = here.Count(m => m.Story == null && m.Rival == null);
+            if (here.Any(m => m.Cup != null)) { Badge(new Vector2(bx, p.Y - 30), "crown", Gold); bx += 24; }
+            else if (here.Any(m => m.Rival != null)) { Badge(new Vector2(bx, p.Y - 30), "slash", Pink); bx += 24; }
+            if (here.Any(m => m.Dispatch != null)) { Badge(new Vector2(bx, p.Y - 30), "hand", Cyan); bx += 24; }
+            int contracts = here.Count(m => m.Story == null && m.Rival == null && m.Dispatch == null);
             if (contracts > 0)
             {
                 DrawCircle(new Vector2(bx, p.Y - 26), 11, Color.FromHtml("#ff8a3d"));
@@ -238,9 +305,11 @@ public partial class CountryScreen : Control
     /// <summary>The next main mission and what it waits for.</summary>
     string NextLine()
     {
-        if (StoryBook.Next(Ranch) is not { } next) return "Every road is open. (The story is still to come.)";
+        var ready = StoryBook.Ready(Ranch).ToList();
+        string away = Ranch.Away.Count > 0 ? $"   ·   {Ranch.Away.Count} away on dispatches" : "";
+        if (ready.Count > 0) return $"Main mission ready at {Country.Get(ready[0].Location).Name}: the road to {Country.Get(ready[0].Opens).Name}{(ready.Count > 1 ? $" (and {ready.Count - 1} more)" : "")}.{away}";
+        if (StoryBook.Next(Ranch) is not { } next) return "Every road is open. (The story is still to come.)" + away;
         var at = Country.Get(next.Location);
-        if (StoryBook.Ready(Ranch).Contains(next)) return $"Main mission ready at {at.Name}: {next.Title}.";
-        return $"Next main mission, at {at.Name}, waits for: " + string.Join(", ", StoryBook.Needs(Ranch, next).Where(n => !n.met).Select(n => n.text)) + ".";
+        return $"Next main mission, at {at.Name}, waits for: " + string.Join(", ", StoryBook.Needs(Ranch, next).Where(n => !n.met).Select(n => n.text)) + "." + away;
     }
 }

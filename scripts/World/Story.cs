@@ -38,6 +38,15 @@ public static class StoryBook
             Needs = new[] { (Milestone.Contracts, 9), (Milestone.CodexParts, 34) } },
         new() { Id = "main_hollow", Location = "clocktower", Opens = "hollow", After = "main_clocktower", Pack = 6,
             Needs = new[] { (Milestone.Contracts, 12), (Milestone.Creatures, 10), (Milestone.RivalWins, 2) } },
+        // The far regions branch off the road (the user's direction: very different places to fight).
+        new() { Id = "main_coast", Location = "lantern", Opens = "coast", After = "main_foundry",
+            Needs = new[] { (Milestone.Contracts, 4), (Milestone.Creatures, 6) } },
+        new() { Id = "main_dunes", Location = "coast", Opens = "dunes", After = "main_coast", Goal = Objective.Hunt, Pack = 5,
+            Needs = new[] { (Milestone.Contracts, 8), (Milestone.CodexParts, 30) } },
+        new() { Id = "main_frost", Location = "gardens", Opens = "frost", After = "main_bridges", Pack = 5,
+            Needs = new[] { (Milestone.Contracts, 7), (Milestone.Creatures, 8) } },
+        new() { Id = "main_cinder", Location = "clocktower", Opens = "cinder", After = "main_clocktower", Goal = Objective.Hunt, Pack = 6,
+            Needs = new[] { (Milestone.Contracts, 14), (Milestone.RivalWins, 2) } },
     };
 
     public static MainMission Get(string id) => All.FirstOrDefault(m => m.Id == id);
@@ -58,8 +67,8 @@ public static class StoryBook
         _ => "rival duels won",
     };
 
-    /// <summary>The next main mission not yet won, if any.</summary>
-    public static MainMission Next(Ranch r) => All.FirstOrDefault(m => !r.Story.Contains(m.Id));
+    /// <summary>The next main mission not yet won whose mission before it is won, if any.</summary>
+    public static MainMission Next(Ranch r) => All.FirstOrDefault(m => !r.Story.Contains(m.Id) && (m.After == null || r.Story.Contains(m.After)));
 
     /// <summary>Main missions on offer now: the one before won, its place open, its milestones met.</summary>
     public static IEnumerable<MainMission> Ready(Ranch r) => All.Where(m => !r.Story.Contains(m.Id)

@@ -19,6 +19,8 @@ public partial class MissionBoardPanel : Control
     public Func<List<Mission>> Source;       // the missions to show (the encounter's whole board if unset)
     public string Heading;                   // the title over them
     public string DepartLabel = "Depart  (F)";
+    public Func<Mission, string> DepartLabelFor; // the Depart button's words for the picked mission, if they vary
+    Button _depart;
 
     public List<Mission> Missions = new();
     public int Selected;
@@ -30,21 +32,32 @@ public partial class MissionBoardPanel : Control
         Selected = Math.Clamp(Selected, 0, Math.Max(0, Missions.Count - 1));
         foreach (var child in GetChildren()) child.QueueFree();
         if (Missions.Count == 0) return;
-        var list = new VBoxContainer { Position = new Vector2(0, 30), Size = new Vector2(Size.X, Size.Y - 100) };
+        // More cards than fit scroll.
+        var scroll = new ScrollContainer { Position = new Vector2(0, 30), Size = new Vector2(Size.X, Size.Y - 100), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        AddChild(scroll);
+        var list = new VBoxContainer();
         list.AddThemeConstantOverride("separation", 10);
-        AddChild(list);
+        scroll.AddChild(list);
         for (int i = 0; i < Missions.Count; i++)
         {
             int index = i;
-            var card = new MissionCard { Board = this, Index = i, CustomMinimumSize = new Vector2(Size.X, 190) };
-            card.Clicked += () => { Selected = index; Audio.Sound.Play("click"); foreach (var c in list.GetChildren().OfType<MissionCard>()) c.QueueRedraw(); };
+            var card = new MissionCard { Board = this, Index = i, CustomMinimumSize = new Vector2(Size.X - 16, 190) };
+            card.Clicked += () =>
+            {
+                Selected = index;
+                Audio.Sound.Play("click");
+                _depart.Text = LabelFor(Missions[Selected]);
+                foreach (var c in list.GetChildren().OfType<MissionCard>()) c.QueueRedraw();
+            };
             list.AddChild(card);
         }
-        var depart = new Button { Text = DepartLabel, FocusMode = FocusModeEnum.None, Position = new Vector2(Size.X - 200, Size.Y - 56), CustomMinimumSize = new Vector2(200, 48) };
-        depart.AddThemeFontSizeOverride("font_size", 18);
-        depart.Pressed += () => Depart?.Invoke(Missions[Selected]);
-        AddChild(depart);
+        _depart = new Button { Text = LabelFor(Missions[Selected]), FocusMode = FocusModeEnum.None, Position = new Vector2(Size.X - 240, Size.Y - 56), CustomMinimumSize = new Vector2(240, 48) };
+        _depart.AddThemeFontSizeOverride("font_size", 18);
+        _depart.Pressed += () => Depart?.Invoke(Missions[Selected]);
+        AddChild(_depart);
     }
+
+    string LabelFor(Mission m) => DepartLabelFor?.Invoke(m) ?? DepartLabel;
 
     public override void _Draw()
     {
@@ -71,7 +84,7 @@ public partial class MissionCard : Control
 
     public override void _Ready()
     {
-        MouseFilter = MouseFilterEnum.Stop;
+        MouseFilter = MouseFilterEnum.Pass; // the wheel still scrolls the list
         TextureFilter = TextureFilterEnum.Nearest;
         MouseEntered += () => { _hover = true; QueueRedraw(); };
         MouseExited += () => { _hover = false; QueueRedraw(); };
@@ -82,7 +95,10 @@ public partial class MissionCard : Control
         if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }) Clicked?.Invoke();
     }
 
-    static string Goal(Objective o) => o switch { Objective.Survive => "clock", Objective.Hunt => "hit", Objective.Capture => "chain", Objective.Duel => "slash", _ => "fist" };
+    static string Goal(Mission m) => m.Dispatch != null ? "hand" : m.Cup != null ? "crown" : m.Goal switch
+    {
+        Objective.Survive => "clock", Objective.Hunt => "hit", Objective.Capture => "chain", Objective.Duel => "slash", _ => "fist",
+    };
 
     public override void _Draw()
     {
@@ -109,24 +125,42 @@ public partial class MissionCard : Control
         var gold = Color.FromHtml("#f2c14e");
         float x = 290, w = Size.X - x - 12;
         // Title behind the objective's glyph; then difficulty stars, pack size and reward as glyphs and numbers.
-        DrawTexture(Glyphs.Get(Goal(m.Goal), 2), new Vector2(x - 4, 8));
+        DrawTexture(Glyphs.Get(Goal(m), 2), new Vector2(x - 4, 8));
         DrawString(font, new Vector2(x + 26, 32), m.Title, HorizontalAlignment.Left, w - 26, 20, ink);
-        DrawTexture(SkillIcons.Stars(m.Stars > 3 ? 3 : m.Stars, 2), new Vector2(x, 44));
-        if (m.Stars > 3) DrawTexture(SkillIcons.Stars(m.Stars - 3, 2), new Vector2(x + 38, 44));
-        float cx = x + (m.Stars > 3 ? 84 : 48);
-        foreach (var (glyph, text) in new[] { ("paw", m.Pack.ToString()), ("flask", m.Reward.ToString()) })
+        float cx = x;
+        if (m.Dispatch == null)
+        {
+            DrawTexture(SkillIcons.Stars(m.Stars > 3 ? 3 : m.Stars, 2), new Vector2(x, 44));
+            if (m.Stars > 3) DrawTexture(SkillIcons.Stars(m.Stars - 3, 2), new Vector2(x + 38, 44));
+            cx = x + (m.Stars > 3 ? 84 : 48);
+        }
+        // A dispatch shows how long it takes; a battle, how many it's against.
+        var counts = m.Dispatch != null ? new[] { ("clock", $"{m.Dispatch.Days}d"), ("flask", m.Reward.ToString()) } : new[] { ("paw", m.Pack.ToString()), ("flask", m.Reward.ToString()) };
+        foreach (var (glyph, text) in counts)
         {
             DrawTexture(Glyphs.Get(glyph, 2), new Vector2(cx, 40));
             DrawString(font, new Vector2(cx + 28, 61), text, HorizontalAlignment.Left, 60, 17, gold);
             cx += 72;
         }
         DrawString(font, new Vector2(x, 90), m.Brief(), HorizontalAlignment.Left, w, 15, ink);
-        DrawString(font, new Vector2(x, 114), m.Rival?.Ideal ?? BattleMap.ByName(m.MapName).Blurb, HorizontalAlignment.Left, w, 14, dim);
+        string line = m.Dispatch != null ? $"No battle: one creature goes, and is away {m.Dispatch.Days} {(m.Dispatch.Days == 1 ? "day" : "days")}."
+            : m.Flavor ?? m.Rival?.Ideal ?? BattleMap.ByName(m.MapName).Blurb;
+        DrawString(font, new Vector2(x, 114), line, HorizontalAlignment.Left, w, 14, dim);
         if (m.Story is { } story)
         {
             // A main mission: what it opens on the country map.
             DrawTexture(Glyphs.Get("star", 2), new Vector2(x - 4, 128));
             DrawString(font, new Vector2(x + 26, 150), $"Main mission  ·  opens {World.Country.Get(World.StoryBook.Get(story).Opens).Name}", HorizontalAlignment.Left, w - 26, 15, gold);
+        }
+        else if (m.Cup is { } cup)
+        {
+            DrawTexture(Glyphs.Get("crown", 2), new Vector2(x - 4, 128));
+            DrawString(font, new Vector2(x + 26, 150), $"Three duels in a row  ·  the cup pays {World.CupBook.Get(cup).Prize} chem", HorizontalAlignment.Left, w - 26, 15, gold);
+        }
+        else if (m.Dispatch is { } job)
+        {
+            DrawTexture(Glyphs.Get("check", 2), new Vector2(x - 4, 128));
+            DrawString(font, new Vector2(x + 26, 150), "Suits: " + string.Join(", ", job.Suits.Select(s => s.hint)), HorizontalAlignment.Left, w - 26, 15, Color.FromHtml("#4fe3ff"));
         }
         else if (m.Rival is { } rival)
         {
@@ -134,6 +168,11 @@ public partial class MissionCard : Control
             DrawTexture(Glyphs.Get(rival.Tamer.Glyph, 2), new Vector2(x - 4, 128));
             string record = m.RivalWins > 0 ? $"beaten {m.RivalWins}x  ·  " : "";
             DrawString(font, new Vector2(x + 26, 150), $"{record}{rival.Tamer.Text}", HorizontalAlignment.Left, w - 26, 15, Color.FromHtml("#ff7aa8"));
+        }
+        else if (m.Repeatable)
+        {
+            DrawTexture(Glyphs.Get("cooldown", 2), new Vector2(x - 4, 128));
+            DrawString(font, new Vector2(x + 26, 150), "Regular job  ·  always on offer here", HorizontalAlignment.Left, w - 26, 15, Color.FromHtml("#4ff0a0"));
         }
         else if (m.Sighting != null)
         {

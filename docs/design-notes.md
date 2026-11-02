@@ -72,10 +72,21 @@ fields up to two and fills their three slots each; battles apply the boosts befo
 2. **Story milestones and flags:** a data-driven list of story missions, each with conditions
    (milestones met, flags, standing with the city or undercity) and outcomes (flags, unlocked
    locations, narrative-only creatures). Cutscenes come after.
-3. **Mission variety:** dispatch missions (data: a pun title, the ask, which creatures suit it,
-   days away, rewards), repeatable contracts at locations, new regions with new tile sets
-   (snow, desert, forest, coast, volcanic...), and a coliseum with ranked brackets of rival
-   squads.
+3. ~~**Mission variety**~~ (built 2026-11-02, the user's pick):
+   - **New regions** with ground that looks nothing alike: Frostfang Pass (snow, blue rock, a
+     frozen lake), Sunscorch Dunes (sand that slows walkers, sandstone ruins, an oasis), Cinder
+     Rift (ash and basalt over lava only fliers cross), Saltwind Coast (beach, piers, the sea) and
+     the Grand Coliseum. New terrains: ice, sand, lava; new looks: Frost, Desert, Volcanic, Coast.
+     Four new main missions open them, branching off the road (so the chain is now a tree).
+   - **Dispatches** (`World/Jobs.cs`, 18 so far, pun titles): send one creature off for 1 to 3
+     days; the better it suits the job (three things each job likes), the likelier it goes well
+     (30% plus 22 for each). It comes back with chem and JP if it went well, a little JP and a
+     funny line if not. Nobody is ever lost (defaulted). A battle now takes a day.
+   - **Regular jobs:** every place has one, always on offer, a fresh pack each time, three
+     quarters of the pay.
+   - **The Grand Coliseum** (opens with the Brass Bridges): Bronze, Silver and Gold Cups, each
+     three duels in a row against named contenders; your own squad; prizes 80, 140 and 220 chem.
+     Contenders are trained to a set level per cup, so a cup gets easier as you grow.
 4. **Wandering encounters:** wild packs moving along roads each day; walking into one starts a
    battle on that location's map.
 5. **The shop:** a currency (chem, or coin earned alongside it), equipment (a new slot on each
@@ -85,8 +96,13 @@ fields up to two and fills their three slots each; battles apply the boosts befo
 **Open:**
 - [ ] Equipment: one accessory slot per creature, or more? Does it show on the sprite?
 - [ ] Shop currency: chem (already earned), or a separate coin?
-- [ ] Dispatch: can a dispatched creature be lost, or only come back empty-handed?
-- [ ] Coliseum: your own squad only, or loaner squads; prizes?
+- [ ] Dispatch: can a dispatched creature be lost, or only come back empty-handed? (Defaulted:
+  never lost.)
+- [ ] Coliseum: your own squad only, or loaner squads; prizes? (Defaulted: your own squad; chem.
+  A trophy or a unique creature would be good prizes.)
+- [ ] Rival balance: in a 50-battle headless run, the AI-played squad (recruits barely trained)
+  lost every rival duel, so the main mission wanting a rival win stayed shut. Rivals may want
+  easing, or that milestone a softer form.
 
 ## Traits, augments and names (the user's direction, 2026-11-02; not built yet)
 

@@ -190,6 +190,9 @@ shows its map, difficulty, chem reward and objective:
 | Hunt | bring down the marked alpha (one size bigger than the rest of its pack) |
 | Hold out | still have someone standing after N rounds against a big pack |
 | Duel | beat a rival tamer's trained squad, matched to yours, within 20 rounds (no recruiting) |
+| Regular job | each place's standing job, always on offer (a rout, a hunt or a hold-out), for a little less pay |
+| Cup | at the Grand Coliseum: three duels in a row against named contenders; take the cup for a big prize |
+| Dispatch | no battle: send one creature off on a pun-titled job for a few days; the better it suits, the likelier it comes back with chem |
 
 **Rival tamers** challenge you on some boards: the Brass Baron, the Chem Witch, the Huntress,
 the Occultist and the Wyrm Lord, each breeding toward their own ideal creature and leading it with
@@ -199,12 +202,17 @@ Some cards carry a **sighting**: a part your codex lacks (wings, horns, a shell.
 creature in that pack. Meeting it adds the part to the codex for the lab, and recruiting it
 brings the part into your breeding lines.
 
-Five regions, each with its own look and its own creatures:
+Twelve places, each with its own look and its own creatures, among them:
 - **Undercity Foundry:** cobbles, brass platforms, a chem canal. Anything turns up.
 - **Brass Bridges:** marble plazas over a chasm in the city above. Birds and clockwork things.
 - **Sump Marsh:** islands in glowing chem. Swimmers, serpents, blobs, chemtech mutants.
 - **Clocktower Ruins:** steep tiers where the high ground decides fights. Bipeds and beasts.
 - **Hexlight Hollow:** a crystal-lit cavern. Insects, arcane and abyssal creatures.
+- **Frostfang Pass:** snow and blue rock round a frozen lake. Frost creatures, birds and beasts.
+- **Sunscorch Dunes:** sand that slows walkers, sandstone ruins, an oasis. Serpents and insects.
+- **Cinder Rift:** ash and basalt over lava that only fliers cross. Ember and abyssal things.
+- **Saltwind Coast:** a beach, two piers and the sea. Swimmers and gulls.
+- **The Grand Coliseum:** the city's arena, where the cups are fought.
 
 ### Battle
 

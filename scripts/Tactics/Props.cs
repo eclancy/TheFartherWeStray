@@ -256,23 +256,33 @@ public static class PropArt
     /// </summary>
     static CreaturePalette PaletteFor(Prop p, int variant, string theme)
     {
-        string leaves = theme switch { "Ruins" => variant % 2 == 0 ? "#b5632f" : "#9a7a2c", "Sump" => "#4a6b3a", "Piltover" => "#4f9a4a", "Cavern" => "#4a3a7a", _ => "#3f6e45" };
-        string bark = theme switch { "Sump" => "#4a3f35", "Cavern" => "#cbbfd8", _ => "#6b4a32" };
-        string stone = theme switch { "Piltover" => "#d8d0bf", "Ruins" => "#9a8c7a", "Cavern" => "#8a6ae0", "Sump" => "#5f6663", _ => "#7a7f90" };
-        string water = theme == "Sump" ? "#5fae8a" : "#6fb4e0";
+        string leaves = theme switch
+        {
+            "Ruins" => variant % 2 == 0 ? "#b5632f" : "#9a7a2c", "Sump" => "#4a6b3a", "Piltover" => "#4f9a4a", "Cavern" => "#4a3a7a",
+            "Frost" => "#2f5a52", "Desert" => "#8a8a3a", "Volcanic" => "#3a3030", "Coast" => "#4f7a4a", _ => "#3f6e45",
+        };
+        string bark = theme switch { "Sump" => "#4a3f35", "Cavern" => "#cbbfd8", "Volcanic" => "#2a2224", "Desert" => "#8a6a4a", _ => "#6b4a32" };
+        string stone = theme switch
+        {
+            "Piltover" => "#d8d0bf", "Ruins" => "#9a8c7a", "Cavern" => "#8a6ae0", "Sump" => "#5f6663",
+            "Frost" => "#a8bcd0", "Desert" => "#d0a070", "Volcanic" => "#3e3a44", "Coast" => "#9aa4ae", _ => "#7a7f90",
+        };
+        string water = theme switch { "Sump" => "#5fae8a", "Volcanic" => "#ff8a3a", _ => "#6fb4e0" };
         string glow = theme switch
         {
             "Undercity" => variant % 2 == 0 ? "#ff4fb8" : "#4fe3ff",
             "Sump" => "#4ff0a0",
             "Cavern" => "#7fd8ff",
             "Piltover" => "#ffcf6a",
+            "Frost" => "#9fe8ff",
+            "Volcanic" => "#ff6a2a",
             _ => "#ffb04f",
         };
         string cloth = variant switch { 0 => "#b03a4a", 1 => "#2f6fb0", 2 => "#c9a23a", _ => "#5a8a3a" };
         var spec = p switch
         {
             Prop.Mushroom => PaletteSpec.FromHex(theme == "Cavern" ? "#7a4ab8" : "#a8443a", "#e2d6c4", stone, water, glow),
-            Prop.Crystals => PaletteSpec.FromHex(leaves, bark, theme == "Cavern" ? "#9a7aff" : "#7fd8ff", water, glow),
+            Prop.Crystals => PaletteSpec.FromHex(leaves, bark, theme switch { "Cavern" => "#9a7aff", "Volcanic" => "#2a2030", "Frost" => "#cfeeff", _ => "#7fd8ff" }, water, glow),
             Prop.Stall or Prop.Banner => PaletteSpec.FromHex(cloth, bark, theme == "Piltover" ? "#e6c26a" : "#d8c49a", water, glow),
             Prop.Chimney => PaletteSpec.FromHex(leaves, bark, theme == "Piltover" ? "#a85a3a" : "#5a4a4a", "#9a96a6", glow),
             Prop.Crate or Prop.Barrel => PaletteSpec.FromHex(leaves, "#8a6238", "#4a3a2a", water, glow),

@@ -25,6 +25,11 @@ public sealed class Mission
     public ulong Encounter;
     public string Location;       // where on the country map it is
     public string Story;          // a main story mission: its id in the StoryBook
+    public bool Repeatable;       // a place's regular job, always on offer
+    public string Flavor;          // a line of colour for the card (a regular job's ask)
+    public World.DispatchDef Dispatch; // not a battle: send a creature off on this job
+    public string Cup;            // a coliseum cup's round...
+    public int Round;             // ...and which (1 to 3)
     int _sightingIndex = -1;
 
     const int CandidateCount = 24;
@@ -33,7 +38,7 @@ public sealed class Mission
     List<Species> Candidates() =>
         Enumerable.Range(0, CandidateCount).Select(i => Species.Generate(SeededRng.Derive(Seed, 0xC0 + (ulong)i))).ToList();
 
-    public string Brief(Creature target = null) => Goal switch
+    public string Brief(Creature target = null) => Dispatch != null ? Dispatch.Ask : Goal switch
     {
         Objective.Capture => $"Capture {target?.Species.Name ?? "the marked creature"}: recruit it before it gets away.",
         Objective.Hunt => $"Hunt {target?.Species.Name ?? "the alpha"}: bring down the marked alpha.",
@@ -100,6 +105,25 @@ public sealed class Mission
         m.Title = $"{GoalWord(m.Goal)}: {m.MapName}";
         return m;
     }
+
+    /// <summary>A place's regular job: the same ask every time, a fresh pack, a little less pay.</summary>
+    public static Mission Regular(ulong seed, World.LocationDef at)
+    {
+        var rng = new SeededRng(seed);
+        var m = new Mission { Seed = seed, MapName = at.MapName, Location = at.Id, Goal = at.RegularGoal, Repeatable = true, Flavor = at.RegularAsk };
+        m.Pack = m.Goal == Objective.Survive ? 5 : rng.Int(3, 4);
+        m.Rounds = m.Goal == Objective.Survive ? 4 : 0;
+        m.Stars = Math.Clamp(m.Pack - 2 + (m.Goal is Objective.Hunt or Objective.Survive ? 1 : 0), 1, 5);
+        m.Reward = (6 + m.Pack * 3 + m.Goal switch { Objective.Hunt => 8, Objective.Survive => 10, _ => 0 }) * 3 / 4;
+        m.Title = at.Regular;
+        return m;
+    }
+
+    /// <summary>A dispatch on the board: no battle, a creature sent off for a few days.</summary>
+    public static Mission Dispatching(World.DispatchDef job, World.LocationDef at) => new()
+    {
+        Seed = SeededRng.Hash(job.Id), MapName = at.MapName, Location = at.Id, Dispatch = job, Title = job.Title, Reward = job.Reward,
+    };
 
     /// <summary>A rival tamer's challenge: their squad on one of their maps, stronger each time you win.</summary>
     public static Mission Duel(Party.RivalDef rival, ulong encounter, int wins, ulong seed)

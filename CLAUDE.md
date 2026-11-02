@@ -81,7 +81,7 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   three endings: justice for the undercity, chaos for the city, or peace). `docs/story-notes.md`
   holds them and the open questions. Don't invent beyond them; ask.
 - Missions (`Tactics/Mission.cs`): a board of four contracts per encounter (Rout, Capture, Hunt,
-  Hold out) on seven handmade maps (`BattleMap.cs`, about 16x13 since 2026-11-02 when the user
+  Hold out) on twelve handmade maps (`BattleMap.cs`, `BattleMapsFar.cs`, about 16x13 since 2026-11-02 when the user
   asked for larger maps), each with a look (`Look` in `IsoArt.cs`) and fauna odds. Maps have three
   grids: terrain (now with roofs, boards, dirt and water), heights, and props. Buildings are roof
   tiles on house-front walls (FFTA towns: fliers and climbers stand on roofs). Props
@@ -137,6 +137,15 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   `Ranch` saves `Location`, `Day`, `ContractsWon`, `Story`. `Mission.Board` is still the test
   board for `--autoboard`. `--country=N` plays the loop headless; run it after touching missions,
   milestones or the AI: no battle may stall.
+- **Mission variety (2026-11-02, built):** twelve maps now. The far regions (`BattleMapsFar.cs`:
+  Frostfang Pass, Sunscorch Dunes, Cinder Rift, Saltwind Coast, the Grand Coliseum) bring terrains
+  `Ice`, `Sand` (walkers pay 2) and `Lava` (fliers only), and looks Frost, Desert, Volcanic, Coast
+  (ground details per theme in `IsoArt`, prop colours in `Props`). Main missions branch (`After`).
+  `World/Jobs.cs` holds the dispatches (pun jobs as data: who suits them, days, chem, the funny
+  line either way; `Ranch.Send`/`Away`/`ReturnDispatches`) and the coliseum's cups (`CupBook`:
+  three duels in a row with named contenders; `GameRoot` chains the rounds; `Ranch.Cups`). Every
+  place has a regular job (`LocationDef.Regular`, `Mission.Regular`). A battle takes a day.
+  `--dispatchdemo` opens the map on a dispatch's chooser.
 - **Sound (begun 2026-11-02):** `scripts/Audio/`. Every sound is made in code like the sprites:
   `SfxSynth` sums voices (square, triangle, saw, sine, noise; pitch slides, envelopes, low-pass,
   vibrato, tremolo) into 22 kHz mono, and `SoundBook` holds the 40 sounds as data (menus, steps,

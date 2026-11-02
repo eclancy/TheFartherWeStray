@@ -217,7 +217,10 @@ public sealed partial class Battle
         (Terrain.Water, MoveType.Fly) => 1,
         (Terrain.Water, MoveType.Swim) => 1,
         (Terrain.Water, _) => -1,
+        (Terrain.Lava, MoveType.Fly) => 1,
+        (Terrain.Lava, _) => -1,
         (_, MoveType.Swim) => 2, // swimmers are slow on land
+        (Terrain.Sand, MoveType.Walk or MoveType.Climb) => 2, // and walkers in sand
         _ => 1,
     };
 
@@ -927,7 +930,7 @@ public sealed partial class Battle
         foreach (var d in new[] { Vector2I.Left, Vector2I.Right, Vector2I.Up, Vector2I.Down })
         {
             var p = t + d;
-            if (Map.InBounds(p) && Map.TerrainAt(p) is not (Terrain.Pit or Terrain.Chem or Terrain.Water) && !Map.Blocked(p) && OccupantOf(p) == null
+            if (Map.InBounds(p) && Map.TerrainAt(p) is not (Terrain.Pit or Terrain.Chem or Terrain.Water or Terrain.Lava) && !Map.Blocked(p) && OccupantOf(p) == null
                 && !BerryTiles.Contains(p) && !spots.Contains(p)) spots.Add(p);
         }
         return spots;
@@ -1193,7 +1196,8 @@ public sealed partial class Battle
                 return KeepClear(u, avoid, tiles, canAttack);
             // An aggressive one is won by enduring it: once the rest of the pack is dealt with, stand where it can come at you.
             if (q.Attitude == Attitude.Aggressive && !packLeft) return Dist(u, u.Pos, q) == 1 ? u.Pos : Toward(q);
-            if (q.Attitude == Attitude.Skittish)
+            // Ring a skittish one in (it takes at least two to corner anything; one alone just fights on).
+            if (q.Attitude == Attitude.Skittish && Alive.Count(o => o.Side == Side.Player) >= 2)
             {
                 // Take a tile beside it; stay put if already there.
                 if (Dist(u, u.Pos, q) == 1) return u.Pos;

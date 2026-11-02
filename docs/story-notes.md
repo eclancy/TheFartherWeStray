@@ -35,7 +35,17 @@ Everything below is placeholder wording for the story to replace; the mechanics 
 - **Choices**: after each main mission, a choice of who hears first and gets the credit (the city,
   the undercity, or both across one table), shifting standing and setting a flag
   (`main_foundry:city`). The prompt is generic: the story will give each its own.
-- **Story flags** (`Ranch.Flags`): choices and catches; nothing reads them yet but the rumours.
+- **Story flags** (`Ranch.Flags`): choices, catches and scenes seen; nothing reads them yet but
+  the rumours.
+- **The cutscene player** (built 2026-11-02): scenes are written as plain lines in
+  `scripts/Story/Scenes.cs` (`SceneBook`; the format is at the top of the file) and played on the
+  battle maps with the cast as animated sprites, people included, dialogue with portraits, emotes,
+  camera pans and fades. A main mission can play one before its battle. The one scene so far
+  (`road_to_foundry`, before the first main mission) is a stand-in: a lamplighter tells you a wild
+  pack blocks the road. Replace it, and every person's look, with the story's own.
+  **Open:** [ ] how people look (now rolled per id and tinted by side; the story's characters
+  want designed looks); [ ] does the player speak, or stay silent as many collectors do (the
+  stand-in keeps you silent); [ ] portraits drawn for the box, or the sprite as now.
 - **The three endings** (`end_justice` at the Brass Bridges, `end_chaos` at the Foundry,
   `end_peace` at Hexlight Hollow): once the last road is open and 15 contracts are won, the one
   your standing leans to appears. Justice wants 60 with the city and 30 over the undercity; chaos
@@ -119,5 +129,5 @@ earlier "no human unit" assumption. See `design-notes.md` for the mechanics as t
 
 1. The user writes a one-page premise and two or three themes.
 2. Turn that into a cast list (the player and the first party members) and three story missions.
-3. Build the cutscene player on the foundry map with one short scene: an opening where a wild
-   pack is spotted, so the first battle has a reason.
+3. ~~Build the cutscene player~~ (built 2026-11-02, with a stand-in scene before the first main
+   mission: a wild pack blocks the road to the Foundry).

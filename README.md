@@ -213,6 +213,11 @@ soothing chimes to stop one moving, tonics, smelling salts and extra glowberries
 sells its own stock, priced in chem; you buy where you stand (S on the map). Put gear on at the
 ranch (Gear); items appear in the battle's command bar with their counts.
 
+**Cutscenes** play on the battle maps, FFTA-style: people and creatures walk, turn, strike and
+emote on the board while lines appear in a box with the speaker's portrait (Enter goes on, Esc
+skips). Main missions can open with one. Scenes are written as plain lines (`scripts/Story/Scenes.cs`);
+the one so far is a stand-in until the story is written. `--scene=road_to_foundry` plays it.
+
 **Standing.** The city above and the undercity hate each other, and both notice who you work
 for: contracts at a city place raise your standing with the city, at an undercity place with the
 undercity; fitting augments pleases the undercity, breeding the city. After each main mission you

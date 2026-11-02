@@ -83,11 +83,28 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   (swap a part for one in the codex, the parts met in battle), augments from the bag (below) and
   infusions (blood strains for natural creatures). Flesh grafts and augments are **not inherited**:
   breeding reads `BirthParts`. Infusions are.
-- **Story (planned, not started):** the user wants FFTA-depth story, cutscenes and sprite
-  animation. The user set the themes on 2026-11-02 (lighthearted to start; a glorious city and a
-  nefarious undercity that hate each other; branching by alignment, solutions and dialogue;
-  three endings: justice for the undercity, chaos for the city, or peace). `docs/story-notes.md`
-  holds them and the open questions. Don't invent beyond them; ask.
+- **Story (content not started; the cutscene player is built):** the user wants FFTA-depth story,
+  cutscenes and sprite animation. The user set the themes on 2026-11-02 (lighthearted to start; a
+  glorious city and a nefarious undercity that hate each other; branching by alignment, solutions
+  and dialogue; three endings: justice for the undercity, chaos for the city, or peace).
+  `docs/story-notes.md` holds them and the open questions. Don't invent beyond them; ask.
+- **Cutscenes (2026-11-02, the user's pick, built):** `scripts/Story/`. `SceneBook` holds scenes as
+  data: a map, music, and a script of plain lines (the format is in `Scenes.cs`: `cast` people and
+  creatures at tiles, `ID: dialogue`, `walk`, `face`, `emote`, `pose`, `appear`, `leave`, `pan`,
+  `title`, `narrate`, `fade`, `wait`, `sound`, `music`, `shake`; a leading `&` runs a step alongside
+  the next; tiles can be `player` / `wild` plus an offset, so a scene fits any map). Creatures are
+  `squadN` (yours), `packN` (the battle's pack), a cast species or `wild:SEED`; people are looks by id
+  and side. `CutsceneScreen` plays one on its map at 3x: the cast as animated sprites, a dialogue box
+  with the speaker's portrait, a typewriter and a marker over them, emote balloons, captions, camera
+  pans, fades; Enter / Space / click goes on, Esc skips. Board sprites share `Tactics/Actor.cs` with
+  battle (`UnitView` is an `Actor` with its ring and HP bar). People (`Story/People.cs`): a
+  `PersonSculptor` makes them like creatures (a 3D figure ray-cast to pixels, every pose animated),
+  looks rolled per id and tinted by side (`People.Look`): a first pass for the user to judge. A main
+  mission's `Scene` plays once before its battle (flag `seen:ID`); the only scene, `road_to_foundry`
+  before `main_foundry`, is a placeholder showing what scenes can do, to be replaced with the
+  user's story. `--scene=ID [--autoplay]` plays one; `--scenetest` reads them all (cast, tiles,
+  sounds, tracks); `--people` writes `.shots/people.png`; `--recordwhole` records the whole screen
+  at half size (cutscene dialogue sits low).
 - Missions (`Tactics/Mission.cs`): a board of four contracts per encounter (Rout, Capture, Hunt,
   Hold out) on twelve handmade maps (`BattleMap.cs`, `BattleMapsFar.cs`, about 16x13 since 2026-11-02 when the user
   asked for larger maps), each with a look (`Look` in `IsoArt.cs`) and fauna odds. Maps have three
@@ -237,9 +254,9 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   state after each turn. Never change battle state from a screen except through `Order`, or a
   match can't be replayed from its commands. `BattleScreen.TurnSeconds` is the turn timer
   (`--timer=N`).
-- Not built yet: story and cutscenes (themes and three endings set by the user, in
-  `docs/story-notes.md`; the flags, standing and endings machinery is built) and the network
-  side of PvP. The
+- Not built yet: the story itself (themes and three endings set by the user, in
+  `docs/story-notes.md`; the flags, standing and endings machinery and the cutscene player are
+  built) and the network side of PvP. The
   user's direction and a suggested build order are in `docs/design-notes.md`.
 
 ## Build and check

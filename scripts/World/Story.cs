@@ -24,6 +24,7 @@ public sealed class MainMission
     public int Pack = 4;
     // An ending (the user's three): its name, and where standing must lean for it ("city", "undercity", "balanced").
     public string Ending, Leans;
+    public string Scene;          // a cutscene played once before its battle (Story.SceneBook)
 
     public string Title => Ending != null ? $"Ending: {Ending}" : $"Main: the road to {Country.Get(Opens).Name}";
 }
@@ -47,7 +48,7 @@ public static class StoryBook
 {
     public static readonly MainMission[] All =
     {
-        new() { Id = "main_foundry", Location = "lantern", Opens = "foundry", Needs = new[] { (Milestone.Contracts, 2) } },
+        new() { Id = "main_foundry", Location = "lantern", Opens = "foundry", Needs = new[] { (Milestone.Contracts, 2) }, Scene = "road_to_foundry" },
         new() { Id = "main_bridges", Location = "gardens", Opens = "bridges", After = "main_foundry", Goal = Objective.Hunt,
             Needs = new[] { (Milestone.Contracts, 4), (Milestone.Creatures, 6) } },
         new() { Id = "main_sump", Location = "foundry", Opens = "sump", After = "main_bridges", Pack = 5,

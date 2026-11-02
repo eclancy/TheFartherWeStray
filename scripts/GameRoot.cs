@@ -48,6 +48,62 @@ public partial class GameRoot : Node
         if (DisplayServer.GetName() != "headless") AddChild(new Audio.Music());
         GetTree().NodeAdded += node => { if (node is BaseButton button) button.Pressed += () => Audio.Sound.Play("click"); };
 
+        if (args.ContainsKey("scenetest"))
+        {
+            // Every cutscene read and checked: lines understood, everyone named is cast, every tile on
+            // the map and somewhere to stand, every sound and track real.
+            int problems = 0;
+            foreach (var sc in Story.SceneBook.All)
+            {
+                var found = Story.SceneBook.Problems(sc).ToList();
+                var parsed = Story.Script.Parse(sc.Script);
+                GD.Print($"{sc.Id,-18} on {sc.Map,-18} {parsed.Cast.Count} cast, {parsed.Steps.Count} steps ({parsed.Steps.Count(x => x.Verb == "say")} lines){(sc.Placeholder ? ", placeholder" : "")}: {(found.Count == 0 ? "reads" : $"{found.Count} problems")}");
+                foreach (var line in found) GD.Print("  " + line);
+                problems += found.Count;
+            }
+            var mains = World.StoryBook.All.Where(m => m.Scene != null).ToList();
+            foreach (var m in mains.Where(m => Story.SceneBook.Get(m.Scene) == null)) { GD.Print($"  {m.Id} names a scene that doesn't exist: {m.Scene}"); problems++; }
+            GD.Print($"scenes: {Story.SceneBook.All.Length}, played before {mains.Count} main missions; problems: {problems}");
+            GetTree().Quit();
+            return;
+        }
+
+        if (args.ContainsKey("people"))
+        {
+            // People for cutscenes: six from each side, front and back views, then one person through
+            // every pose, drawn at 3x on a dark ground, to .shots/people.png.
+            var folk = new List<(Image img, Vector2I anchor)>();
+            foreach (var side in new[] { World.Side.City, World.Side.Undercity, World.Side.Wilds })
+                for (int i = 0; i < 6; i++)
+                {
+                    var look = Story.People.Look($"{side}{i}", side);
+                    folk.Add(Story.PersonSculptor.Render(look, View.Front));
+                    folk.Add(Story.PersonSculptor.Render(look, View.Back));
+                }
+            var you = Story.People.Look("you");
+            foreach (var (pose, frames) in new[] { (Pose.Idle, 4), (Pose.Walk, 4), (Pose.Strike, 5), (Pose.Cast, 6), (Pose.Hurt, 4), (Pose.Faint, 6) })
+                for (int fr = 0; fr < frames; fr++) folk.Add(Story.PersonSculptor.Render(you, View.Front, fr / (float)(pose == Pose.Walk || pose == Pose.Idle ? frames : frames - 1), false, pose));
+            int scale = 3, cellW = 72, cellH = 84, cols = 12, rows = (folk.Count + cols - 1) / cols;
+            var outImg = Image.CreateEmpty(cols * cellW * scale, rows * cellH * scale, false, Image.Format.Rgba8);
+            outImg.Fill(new Color(0.1f, 0.08f, 0.16f));
+            for (int i = 0; i < folk.Count; i++)
+            {
+                var (img, anchor) = folk[i];
+                int ox = (i % cols) * cellW + cellW / 2 - anchor.X, oy = (i / cols) * cellH + cellH - 6 - anchor.Y;
+                for (int y = 0; y < img.GetHeight(); y++)
+                for (int x = 0; x < img.GetWidth(); x++)
+                {
+                    var c = img.GetPixel(x, y);
+                    if (c.A < 0.5f) continue;
+                    outImg.FillRect(new Rect2I((ox + x) * scale, (oy + y) * scale, scale, scale), c);
+                }
+            }
+            outImg.SavePng(ProjectSettings.GlobalizePath("res://.shots/people.png"));
+            GD.Print($"wrote {folk.Count} people sprites to .shots/people.png");
+            GetTree().Quit();
+            return;
+        }
+
         if (args.ContainsKey("music"))
         {
             // Every song as a .wav in .shots/music/, played twice through so the loop's seam can be heard,
@@ -982,6 +1038,7 @@ public partial class GameRoot : Node
         _autoPlay = args.ContainsKey("autoplay");
         _shotFrames = args.TryGetValue("shot", out var shot) && int.TryParse(shot, out var f) ? f : -1;
         _recordFrames = args.TryGetValue("record", out var recordArg) && int.TryParse(recordArg, out var recordCount) ? recordCount : 0;
+        _recordWhole = args.ContainsKey("recordwhole");
 
         if (args.ContainsKey("lab") || drawPets || species != null) { _home = _lab; Show(_lab()); return; }
         if (args.TryGetValue("battle", out var oneOff))
@@ -1018,7 +1075,10 @@ public partial class GameRoot : Node
         // --mapmode (or --boardmode, from before the map) opens on the country map.
         _demoDispatch = args.ContainsKey("dispatchdemo");
         _demoShop = args.ContainsKey("shopdemo");
-        if (args.ContainsKey("mapmode") || args.ContainsKey("boardmode") || _demoDispatch || _demoShop) ShowMap();
+        // --scene=ID plays a cutscene on its own, then goes home (with --autoplay its lines move on by themselves).
+        if (args.TryGetValue("scene", out var sceneId) && Story.SceneBook.Get(sceneId) is { } scene)
+            Show(new Story.CutsceneScreen { Scene = scene, Ranch = _ranch, Auto = _autoPlay, Done = () => Show(_home()) });
+        else if (args.ContainsKey("mapmode") || args.ContainsKey("boardmode") || _demoDispatch || _demoShop) ShowMap();
         else Show(_home());
     }
 
@@ -1030,6 +1090,7 @@ public partial class GameRoot : Node
     bool _autoPlay;
     Node _screen;
     int _shotFrames = -1, _recordFrames, _recorded;
+    bool _recordWhole;
 
     void Show(Node screen)
     {
@@ -1040,6 +1101,18 @@ public partial class GameRoot : Node
     }
 
     void StartRanchBattle(Tactics.Mission mission)
+    {
+        // A main mission's cutscene plays first, the first time (Esc skips it).
+        if (mission.Story != null && World.StoryBook.Get(mission.Story)?.Scene is { } sceneId && Story.SceneBook.Get(sceneId) is { } scene && _ranch.Flags.Add("seen:" + sceneId))
+        {
+            _ranch.Save();
+            Show(new Story.CutsceneScreen { Scene = scene, Ranch = _ranch, Mission = mission, Auto = _autoPlay, Done = () => Fight(mission) });
+            return;
+        }
+        Fight(mission);
+    }
+
+    void Fight(Tactics.Mission mission)
     {
         Show(new Tactics.BattleScreen
         {
@@ -1075,7 +1148,8 @@ public partial class GameRoot : Node
     public override void _Process(double delta)
     {
         // --shot=N: save frame N to .shots/shot.png and quit (how screen changes get checked).
-        // --record=K: then save the next K frames' middle (960x540, full size) to .shots/rec/ (run with --fixed-fps 30 for real time).
+        // --record=K: then save the next K frames' middle (960x540, full size) to .shots/rec/ (run with --fixed-fps 30 for real time);
+        // with --recordwhole, the whole screen at half size instead (cutscenes, whose dialogue sits low).
         if (_shotFrames < 0 || --_shotFrames > 0) return;
         string dir = ProjectSettings.GlobalizePath("res://.shots");
         DirAccess.MakeDirRecursiveAbsolute(dir);
@@ -1083,7 +1157,8 @@ public partial class GameRoot : Node
         if (_recorded < _recordFrames)
         {
             DirAccess.MakeDirRecursiveAbsolute($"{dir}/rec");
-            frame = frame.GetRegion(new Rect2I(frame.GetWidth() / 4, frame.GetHeight() / 4, frame.GetWidth() / 2, frame.GetHeight() / 2));
+            if (_recordWhole) frame.Resize(frame.GetWidth() / 2, frame.GetHeight() / 2, Image.Interpolation.Bilinear);
+            else frame = frame.GetRegion(new Rect2I(frame.GetWidth() / 4, frame.GetHeight() / 4, frame.GetWidth() / 2, frame.GetHeight() / 2));
             frame.SavePng($"{dir}/rec/f{_recorded++:000}.png");
             _shotFrames = 1;
             return;

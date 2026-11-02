@@ -89,7 +89,6 @@ with a biped parent might get there.
 
 ## Still open
 
-- **The user's note on multiclassing was cut off after "But": ask what the caveat was.**
 - Ranks within a class (a mastery bonus after the passive).
 - A reaction slot (FFTA's R-abilities), beyond the innate attitude reaction.
 - Limits on secondary skills (FFTA lets the whole set through).

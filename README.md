@@ -50,7 +50,7 @@ DrawPets cast. Creatures you recruit in battle move in.
 | Right-click a creature | put it in a breeding vat (two vats) |
 | Enter | breed the pair in the vats |
 | L | open the lab (grafting) |
-| F | take the squad into the next battle |
+| M (or F) | the mission board; F again departs with the selected contract |
 | Delete twice | release the hovered creature |
 
 Each breeding gives one child, a new species of its own. Parts are the gear, so you breed toward
@@ -110,11 +110,35 @@ The graft chamber previews the creature with the parts you're considering. Flesh
 grafts belong to that one creature: breeding passes on the parts it was born with. Infusions are
 blood, so the line carries them.
 
+### Mission board and regions
+
+Press **M** at the ranch (or **F**, then **F** again to depart). The board offers four contracts,
+and it changes after every battle. Each card shows its map, difficulty, chem reward and
+objective:
+
+| Objective | To succeed |
+|---|---|
+| Rout | drive off or recruit every wild creature |
+| Capture | recruit the marked creature before it gets away |
+| Hunt | bring down the marked alpha (one size bigger than the rest of its pack) |
+| Hold out | still have someone standing after N rounds against a big pack |
+
+Some cards carry a **sighting**: a part your codex lacks (wings, horns, a shell...), promised on a
+creature in that pack. Meeting it adds the part to the codex for the lab, and recruiting it
+brings the part into your breeding lines.
+
+Five regions, each with its own look and its own creatures:
+- **Undercity Foundry:** cobbles, brass platforms, a chem canal. Anything turns up.
+- **Brass Bridges:** marble plazas over a chasm in the city above. Birds and clockwork things.
+- **Sump Marsh:** islands in glowing chem. Swimmers, serpents, blobs, chemtech mutants.
+- **Clocktower Ruins:** steep tiers where the high ground decides fights. Bipeds and beasts.
+- **Hexlight Hollow:** a crystal-lit cavern. Insects, arcane and abyssal creatures.
+
 ### Battle
 
-Your squad faces a wild pack of four on an isometric foundry yard with height, brass platforms,
-a chem canal and a pit. Each encounter number brings a different pack. Turns go in Speed order
-(FFTA style). When it ends, Enter takes you back to the ranch, where your recruits are waiting.
+Your squad plays out a contract on an isometric map with height. Turns go in Speed order
+(FFTA style). The objective and any target (a gold diamond) show at the top. When it ends, Enter
+takes you back to the ranch, where your recruits, chem and JP are waiting.
 
 | Input | Does |
 |---|---|
@@ -160,11 +184,12 @@ gear, strain and attitude.
 ```
 
 - `--autobattle=N` plays encounter N AI against AI and prints the log.
+- `--autoboard=N` plays every mission on boards 1-N AI against AI, one line each (catches stalls).
 - `--ranchtest` runs fights, recruiting and breeding headless, then checks the save file round trip.
 - `--breeding=N` writes `.shots/breeding.png`: pairs of parents and four possible children each.
 - `--autoplay` loops ranch and battle on its own (an attract mode).
 - `--save=NAME` uses a separate save file.
-- `--battle=N` runs a one-off battle without the ranch.
+- `--battle=N --map="Sump Marsh"` runs a one-off battle without the ranch.
 - `--shot=N` saves frame N to `.shots/shot.png`.
 - `--export` renders a sheet without a window.
 
@@ -184,6 +209,7 @@ The full list is in `scripts/GameRoot.cs`.
 - `scripts/Ranch/`: the roster and save file (`Ranch.cs`) and the ranch screen with its vats.
 - `scripts/SpriteLab/`: the sheet screen and the PNG composer.
 - `scripts/Ranch/Lab.cs`, `LabPanel.cs`: grafting rules and the lab panel.
+- `scripts/Tactics/Mission.cs`, `scripts/Ranch/MissionBoardPanel.cs`: contracts and the board.
 - `docs/game-ideas.md`: the design notes.
 - `docs/story-notes.md`: the planned story track (FFTA-style story, cutscenes, animation), with
   open questions. Not started.

@@ -14,13 +14,9 @@ public static class Encounter
     public static IEnumerable<(Creature, Training)> StarterSquad() =>
         Squad.Select(s => (Creature.Specimen(DrawPetsCast.All.First(sp => sp.Name == s.name), 0), Training.Starter(s.cls)));
 
-    public static Battle Create(ulong seed, IEnumerable<(Creature, Training)> squad = null)
-    {
-        squad ??= StarterSquad();
-        var wild = new List<Creature>();
-        for (int i = 0; i < 4; i++) wild.Add(Creature.Specimen(SeededRng.Derive(seed, 0xF00D + (ulong)i), 0));
-        return new Battle(BattleMap.Foundry(), squad, wild, seed);
-    }
+    /// <summary>A one-off battle: a rout of four on a map (the board makes the real missions).</summary>
+    public static Battle Create(ulong seed, IEnumerable<(Creature, Training)> squad = null, string map = "Undercity Foundry") =>
+        new Mission { Seed = seed, MapName = map, Goal = Objective.Rout, Pack = 4 }.CreateBattle(squad ?? StarterSquad());
 
     /// <summary>One line of text per event, for the battle log and headless runs.</summary>
     public static string Describe(BattleEvent e) => e switch

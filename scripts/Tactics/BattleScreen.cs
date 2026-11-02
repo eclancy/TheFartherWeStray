@@ -17,19 +17,22 @@ public partial class BattleScreen : Control
     public bool AutoPlay;   // the AI plays your side too (demos and screenshots)
     public List<(Creature, Classes.Training)> Squad; // your creatures and their training; null for the default squad
     public System.Action<Battle> Finished; // set when a ranch is waiting for the result
+    public Mission Mission;               // the contract being played; null for a one-off rout
+    public string MapName = "Undercity Foundry";
 
     const int Scale = 2;
     static readonly Color Cyan = Color.FromHtml("#4fe3ff"), Magenta = Color.FromHtml("#ff4f9a"), Gold = Color.FromHtml("#f2c14e");
     static readonly Color Ink = Color.FromHtml("#e8e2f4"), Dim = Color.FromHtml("#9a91b4");
 
     Battle _battle;
+    TextureRect _backdrop;
     IsoArt _art;
     Node2D _board;
     BoardOverlay _overlay;
     readonly Dictionary<Unit, UnitView> _views = new();
     readonly HashSet<Vector2I> _berries = new();
 
-    Label _panel, _log, _banner;
+    Label _panel, _log, _banner, _objective;
     HBoxContainer _strip;
     readonly List<string> _logLines = new();
 
@@ -45,9 +48,8 @@ public partial class BattleScreen : Control
     public override void _Ready()
     {
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        var bg = new TextureRect
+        var bg = _backdrop = new TextureRect
         {
-            Texture = ImageTexture.CreateFromImage(IsoArt.PaintBackdrop(480, 270, Seed)),
             ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
             StretchMode = TextureRect.StretchModeEnum.Scale,
             TextureFilter = TextureFilterEnum.Nearest,
@@ -79,6 +81,11 @@ public partial class BattleScreen : Control
         _log.Position = new Vector2(24, 930);
         AddChild(_log);
 
+        _objective = MakeLabel(19, Gold);
+        _objective.Position = new Vector2(24, 100);
+        _objective.Size = new Vector2(1400, 30);
+        AddChild(_objective);
+
         _banner = MakeLabel(54, Gold);
         _banner.HorizontalAlignment = HorizontalAlignment.Center;
         _banner.Position = new Vector2(0, 430);
@@ -108,8 +115,9 @@ public partial class BattleScreen : Control
         _logLines.Clear();
         _banner.Visible = false;
 
-        _battle = Encounter.Create(Seed, Squad);
+        _battle = Mission != null ? Mission.CreateBattle(Squad ?? Encounter.StarterSquad().ToList()) : Encounter.Create(Seed, Squad, MapName);
         _art = new IsoArt(_battle.Map);
+        _backdrop.Texture = ImageTexture.CreateFromImage(IsoArt.PaintBackdrop(480, 270, Seed, _battle.Map.Theme));
         _board.Position = new Vector2((1480 - _art.Width * Scale) / 2f, (1080 - _art.Height * Scale) / 2f + 60);
         _board.AddChild(new Sprite2D { Texture = ImageTexture.CreateFromImage(_art.PaintBoard()), Centered = false });
         _overlay = new BoardOverlay { Screen = this, ZIndex = 1 };
@@ -124,6 +132,7 @@ public partial class BattleScreen : Control
             v.Place(u.Pos);
         }
         AddLog($"{_battle.Map.Name}. A wild pack blocks the way.");
+        RefreshObjective();
         RunTurns();
     }
 
@@ -432,6 +441,15 @@ public partial class BattleScreen : Control
         _panel.Text = string.Join("\n", lines);
     }
 
+    void RefreshObjective()
+    {
+        var target = _battle.Target?.Creature;
+        string text = Mission != null ? Mission.Brief(target) : "Rout the pack: drive off or recruit every wild creature.";
+        if (_battle.Goal == Objective.Survive) text += $"   Round {System.Math.Max(1, _battle.Round)}/{_battle.SurviveRounds}";
+        if (Mission?.Sighting != null) text += $"   Sighting: {Mission.Sighting}";
+        _objective.Text = text;
+    }
+
     /// <summary>Poison, stun, root, taunt and buffs, in words.</summary>
     public static string StatusLine(Unit u)
     {
@@ -487,6 +505,7 @@ public partial class BattleScreen : Control
             {
                 case TurnEvent t:
                     _active = t.U;
+                    RefreshObjective();
                     RefreshStrip();
                     foreach (var v in _views.Values) v.QueueRedraw();
                     break;
@@ -655,6 +674,12 @@ public partial class UnitView : Node2D
         float frac = Mathf.Clamp(DisplayHp / (float)Unit.MaxHp, 0, 1);
         DrawRect(new Rect2(-w / 2 - 1, y - 1, w + 2, 4), new Color(0.05f, 0.03f, 0.08f, 0.9f));
         DrawRect(new Rect2(-w / 2, y, w * frac, 2), frac > 0.5f ? new Color(0.4f, 1f, 0.6f) : frac > 0.25f ? new Color(1f, 0.8f, 0.3f) : new Color(1f, 0.3f, 0.35f));
+        // The mission target wears a gold diamond.
+        if (_screen.Battle.Target == Unit && Unit.Side == Side.Wild)
+        {
+            var m = new Vector2(w / 2 + 6, y);
+            DrawColoredPolygon(new[] { m + new Vector2(0, -4), m + new Vector2(3, 0), m + new Vector2(0, 4), m + new Vector2(-3, 0) }, Color.FromHtml("#f2c14e"));
+        }
         // Status pips above the HP bar: poison, stun, root, buffs up, debuffs down.
         var pips = new List<Color>();
         if (Unit.PoisonTurns > 0) pips.Add(new Color(0.45f, 1f, 0.4f));

@@ -36,7 +36,12 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
 - **Story (planned, not started):** the user wants FFTA-depth story, cutscenes and sprite
   animation, and will set the themes first. `docs/story-notes.md` holds the goal, the open
   questions and a suggested first iteration. Don't invent the story's themes; ask.
-- Not built yet: story and cutscenes, more maps, a mission board, rival tamers. There's no human
+- Missions (`Tactics/Mission.cs`): a board of four contracts per encounter (Rout, Capture, Hunt,
+  Hold out) on five handmade regions (`BattleMap.cs`), each with a look (`Look` in `IsoArt.cs`) and
+  fauna odds. Sightings promise a codex-missing part. After touching maps or AI, run
+  `--autoboard=6`: no mission may stall.
+- Not built yet: story and cutscenes, rival tamers, the AI playing objectives (your side's AI only
+  routs, so it fails most captures in headless runs; that's the AI, not the rules). There's no human
   player character on the field (the notes' Option A).
 
 ## Build and check

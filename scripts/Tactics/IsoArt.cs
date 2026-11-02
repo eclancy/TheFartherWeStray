@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace CreatureTactics.Tactics;
@@ -15,12 +16,14 @@ public sealed class IsoArt
     const int BaseDepth = 8, Margin = 8;
 
     readonly BattleMap _map;
+    readonly Look _look;
     public readonly int Width, Height;
     readonly int _ox, _oy;
 
     public IsoArt(BattleMap map)
     {
         _map = map;
+        _look = Look.Get(map.Theme);
         int maxH = 0;
         for (int y = 0; y < map.H; y++)
         for (int x = 0; x < map.W; x++) maxH = Math.Max(maxH, map.HeightAt(new Vector2I(x, y)));
@@ -134,30 +137,31 @@ public sealed class IsoArt
         Line(img, B, B + down, sideR.Darkened(0.45f));
     }
 
-    static (Color left, Color right) Sides(Terrain t) => t switch
+    (Color left, Color right) Sides(Terrain t) => t switch
     {
-        Terrain.Grass => (C("#4a3b33"), C("#30262a")),
-        Terrain.Stone => (C("#535869"), C("#383b4b")),
+        Terrain.Grass => (_look.GrassSideL, _look.GrassSideR),
+        Terrain.Stone => (_look.StoneSideL, _look.StoneSideR),
+        Terrain.Crystal => (C("#3b2a73"), C("#281c52")),
         Terrain.Brass => (C("#8d6a2a"), C("#5c4320")),
         Terrain.Chem => (C("#1e4a3e"), C("#14302c")),
         _ => (C("#222"), C("#111")),
     };
 
     /// <summary>The top face's texture, in the tile's own (u, v) coordinates (0..1 along each edge).</summary>
-    static Color TopColor(Terrain t, int x, int y, float u, float v)
+    Color TopColor(Terrain t, int x, int y, float u, float v)
     {
         uint n = Hash(x, y, (int)t);
         switch (t)
         {
             case Terrain.Grass:
-                return n % 9 == 0 ? C("#5c8550") : n % 7 == 0 ? C("#2b4630") : n % 31 == 0 ? C("#8a9f5a") : C("#3e6140");
+                return n % 9 == 0 ? _look.GrassLight : n % 7 == 0 ? _look.GrassDark : n % 31 == 0 ? _look.GrassSpeck : _look.Grass;
             case Terrain.Stone:
             {
                 // Cobbles: staggered rows of stones with dark joints.
                 float a = u * 3, b = v * 3 + (Mathf.FloorToInt(u * 3) % 2) * 0.5f;
                 bool joint = a - Mathf.Floor(a) < 0.12f || b - Mathf.Floor(b) < 0.12f;
-                if (joint) return C("#363a48");
-                return n % 11 == 0 ? C("#7b8194") : n % 5 == 0 ? C("#5f6577") : C("#6a7083");
+                if (joint) return _look.StoneJoint;
+                return n % 11 == 0 ? _look.StoneLight : n % 5 == 0 ? _look.StoneMid : _look.Stone;
             }
             case Terrain.Brass:
             {
@@ -166,6 +170,13 @@ public sealed class IsoArt
                 foreach (var (ru, rv) in new[] { (0.15f, 0.15f), (0.85f, 0.15f), (0.15f, 0.85f), (0.85f, 0.85f), (0.35f, 0.35f), (0.65f, 0.65f) })
                     if (Mathf.Abs(u - ru) < 0.04f && Mathf.Abs(v - rv) < 0.04f) return C("#f0cf72");
                 return (u + v) % 0.5f < 0.08f ? C("#c79a45") : C("#b2873a");
+            }
+            case Terrain.Crystal:
+            {
+                // Raw hextech crystal: faceted bands with glints.
+                float band = (u * 3 - v * 2 + 10) % 1f;
+                if (n % 29 == 0) return C("#f0e8ff");
+                return band < 0.18f ? C("#b9a2ff") : band < 0.45f ? C("#8466e8") : C("#6a4bd1");
             }
             case Terrain.Chem:
             {
@@ -218,11 +229,12 @@ public sealed class IsoArt
     // ------------------------------------------------------------------ backdrop
 
     /// <summary>A low-res skyline: brass towers high up, neon slums below, haze between.</summary>
-    public static Image PaintBackdrop(int w, int h, ulong seed)
+    public static Image PaintBackdrop(int w, int h, ulong seed, string theme = "Undercity")
     {
+        var look = Look.Get(theme);
         var rng = new Creatures.SeededRng(seed);
         var img = Image.CreateEmpty(w, h, false, Image.Format.Rgba8);
-        Color top = C("#0d0b1e"), mid = C("#251537"), bottom = C("#120c1a");
+        Color top = look.SkyTop, mid = look.SkyMid, bottom = look.SkyBottom;
         for (int y = 0; y < h; y++)
         {
             float k = y / (float)h;
@@ -230,14 +242,14 @@ public sealed class IsoArt
             for (int x = 0; x < w; x++) img.SetPixel(x, y, c);
         }
         // Far towers (the city above), then near slums (the city below), each with lit windows.
-        Skyline(img, rng, h * 0.55f, 0.13f, C("#1c1a33"), new[] { C("#f2b950"), C("#f7d58a") }, 14, 34);
-        Skyline(img, rng, h * 0.78f, 0.08f, C("#160f22"), new[] { C("#ff4fb8"), C("#4ff0a0"), C("#5fd0ff") }, 10, 22);
+        Skyline(img, rng, h * 0.55f, 0.13f, look.FarBody, look.FarLights, 14, 34);
+        Skyline(img, rng, h * 0.78f, 0.08f, look.NearBody, look.NearLights, 10, 22);
         // Haze of chem-glow along the bottom.
         for (int y = (int)(h * 0.8f); y < h; y++)
         for (int x = 0; x < w; x++)
         {
             float k = (y - h * 0.8f) / (h * 0.2f);
-            if (Hash(x, y, 77) % 3 == 0) img.SetPixel(x, y, img.GetPixel(x, y).Lerp(C("#2f6a55"), 0.12f * k));
+            if (Hash(x, y, 77) % 3 == 0) img.SetPixel(x, y, img.GetPixel(x, y).Lerp(look.Haze, 0.12f * k));
         }
         return img;
     }
@@ -266,4 +278,61 @@ public sealed class IsoArt
             x += bw + rng.Int(0, 4);
         }
     }
+}
+
+/// <summary>A region's colours: its ground and its sky.</summary>
+public sealed class Look
+{
+    public Color Grass, GrassLight, GrassDark, GrassSpeck, GrassSideL, GrassSideR;
+    public Color Stone, StoneLight, StoneMid, StoneJoint, StoneSideL, StoneSideR;
+    public Color SkyTop, SkyMid, SkyBottom, FarBody, NearBody, Haze;
+    public Color[] FarLights, NearLights;
+
+    static Color C(string hex) => Color.FromHtml(hex);
+
+    static Look Make(string[] grass, string[] stone, string[] sky, string[] far, string[] near, string haze) => new()
+    {
+        Grass = C(grass[0]), GrassLight = C(grass[1]), GrassDark = C(grass[2]), GrassSpeck = C(grass[3]), GrassSideL = C(grass[4]), GrassSideR = C(grass[5]),
+        Stone = C(stone[0]), StoneLight = C(stone[1]), StoneMid = C(stone[2]), StoneJoint = C(stone[3]), StoneSideL = C(stone[4]), StoneSideR = C(stone[5]),
+        SkyTop = C(sky[0]), SkyMid = C(sky[1]), SkyBottom = C(sky[2]),
+        FarBody = C(far[0]), FarLights = far[1..].Select(C).ToArray(),
+        NearBody = C(near[0]), NearLights = near[1..].Select(C).ToArray(),
+        Haze = C(haze),
+    };
+
+    static readonly Dictionary<string, Look> Looks = new()
+    {
+        // The undercity: moss on cobbles under a night of neon windows.
+        ["Undercity"] = Make(
+            new[] { "#3e6140", "#5c8550", "#2b4630", "#8a9f5a", "#4a3b33", "#30262a" },
+            new[] { "#6a7083", "#7b8194", "#5f6577", "#363a48", "#535869", "#383b4b" },
+            new[] { "#0d0b1e", "#251537", "#120c1a" },
+            new[] { "#1c1a33", "#f2b950", "#f7d58a" }, new[] { "#160f22", "#ff4fb8", "#4ff0a0", "#5fd0ff" }, "#2f6a55"),
+        // The city above: marble and gardens at sunset, brass towers lit gold.
+        ["Piltover"] = Make(
+            new[] { "#4f7a3e", "#6fa04f", "#3a5c30", "#e8c86a", "#6b5a48", "#4a3d33" },
+            new[] { "#cfc7b8", "#e6dfd2", "#b9b0a1", "#8f8678", "#a39a8c", "#7c7468" },
+            new[] { "#2b3f6b", "#d98a5a", "#4a3a5a" },
+            new[] { "#6b5a7a", "#ffd27a", "#ffe3a8" }, new[] { "#3b2f4a", "#ffc25a", "#7fe0e0" }, "#f2b57a"),
+        // The sump: black moss, slick slate, a green chem haze.
+        ["Sump"] = Make(
+            new[] { "#2f4a2c", "#46663a", "#22361f", "#7fbf5a", "#2f2a24", "#1f1b18" },
+            new[] { "#4d5250", "#5e6461", "#444947", "#2a2d2c", "#3a3e3d", "#2a2d2c" },
+            new[] { "#08130f", "#123326", "#0a1a14" },
+            new[] { "#102a20", "#4ff0a0", "#ff4fb8" }, new[] { "#0b1c16", "#4ff0a0", "#9fffc8" }, "#4ff0a0"),
+        // The ruins: dry grass and weathered stone in a red dusk.
+        ["Ruins"] = Make(
+            new[] { "#5a6b3a", "#7a8c4a", "#43512d", "#b8a25a", "#5a4636", "#3d2f26" },
+            new[] { "#8a7f72", "#a09484", "#7a7064", "#4f483f", "#6e6458", "#544c43" },
+            new[] { "#1d1830", "#6b3b4a", "#2a1a26" },
+            new[] { "#3a2a3e", "#f2b950" }, new[] { "#24182a", "#ffb04f", "#ff7a4f" }, "#c46a4a"),
+        // The hollow: fungal moss and dark rock, lit by crystal.
+        ["Cavern"] = Make(
+            new[] { "#3a2f5a", "#57458a", "#2a2242", "#7fd8ff", "#2b2236", "#1d1726" },
+            new[] { "#3f3d4f", "#514e64", "#383647", "#232130", "#302e3d", "#22202c" },
+            new[] { "#07060d", "#120d22", "#06050b" },
+            new[] { "#151022", "#b9a2ff", "#7fd8ff" }, new[] { "#0e0a18", "#b9a2ff", "#e6dcff" }, "#6a4bd1"),
+    };
+
+    public static Look Get(string name) => Looks.TryGetValue(name ?? "", out var l) ? l : Looks["Undercity"];
 }

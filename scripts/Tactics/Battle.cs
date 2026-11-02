@@ -40,6 +40,12 @@ public sealed class Battle
     public Unit Active;
     public Side? Winner;
 
+    // The mission: what counts as winning. Rout (the default) means no wild creature left standing.
+    public Objective Goal = Objective.Rout;
+    public Unit Target;          // Capture: recruit it. Hunt: bring it down.
+    public int SurviveRounds;    // Survive: still standing after this many rounds
+    public Mission Mission;
+
     readonly SeededRng _rng;
     readonly List<Unit> _queue = new();
 
@@ -89,6 +95,13 @@ public sealed class Battle
         if (_queue.Count == 0)
         {
             Round++;
+            if (Goal == Objective.Survive && Round > SurviveRounds && Alive.Any(u => u.Side == Side.Player))
+            {
+                Log("You held out!");
+                Winner = Side.Player;
+                Events.Add(new EndEvent(Side.Player));
+                return null;
+            }
             _queue.AddRange(SpeedOrder());
             foreach (var u in Units) u.GuardUsed = false;
         }
@@ -403,8 +416,11 @@ public sealed class Battle
     void CheckEnd()
     {
         if (Winner != null) return;
-        if (!Alive.Any(u => u.Side == Side.Wild)) Winner = Side.Player;
-        else if (!Alive.Any(u => u.Side == Side.Player)) Winner = Side.Wild;
+        if (!Alive.Any(u => u.Side == Side.Player)) Winner = Side.Wild;
+        else if (Goal == Objective.Capture && Target != null && Target.Side == Side.Player) Winner = Side.Player;
+        else if (Goal == Objective.Capture && Target != null && Target.Gone) { Log($"{Target.Name} got away. The capture failed."); Winner = Side.Wild; }
+        else if (Goal == Objective.Hunt && Target != null && (Target.Gone || Target.Side == Side.Player)) Winner = Side.Player;
+        else if (!Alive.Any(u => u.Side == Side.Wild)) Winner = Side.Player;
         if (Winner != null) Events.Add(new EndEvent(Winner.Value));
     }
 

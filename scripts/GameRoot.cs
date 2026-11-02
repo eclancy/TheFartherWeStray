@@ -66,6 +66,24 @@ public partial class GameRoot : Node
             return;
         }
 
+        if (args.TryGetValue("autoboard", out var boards))
+        {
+            // Every mission on boards 1..N, AI against AI: catches maps where packs can't reach each other.
+            int boardCount = int.TryParse(boards, out var nb) ? nb : 3;
+            int stalls = 0;
+            for (ulong enc = 1; enc <= (ulong)boardCount; enc++)
+            foreach (var m in Tactics.Mission.Board(enc, new HashSet<string>()))
+            {
+                var battle = m.CreateBattle(Tactics.Encounter.StarterSquad());
+                while (battle.Winner == null && battle.Round <= 30) { var u = battle.NextTurn(); if (u == null) break; battle.AiTurn(u); }
+                if (battle.Winner == null) stalls++;
+                GD.Print($"board {enc}: {m.Title,-34} pack {m.Pack} {new string('*', m.Stars),-5} reward {m.Reward,2}  -> {(battle.Winner == Tactics.Side.Player ? "complete" : battle.Winner == null ? "STALLED" : "failed")} in {battle.Round} rounds, recruited {battle.Recruited.Count}{(m.Sighting != null ? $", sighting: {m.Sighting}" : "")}{(battle.Target != null ? $", target {battle.Target.Name}" : "")}");
+            }
+            GD.Print($"stalled: {stalls}");
+            GetTree().Quit();
+            return;
+        }
+
         if (args.ContainsKey("ranchtest"))
         {
             // The loop without a screen: fight, recruit, breed, save, load, and check that every
@@ -74,9 +92,10 @@ public partial class GameRoot : Node
             var ranch = Ranching.Ranch.New();
             for (int fight = 0; fight < 3; fight++)
             {
-                var battle = Tactics.Encounter.Create(ranch.Encounter, ranch.SquadCreatures());
+                var mission = Tactics.Mission.Board(ranch.Encounter, ranch.Codex)[0];
+                var battle = mission.CreateBattle(ranch.SquadCreatures());
                 while (battle.Winner == null && battle.Round <= 30) { var u = battle.NextTurn(); if (u == null) break; battle.AiTurn(u); }
-                var joined = ranch.AfterBattle(battle);
+                var joined = ranch.AfterBattle(battle, mission);
                 GD.Print($"encounter {ranch.Encounter - 1}: {battle.Winner}, joined: {string.Join(", ", joined.Select(id => ranch.Get(id).Species.Name))}");
                 foreach (var line in ranch.Report) GD.Print("  " + line);
                 var pair = ranch.Creatures.Where(r => r.Rested).Take(2).Select(r => r.Id).ToList();
@@ -167,7 +186,7 @@ public partial class GameRoot : Node
         {
             // A one-off battle with the default squad, no ranch involved.
             ulong seed = ulong.TryParse(oneOff, out var bs) ? bs : 1;
-            _home = () => new Tactics.BattleScreen { Seed = seed, AutoPlay = _autoPlay };
+            _home = () => new Tactics.BattleScreen { Seed = seed, AutoPlay = _autoPlay, MapName = args.TryGetValue("map", out var mapName) ? mapName : "Undercity Foundry" };
             Show(_home());
             return;
         }
@@ -175,7 +194,7 @@ public partial class GameRoot : Node
         if (args.TryGetValue("save", out var saveName) && saveName != "") Ranching.Ranch.SavePath = $"user://{saveName}.json";
         _ranch = args.ContainsKey("newranch") ? Ranching.Ranch.New() : Ranching.Ranch.Load();
         bool vatDemo = args.ContainsKey("vatdemo");
-        _home = () => new Ranching.RanchScreen { Ranch = _ranch, Fight = StartRanchBattle, VatDemo = vatDemo, AutoFight = _autoPlay, StartInLab = args.ContainsKey("labmode") };
+        _home = () => new Ranching.RanchScreen { Ranch = _ranch, Fight = StartRanchBattle, VatDemo = vatDemo, AutoFight = _autoPlay, StartInLab = args.ContainsKey("labmode"), StartOnBoard = args.ContainsKey("boardmode") };
         Show(_home());
     }
 
@@ -193,14 +212,14 @@ public partial class GameRoot : Node
         AddChild(screen);
     }
 
-    void StartRanchBattle()
+    void StartRanchBattle(Tactics.Mission mission)
     {
         Show(new Tactics.BattleScreen
         {
-            Seed = _ranch.Encounter, Squad = _ranch.SquadCreatures(), AutoPlay = _autoPlay,
+            Seed = mission.Seed, Mission = mission, Squad = _ranch.SquadCreatures(), AutoPlay = _autoPlay,
             Finished = battle =>
             {
-                var joined = _ranch.AfterBattle(battle);
+                var joined = _ranch.AfterBattle(battle, mission);
                 Show(new Ranching.RanchScreen { Ranch = _ranch, Fight = StartRanchBattle, JustJoined = joined, AutoFight = _autoPlay });
             },
         });

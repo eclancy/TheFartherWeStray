@@ -17,11 +17,12 @@ namespace CreatureTactics.Ranching;
 public partial class RanchScreen : Control
 {
     public Ranch Ranch;
-    public Action Fight;
+    public Action<Mission> Fight;
     public List<int> JustJoined = new(); // recruits from the last battle, to point out
     public bool VatDemo;                  // screenshots: fill the vats with the first rested pair and the newest child
     public bool AutoFight;                // --autoplay: head into the next battle on its own (an attract loop)
     public bool StartInLab;               // --labmode: open on the lab (screenshots)
+    public bool StartOnBoard;             // --boardmode: open on the mission board (screenshots)
 
     static readonly Color Cyan = Color.FromHtml("#4fe3ff"), Magenta = Color.FromHtml("#ff4f9a"), Gold = Color.FromHtml("#f2c14e");
     static readonly Color Ink = Color.FromHtml("#e8e2f4"), Dim = Color.FromHtml("#9a91b4");
@@ -29,10 +30,12 @@ public partial class RanchScreen : Control
     GridContainer _grid;
     Label _header, _status, _notes, _detail, _training;
     VatPanel _vats;
-    Button _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _labButton;
+    Button _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _labButton, _boardButton;
     HBoxContainer _buttonsRow;
     LabPanel _lab;
-    bool _labMode;
+    enum Panel { Vats, Lab, Board }
+    Panel _panel = Panel.Vats;
+    MissionBoardPanel _board;
     readonly List<int> _pen = new();
     int? _selected, _releaseArmed;
     double _releaseTimer;
@@ -62,7 +65,7 @@ public partial class RanchScreen : Control
         _grid.AddThemeConstantOverride("v_separation", 8);
         scroll.AddChild(_grid);
         Text(16, Dim, new Vector2(32, 1036), new Vector2(1120, 30)).Text =
-            "Click: select    Right-click: vat    Enter: breed    L: lab    F: to battle    S: squad    Delete twice: release    Tab: Sprite Lab";
+            "Click: select    Right-click: vat    Enter: breed    L: lab    M or F: missions    S: squad    Delete twice: release    Tab: Sprite Lab";
 
         _vats = new VatPanel { Position = new Vector2(1170, 96), Size = new Vector2(720, 320), Screen = this, MouseFilter = MouseFilterEnum.Ignore };
         AddChild(_vats);
@@ -93,10 +96,19 @@ public partial class RanchScreen : Control
         _lab = new LabPanel { Ranch = Ranch, Position = new Vector2(1170, 96), Size = new Vector2(720, 930), Visible = false };
         _lab.Done = msg => { Flash(msg); Rebuild(); if (_selected is { } sid) ShowDetail(sid); };
         AddChild(_lab);
-        _labButton = new Button { Text = "Lab  (L)", FocusMode = FocusModeEnum.None, Position = new Vector2(1750, 22), CustomMinimumSize = new Vector2(140, 40) };
-        _labButton.AddThemeFontSizeOverride("font_size", 16);
-        _labButton.Pressed += ToggleLab;
-        AddChild(_labButton);
+        _board = new MissionBoardPanel { Ranch = Ranch, Position = new Vector2(1170, 96), Size = new Vector2(720, 930), Visible = false };
+        _board.Depart = Depart;
+        AddChild(_board);
+        Button Header(string text, float x, Action onPress)
+        {
+            var b = new Button { Text = text, FocusMode = FocusModeEnum.None, Position = new Vector2(x, 22), CustomMinimumSize = new Vector2(150, 40) };
+            b.AddThemeFontSizeOverride("font_size", 16);
+            b.Pressed += onPress;
+            AddChild(b);
+            return b;
+        }
+        _labButton = Header("Lab  (L)", 1580, () => SetPanel(_panel == Panel.Lab ? Panel.Vats : Panel.Lab));
+        _boardButton = Header("Missions  (M)", 1740, () => SetPanel(_panel == Panel.Board ? Panel.Vats : Panel.Board));
 
         if (VatDemo)
         {
@@ -109,8 +121,9 @@ public partial class RanchScreen : Control
         if (Ranch.Report.Count > 0) _notes.Text = string.Join("\n", Ranch.Report);
         Select(Ranch.Squad.FirstOrDefault(Ranch.Creatures[0].Id));
         Rebuild();
-        if (StartInLab) ToggleLab();
-        if (AutoFight) GetTree().CreateTimer(1.5).Timeout += () => { if (IsInsideTree() && Ranch.Squad.Count > 0) Fight?.Invoke(); };
+        if (StartInLab) SetPanel(Panel.Lab);
+        if (StartOnBoard) SetPanel(Panel.Board);
+        if (AutoFight) GetTree().CreateTimer(1.5).Timeout += () => { if (IsInsideTree() && Ranch.Squad.Count > 0) Fight?.Invoke(Mission.Board(Ranch.Encounter, Ranch.Codex)[0]); };
     }
 
     Label Text(int size, Color color, Vector2 pos, Vector2 boxSize)
@@ -153,7 +166,7 @@ public partial class RanchScreen : Control
     void Select(int id)
     {
         _selected = id;
-        if (_labMode) _lab.ShowCreature(id);
+        if (_panel == Panel.Lab) _lab.ShowCreature(id);
         foreach (var card in _grid.GetChildren().OfType<RanchCard>()) card.QueueRedraw();
         ShowDetail(id);
         RefreshSelected();
@@ -192,14 +205,29 @@ public partial class RanchScreen : Control
     }
 
     /// <summary>Swaps the right-hand side between breeding and training, and the lab.</summary>
-    void ToggleLab()
+    void SetPanel(Panel p)
     {
-        _labMode = !_labMode;
-        foreach (var c in new Control[] { _vats, _notes, _training, _buttonsRow, _detail }) c.Visible = !_labMode;
-        _lab.Visible = _labMode;
-        _labButton.Text = _labMode ? "Vats  (L)" : "Lab  (L)";
-        if (_labMode && _selected is { } id) _lab.ShowCreature(id);
-        Flash(_labMode ? "The lab: graft parts from your codex, fit brass, or infuse new blood. It all costs chem." : "");
+        _panel = p;
+        foreach (var c in new Control[] { _vats, _notes, _training, _buttonsRow, _detail }) c.Visible = p == Panel.Vats;
+        _lab.Visible = p == Panel.Lab;
+        _board.Visible = p == Panel.Board;
+        _labButton.Text = p == Panel.Lab ? "Vats  (L)" : "Lab  (L)";
+        _boardButton.Text = p == Panel.Board ? "Vats  (M)" : "Missions  (M)";
+        if (p == Panel.Lab && _selected is { } id) _lab.ShowCreature(id);
+        if (p == Panel.Board) _board.Refresh();
+        Flash(p switch
+        {
+            Panel.Lab => "The lab: graft parts from your codex, fit brass, or infuse new blood. It all costs chem.",
+            Panel.Board => "Pick a contract, then Depart (F) with your squad.",
+            _ => "",
+        });
+    }
+
+    void Depart(Mission m)
+    {
+        if (Ranch.Squad.Count == 0) { Flash("Pick at least one creature for the squad (S)."); return; }
+        Ranch.Save();
+        Fight?.Invoke(m);
     }
 
     void CycleClass(int id)
@@ -310,12 +338,14 @@ public partial class RanchScreen : Control
                 Breed();
                 break;
             case Key.F:
-                if (Ranch.Squad.Count == 0) { Flash("Pick at least one creature for the squad."); return; }
-                Ranch.Save();
-                Fight?.Invoke();
+                if (_panel != Panel.Board) SetPanel(Panel.Board);
+                else Depart(_board.Missions[_board.Selected]);
+                break;
+            case Key.M:
+                SetPanel(_panel == Panel.Board ? Panel.Vats : Panel.Board);
                 break;
             case Key.L:
-                ToggleLab();
+                SetPanel(_panel == Panel.Lab ? Panel.Vats : Panel.Lab);
                 break;
             case Key.S when _selected is { } sid:
                 ToggleSquad(sid);

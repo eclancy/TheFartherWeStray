@@ -186,9 +186,15 @@ public sealed class Ranch
     /// After a battle: the squad earns JP for its classes (more if it was still standing) and learns
     /// skills, recruits move in keeping their wild skill, everyone is rested, the next encounter is lined up.
     /// </summary>
-    public List<int> AfterBattle(Battle battle)
+    public List<int> AfterBattle(Battle battle, Mission mission = null)
     {
         Report.Clear();
+        if (mission != null)
+        {
+            bool won = battle.Winner == Tactics.Side.Player;
+            if (won) Chem += mission.Reward;
+            Report.Add(won ? $"Mission complete: {mission.Title}. +{mission.Reward} chem." : $"Mission failed: {mission.Title}.");
+        }
         foreach (var u in battle.Units.Where(u => u.Training != null))
         {
             int jp = 12 + (u.Gone ? 0 : 4) + (battle.Winner == Tactics.Side.Player ? 4 : 0);

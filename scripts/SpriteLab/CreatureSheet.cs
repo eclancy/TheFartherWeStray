@@ -50,6 +50,8 @@ public static class CreatureSheet
         sb.Append($"Parts: head {Creature.Words(p.Head)}, ears {Creature.Words(p.Ears)}, eyes {Creature.Words(p.Eyes)}, horns {Creature.Words(p.Horns)}, ");
         sb.Append($"back {Creature.Words(p.Back)}, limbs {Creature.Words(p.Limbs)}, tail {Creature.Words(p.Tail)}, wings {Creature.Words(p.Wings)}, pattern {Creature.Words(p.Pattern)}\n");
         sb.Append($"As gear: weapon {weapon}   ·   armour {armor}   ·   movement {move}");
+        if (s.Strain != Strain.Natural)
+            sb.Append($"\n{s.Strain} strain, grafted with: {(s.Grafts == Graft.None ? "nothing" : s.Grafts.ToString().ToLowerInvariant())}");
         return sb.ToString();
     }
 

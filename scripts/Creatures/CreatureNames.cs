@@ -18,7 +18,7 @@ public static class CreatureNames
         [Element.Venom] = new[] { "Tox", "Vil", "Mire", "Nox", "Blight", "Sluj" },
         [Element.Frost] = new[] { "Fros", "Glac", "Rime", "Shiv", "Sleet", "Brr" },
         [Element.Shade] = new[] { "Gloo", "Wisp", "Murk", "Dusk", "Shad", "Umbr" },
-        [Element.Meadow] = new[] { "Bun", "Pip", "Mallo", "Dew", "Clov", "Hopp" },
+        [Element.Meadow] = new[] { "Wyld", "Thorn", "Brak", "Fen", "Hollo", "Grim" },
     };
 
     public static string Make(Species s, SeededRng rng)
@@ -50,15 +50,23 @@ public static class CreatureNames
         }
         if (p.Wings is Wings.Bat or Wings.Feather) options.AddRange(new[] { "wing", "ptera", "flit" });
         if (p.Tail == Tail.Fluffy) options.AddRange(new[] { "puff", "tuft" });
+        options.AddRange(s.Strain switch
+        {
+            Strain.Clockwork => new[] { "cog", "gear", "bolt", "rivet" },
+            Strain.Chemtech => new[] { "chem", "tox", "ooze", "vat" },
+            Strain.Arcane => new[] { "rune", "hex", "glyph", "mage" },
+            Strain.Abyssal => new[] { "dread", "maw", "gloom", "wraith" },
+            _ => System.Array.Empty<string>(),
+        });
         options.AddRange(s.Plan switch
         {
-            BodyPlan.Quadruped => new[] { "paw", "hound", "lope", "pup" },
-            BodyPlan.Biped => new[] { "kin", "bo", "mon", "ling" },
+            BodyPlan.Quadruped => new[] { "fang", "hound", "prowl", "claw" },
+            BodyPlan.Biped => new[] { "brute", "golem", "ogre", "kin" },
             BodyPlan.Serpent => new[] { "coil", "ssa", "wyrm", "sly" },
-            BodyPlan.Avian => new[] { "beak", "chirp", "wren", "hawk" },
+            BodyPlan.Avian => new[] { "talon", "raptor", "hawk", "crow" },
             BodyPlan.Insectoid => new[] { "pede", "bug", "mite", "wasp" },
             BodyPlan.Aquatic => new[] { "fin", "gill", "carp", "ray" },
-            _ => new[] { "goo", "blob", "jel", "mo" },
+            _ => new[] { "ooze", "slime", "mire", "flan" },
         });
         return options.ToArray();
     }

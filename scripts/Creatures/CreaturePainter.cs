@@ -33,6 +33,7 @@ public sealed class CreaturePainter
         var painter = new CreaturePainter(creature);
         painter.PaintBody();
         painter.ApplyPattern();
+        painter.SurfaceGrafts();
         var img = painter._c.Resolve(creature.Palette, fourColor);
         // Trim the empty margin but keep the bottom row, so the sprite still stands on its ground.
         var used = img.GetUsedRect();
@@ -51,13 +52,14 @@ public sealed class CreaturePainter
         Floor = h - 1;
         Lx = (w - S) / 2f;
         _hs = SizeInfo.HeadScale(cr.Size) * _sp.HeadSize * cr.HeadJitter;
+        // Head offset in head radii. Predators carry their heads low and forward; pride lifts it.
         _pose = cr.Attitude switch
         {
-            Attitude.Aggressive => new Vector2(-0.2f, 0.2f),
-            Attitude.Skittish => new Vector2(0.15f, 0.2f),
-            Attitude.Proud => new Vector2(0.08f, -0.25f),
-            Attitude.Curious => new Vector2(-0.12f, -0.12f),
-            _ => Vector2.Zero,
+            Attitude.Aggressive => new Vector2(-0.3f, 0.35f),
+            Attitude.Skittish => new Vector2(0.15f, 0.15f),
+            Attitude.Proud => new Vector2(0.0f, -0.3f),
+            Attitude.Curious => new Vector2(-0.2f, 0f),
+            _ => new Vector2(-0.1f, 0.1f),
         };
 
         var rng = new SeededRng(SeededRng.Derive(_sp.Seed, 0x5EED));
@@ -70,9 +72,6 @@ public sealed class CreaturePainter
     }
 
     float Hx(float f) => Lx + S * f;
-
-    /// <summary>Dark-pupil beady eyes vanish on a dark body, so those get eye whites.</summary>
-    bool DarkBody => _cr.Palette.Main.Base.Luminance < 0.4f;
     float BodyMul => _sp.BodyLen * _cr.BodyJitter;
 
     float LimbLenMul => (_p.Limbs switch { Limbs.Stubby => 0.7f, Limbs.Long => 1.3f, _ => 1f })
@@ -109,8 +108,8 @@ public sealed class CreaturePainter
         float legLen = S * 0.2f * LimbLenMul, legR = S * 0.05f * LimbThickMul;
         if (_cr.Attitude == Attitude.Skittish) legLen *= 0.88f;
         float cx = Hx(0.56f), cy = Floor - legLen - ry * 0.5f;
-        float hr = S * 0.14f * _hs;
-        var hc = new Vector2(cx - rx * 0.92f - hr * 0.25f, cy - ry * 0.75f - hr * 0.6f * _sp.NeckLen) + _pose * hr;
+        float hr = S * 0.13f * _hs;
+        var hc = new Vector2(cx - rx * 0.95f - hr * 0.35f, cy - ry * 0.55f - hr * 0.45f * _sp.NeckLen) + _pose * hr;
         var wingRoot = new Vector2(cx + rx * 0.05f, cy - ry * 0.75f);
 
         if (_p.Wings != Wings.None) Wing(wingRoot + new Vector2(S * 0.05f, -S * 0.02f), S * 0.36f, far: true);
@@ -119,10 +118,14 @@ public sealed class CreaturePainter
         Leg(new Vector2(cx + rx * 0.55f + S * 0.05f, cy + ry * 0.2f), legR, far: true, hind: true);
         TailPaint(new Vector2(cx + rx * 0.9f, cy - ry * 0.25f), ry * 0.7f, S * 0.32f);
 
+        // A predator's build: deep chest, tucked waist, strong haunches.
         int body = Part(Zone.Body);
-        _c.Ellipse(cx, cy, rx, ry, Mat.Main, body);
-        _c.Capsule(new Vector2(cx - rx * 0.6f, cy - ry * 0.2f), hc + new Vector2(hr * 0.2f, hr * 0.3f), ry * 0.6f, hr * 0.55f, Mat.Main, body);
+        _c.Ellipse(cx, cy + ry * 0.05f, rx * 0.95f, ry * 0.8f, Mat.Main, body);
+        _c.Ellipse(cx - rx * 0.4f, cy - ry * 0.05f, rx * 0.6f, ry * 1.12f, Mat.Main, body);
+        _c.Ellipse(cx + rx * 0.5f, cy - ry * 0.05f, rx * 0.5f, ry * 0.92f, Mat.Main, body);
+        _c.Capsule(new Vector2(cx - rx * 0.6f, cy - ry * 0.2f), hc + new Vector2(hr * 0.2f, hr * 0.3f), ry * 0.7f, hr * 0.6f, Mat.Main, body);
         BackOver(new Vector2(cx, cy), rx, ry);
+        BodyGrafts(new Vector2(cx, cy), rx, ry);
 
         Leg(new Vector2(cx - rx * 0.58f, cy + ry * 0.3f), legR, far: false, hind: false);
         Leg(new Vector2(cx + rx * 0.5f, cy + ry * 0.3f), legR, far: false, hind: true);
@@ -135,22 +138,25 @@ public sealed class CreaturePainter
         float rx = S * 0.165f * _sp.Thickness, ry = S * 0.2f * BodyMul;
         float legLen = S * 0.12f * LimbLenMul, legR = S * 0.06f * LimbThickMul;
         float cx = Hx(0.52f), cy = Floor - legLen - ry * 0.7f;
-        float hr = S * 0.17f * _hs;
-        var hc = new Vector2(cx - rx * 0.2f, cy - ry * 0.95f - hr * 0.5f) + _pose * hr;
+        float hr = S * 0.15f * _hs;
+        // Hunched: the head juts forward from big shoulders instead of sitting on top.
+        var hc = new Vector2(cx - rx * 0.75f, cy - ry * 0.8f - hr * 0.2f) + _pose * hr;
         var wingRoot = new Vector2(cx + rx * 0.3f, cy - ry * 0.6f);
 
         if (_p.Wings != Wings.None) Wing(wingRoot + new Vector2(S * 0.04f, -S * 0.02f), S * 0.34f, far: true);
         BackBehind(new Vector2(cx, cy), rx, ry, -80, 35);
-        Arm(new Vector2(cx - rx * 0.55f, cy - ry * 0.45f), new Vector2(cx - rx * 1.15f, cy - ry * 0.05f), legR * 0.75f, far: true);
-        Leg(new Vector2(cx + rx * 0.2f, cy + ry * 0.6f), legR, far: true, hind: false);
-        TailPaint(new Vector2(cx + rx * 0.8f, cy + ry * 0.45f), rx * 0.55f, S * 0.3f);
+        Arm(new Vector2(cx - rx * 0.55f, cy - ry * 0.5f), new Vector2(cx - rx * 1.25f, cy + ry * 0.2f), legR * 0.8f, far: true);
+        Leg(new Vector2(cx + rx * 0.2f, cy + ry * 0.6f), legR, far: true, hind: true);
+        TailPaint(new Vector2(cx + rx * 0.8f, cy + ry * 0.45f), rx * 0.6f, S * 0.34f);
 
         int body = Part(Zone.Body);
-        _c.Ellipse(cx, cy, rx, ry, Mat.Main, body);
+        _c.Ellipse(cx, cy, rx, ry, Mat.Main, body, rot: -0.3f);
+        _c.Ellipse(cx - rx * 0.3f, cy - ry * 0.45f, rx * 1.05f, ry * 0.62f, Mat.Main, body, rot: -0.2f);
         BackOver(new Vector2(cx, cy), rx, ry);
+        BodyGrafts(new Vector2(cx, cy), rx, ry);
 
-        Leg(new Vector2(cx - rx * 0.35f, cy + ry * 0.65f), legR, far: false, hind: false);
-        Arm(new Vector2(cx + rx * 0.2f, cy - ry * 0.4f), new Vector2(cx - rx * 0.3f, cy + ry * 0.3f), legR * 0.75f, far: false);
+        Leg(new Vector2(cx - rx * 0.25f, cy + ry * 0.65f), legR, far: false, hind: true);
+        Arm(new Vector2(cx + rx * 0.05f, cy - ry * 0.5f), new Vector2(cx - rx * 0.75f, cy + ry * 0.45f), legR * 0.8f, far: false);
         if (_p.Wings != Wings.None) Wing(wingRoot, S * 0.34f, far: false);
         HeadPaint(hc, hr);
     }
@@ -183,6 +189,7 @@ public sealed class CreaturePainter
         _c.Tube(pts, Radius, Mat.Main, body);
         _c.Capsule(pts[^1], hc + new Vector2(hr * 0.2f, hr * 0.3f), Radius(1), hr * 0.6f, Mat.Main, body);
         BackAlong(pts, Radius, behind: false);
+        BodyGrafts(Along(pts, 0.55f), r * 1.4f, r);
         TailTip(pts[0], pts[0] - pts[2], r);
 
         if (_p.Wings != Wings.None) Wing(Along(pts, 0.7f) + new Vector2(0, -r * 0.5f), S * 0.34f, far: false);
@@ -208,6 +215,7 @@ public sealed class CreaturePainter
         if (_sp.NeckLen > 1.1f)
             _c.Capsule(new Vector2(cx - rx * 0.6f, cy - ry * 0.3f), hc + new Vector2(hr * 0.2f, hr * 0.3f), ry * 0.45f, hr * 0.5f, Mat.Main, body);
         BackOver(new Vector2(cx, cy), rx, ry);
+        BodyGrafts(new Vector2(cx, cy), rx, ry);
 
         BirdLeg(new Vector2(cx - rx * 0.15f, cy + ry * 0.65f), legR, far: false);
         if (folded) FoldedWing(new Vector2(cx, cy), rx, ry);
@@ -243,6 +251,7 @@ public sealed class CreaturePainter
         }
         int th = Part(Zone.Body);
         _c.Ellipse(tx, ty, rt * 1.1f, rt, Mat.Main, th);
+        BodyGrafts(ac, arx, ary);
 
         for (int k = 0; k < 3; k++) InsectLeg(thorax, rt, k, legLen, legR, far: false);
         if (_p.Wings != Wings.None) Wing(wingRoot, S * 0.38f, far: false);
@@ -270,6 +279,7 @@ public sealed class CreaturePainter
         int body = Part(Zone.Body);
         _c.Ellipse(cx, cy, rx, ry, Mat.Main, body);
         BackOver(new Vector2(cx, cy), rx, ry);
+        BodyGrafts(new Vector2(cx, cy), rx, ry);
 
         int nearFin = Part(Zone.Limb);
         _c.Polygon(new[]
@@ -314,6 +324,7 @@ public sealed class CreaturePainter
             }
         }
         BackOver(new Vector2(cx, cy), rx, ry);
+        BodyGrafts(new Vector2(cx, cy), rx, ry);
         if (_p.Wings != Wings.None) Wing(wingRoot, S * 0.3f, far: false);
         HeadPaint(hc, hr, facePart: body);
     }
@@ -356,14 +367,14 @@ public sealed class CreaturePainter
         switch (_p.Ears)
         {
             case Ears.Pointy when behind:
-                foreach (var (deg, lean, bias) in new[] { (-55f, 0.35f, -0.2f), (-118f, -0.3f, 0f) })
+                foreach (var (deg, lean, bias) in new[] { (-60f, 0.75f, -0.2f), (-100f, 0.5f, 0f) }) // swept back
                 {
                     int ear = Part(Zone.Ear);
                     var b = hc + Vector2.FromAngle(Mathf.DegToRad(deg)) * hr * 0.75f;
                     var dir = new Vector2(0, -1).Rotated(lean);
-                    var tip = b + dir * hr * 1.0f;
-                    _c.Capsule(b, tip, hr * 0.34f, 0.5f, Mat.Main, ear, bias);
-                    _c.Capsule(b + dir * hr * 0.2f, b + dir * hr * 0.7f, hr * 0.15f, 0.5f, Mat.Second, ear, bias);
+                    var tip = b + dir * hr * 1.35f;
+                    _c.Capsule(b, tip, hr * 0.32f, 0.5f, Mat.Main, ear, bias);
+                    _c.Capsule(b + dir * hr * 0.25f, b + dir * hr * 0.9f, hr * 0.12f, 0.5f, Mat.Second, ear, bias);
                 }
                 break;
             case Ears.Round when behind:
@@ -433,9 +444,9 @@ public sealed class CreaturePainter
                 {
                     int horn = Part(Zone.Tip);
                     var b = behind ? hc + new Vector2(hr * 0.35f, -hr * 0.72f) : hc + new Vector2(-hr * 0.2f, -hr * 0.82f);
-                    var p1 = b + new Vector2(curve * hr * 0.25f, -hr * 0.55f);
-                    var p2 = p1 + new Vector2(curve * hr * 0.55f, -hr * 0.35f + Mathf.Abs(curve) * hr * 0.15f);
-                    _c.Chain(new[] { b, p1, p2 }, hr * 0.24f, 0.5f, Mat.Accent, horn, behind ? -0.3f : 0);
+                    var p1 = b + new Vector2(curve * hr * 0.35f, -hr * 0.7f);
+                    var p2 = p1 + new Vector2(curve * hr * 0.8f, -hr * 0.45f + Mathf.Abs(curve) * hr * 0.2f);
+                    _c.Chain(new[] { b, p1, p2 }, hr * 0.3f, 0.5f, Mat.Accent, horn, behind ? -0.3f : 0);
                     break;
                 }
             case Horns.Antlers:
@@ -495,147 +506,174 @@ public sealed class CreaturePainter
 
     void Beak(Vector2 hc, float hr)
     {
+        // A raptor's hooked beak.
         int beak = Part(Zone.Tip);
-        float len = hr * 0.8f * _sp.SnoutLen;
+        float len = hr * 0.85f * _sp.SnoutLen;
         _c.Polygon(new[]
         {
-            new Vector2(hc.X - hr * 0.6f, hc.Y - hr * 0.08f),
-            new Vector2(hc.X - hr * 0.6f - len, hc.Y + hr * 0.22f),
-            new Vector2(hc.X - hr * 0.5f, hc.Y + hr * 0.48f),
+            new Vector2(hc.X - hr * 0.55f, hc.Y - hr * 0.2f),
+            new Vector2(hc.X - hr * 0.6f - len, hc.Y + hr * 0.12f),
+            new Vector2(hc.X - hr * 0.5f - len * 0.82f, hc.Y + hr * 0.42f),
+            new Vector2(hc.X - hr * 0.55f - len * 0.55f, hc.Y + hr * 0.3f),
+            new Vector2(hc.X - hr * 0.4f, hc.Y + hr * 0.38f),
         }, Mat.Accent, beak);
     }
 
+    /// <summary>
+    /// The face: small glowing almond eyes under a heavy brow, and a jaw with fangs. In a
+    /// three-quarter view the near eye does the work; the far one is a glint at the head's edge.
+    /// Attitude reads through the brow and the jaw, never through big eyes.
+    /// </summary>
     void Face(Vector2 hc, float hr, int part, Vector2? snout, float snoutRx, float snoutRy)
     {
-        float frac = _cr.Size switch
-        {
-            SizeClass.Tiny => 0.34f, SizeClass.Small => 0.3f, SizeClass.Medium => 0.27f, SizeClass.Large => 0.24f, _ => 0.22f,
-        } * _sp.EyeSize;
+        bool avian = _sp.Plan == BodyPlan.Avian, insect = _sp.Plan == BodyPlan.Insectoid;
         int e = _p.Eyes == EyeKind.Compound
-            ? Mathf.Clamp(Mathf.RoundToInt(hr * 0.36f), 1, 6)
-            : Mathf.Clamp(Mathf.RoundToInt(hr * frac), 1, 5);
-        bool avian = _sp.Plan == BodyPlan.Avian;
+            ? Mathf.Clamp(Mathf.RoundToInt(hr * 0.3f * _sp.EyeSize), 1, 5)
+            : Mathf.Clamp(Mathf.RoundToInt(hr * 0.19f * _sp.EyeSize), 1, 4);
 
-        float eyeY = hc.Y - hr * (avian ? 0.22f : snout.HasValue ? 0.15f : 0.02f);
-        float farX = Mathf.Max(hc.X - hr * (avian ? 0.45f : 0.62f), hc.X - hr + 0.9f * e + 0.5f);
-        float nearX = farX + Mathf.Max(2 * e + 1.5f, hr * 0.6f);
+        float eyeY = hc.Y - hr * (snout.HasValue ? 0.22f : 0.15f);
+        float nearX = hc.X - hr * (avian ? 0.12f : 0.25f);
+        float farX = Mathf.Max(hc.X - hr * 0.78f, hc.X - hr + e + 0.5f);
         int fy = Mathf.FloorToInt(eyeY);
-        Eye(Mathf.FloorToInt(farX), fy, e, part, far: true);
+        Eye(Mathf.FloorToInt(farX), fy, Mathf.Max(1, e - 1), part, far: true);
         Eye(Mathf.FloorToInt(nearX), fy, e, part, far: false);
 
-        if (_p.Pattern == Pattern.Cheeks)
+        if (Has(Graft.Visor) && !insect)
         {
-            int cy = fy + e + 1;
-            int cx = Mathf.FloorToInt(nearX + e * 0.6f);
-            foreach (int x in new[] { cx, cx + 1 })
-                if (_c.MatAt(x, cy) is Mat.Main or Mat.Second) _c.Plot(x, cy, Mat.Blush, part);
+            // A brass-rimmed lens grafted over the near eye, strapped round the head.
+            int visor = Part(Zone.Tip);
+            float vx = Mathf.FloorToInt(nearX) + 0.5f, vy = fy + 0.5f, vr = e + 1.6f;
+            _c.Ellipse(vx, vy, vr, vr, Mat.Metal, visor);
+            _c.Ellipse(vx, vy, vr - 1.1f, vr - 1.1f, Mat.Glow, visor, flat: true);
+            _c.Plot(Mathf.FloorToInt(vx - vr * 0.35f), Mathf.FloorToInt(vy - vr * 0.35f), Mat.Glow, visor, 2);
+            for (int x = Mathf.CeilToInt(vx + vr); x < hc.X + hr * 0.9f; x++)
+                if (_c.MatAt(x, fy) is Mat.Main or Mat.Second) _c.Plot(x, fy, Mat.Line, part);
+        }
+        if (Has(Graft.ExtraEyes))
+        {
+            // More eyes than anything should have: glints clustered above and behind the real ones.
+            foreach (var (dx, dy) in new[] { (e + 2, -e - 1), (2, -e - 3), (e + 4, 1), (-1, -e - 2) })
+            {
+                int x = Mathf.FloorToInt(nearX) + dx, y = fy + dy;
+                if (_c.MatAt(x, y) is not (Mat.Main or Mat.Second) || _c.MatAt(x + 1, y) is not (Mat.Main or Mat.Second)) continue;
+                _c.Plot(x, y, Mat.Glow, part, 2);
+                _c.Plot(x + 1, y, Mat.Glow, part);
+                if (_c.MatAt(x, y - 1) is Mat.Main or Mat.Second) _c.Plot(x, y - 1, Mat.Line, part);
+                if (_c.MatAt(x + 1, y - 1) is Mat.Main or Mat.Second) _c.Plot(x + 1, y - 1, Mat.Line, part);
+            }
         }
 
-        if (avian || _sp.Plan == BodyPlan.Insectoid) return;
-        Vector2 m = snout.HasValue
-            ? new Vector2(snout.Value.X - snoutRx * 0.25f, snout.Value.Y + snoutRy * 0.4f)
-            : new Vector2((farX + nearX) / 2f, hc.Y + hr * 0.5f);
-        Mouth(Mathf.FloorToInt(m.X), Mathf.FloorToInt(m.Y), part, hr);
+        if (_p.Pattern == Pattern.Markings)
+        {
+            // Two slashes of war paint running back from the eye.
+            for (int k = 0; k < 2; k++)
+            for (int i = 0; i < 3 + e; i++)
+            {
+                int x = Mathf.FloorToInt(nearX) + e + 2 + i, y = fy + k * 2 + i / 2;
+                if (_c.MatAt(x, y) is Mat.Main) _c.Plot(x, y, Mat.Second, part);
+            }
+        }
+
+        if (avian || insect) return;
+        Vector2 tip; float len;
+        if (snout.HasValue) { tip = new Vector2(snout.Value.X - snoutRx * 0.8f, snout.Value.Y + snoutRy * 0.3f); len = snoutRx * 1.4f; }
+        else { tip = new Vector2(hc.X - hr * 0.82f, hc.Y + hr * 0.42f); len = hr * (_sp.Plan is BodyPlan.Blob ? 1.1f : 0.75f); }
+        Jaw(tip, len, part);
     }
 
-    /// <summary>Eyes carry most of the charm, so they're drawn pixel by pixel; attitude shapes the lids.</summary>
     void Eye(int ex, int ey, int e, int part, bool far)
     {
         var att = _cr.Attitude;
-        bool lidded = false;
+        bool Skin(int x, int y) => _c.MatAt(x, y) is Mat.Main or Mat.Second or Mat.Glow or Mat.Pupil;
+        void Px(int x, int y, Mat m, int tone = 1) { if (Skin(x, y)) _c.Plot(x, y, m, part, tone); }
+
+        int top, half; // eye top row and half-width
         if (_p.Eyes == EyeKind.Compound)
         {
-            _c.Ellipse(ex + 0.5f, ey + 0.5f, e * (far ? 0.75f : 0.95f), e * 1.1f, Mat.Pupil, part, flat: true);
-            _c.Plot(ex - e / 2, ey - e / 2, Mat.Pupil, part, 2);
-            if (e >= 3) _c.Plot(ex - e / 2 + 1, ey - e / 2, Mat.Pupil, part, 2);
+            _c.Ellipse(ex + 0.5f, ey + 0.5f, e * (far ? 0.7f : 0.95f), e * 1.05f, Mat.Pupil, part, flat: true);
+            Px(ex - e / 2, ey - e / 2, Mat.Glow, 2);
+            if (e >= 3) { Px(ex - e / 2 + 1, ey - e / 2, Mat.Glow); Px(ex - e / 2, ey - e / 2 + 1, Mat.Glow); }
+            top = ey - e; half = e;
         }
-        else if ((_p.Eyes == EyeKind.Beady && !DarkBody) || e <= 1)
+        else if (far || e <= 1)
         {
-            if (e <= 2)
-            {
-                _c.Plot(ex, ey, Mat.Pupil, part);
-                _c.Plot(ex, ey + 1, Mat.Pupil, part);
-                if (e == 2 && !far)
-                {
-                    _c.Plot(ex - 1, ey, Mat.Pupil, part, 2);
-                    _c.Plot(ex - 1, ey + 1, Mat.Pupil, part);
-                }
-            }
-            else
-            {
-                _c.Ellipse(ex + 0.5f, ey + 0.5f, e * 0.5f, e * 0.65f, Mat.Pupil, part, flat: true);
-                _c.Plot(ex - 1, ey - 1, Mat.Pupil, part, 2);
-            }
+            // A glint: one or two pixels of glowing iris.
+            Px(ex, ey, Mat.Glow, 2);
+            if (!far) Px(ex - 1, ey, Mat.Glow);
+            top = ey; half = 1;
         }
         else
         {
-            float rx = e * (far ? 0.7f : 0.85f), ry = e;
-            _c.Ellipse(ex + 0.5f, ey + 0.5f, rx, ry, Mat.EyeWhite, part, flat: true);
-            float pr = att switch { Attitude.Skittish => 0.4f, Attitude.Loyal => 0.72f, _ => 0.56f };
-            float px = ex + 0.5f - rx * 0.28f;
-            float py = ey + 0.5f + (att == Attitude.Curious ? -ry * 0.2f : ry * 0.12f);
-            _c.Ellipse(px, py, Mathf.Max(rx * pr, 0.5f), Mathf.Max(ry * pr * 1.15f, 0.6f), Mat.Pupil, part, flat: true);
-            _c.Plot(Mathf.FloorToInt(px - rx * pr * 0.3f), Mathf.FloorToInt(py - ry * pr * 0.5f), Mat.Pupil, part, 2);
-            if (att == Attitude.Loyal && e >= 3)
-                _c.Plot(Mathf.FloorToInt(px + rx * pr * 0.4f), Mathf.FloorToInt(py + ry * pr * 0.45f), Mat.Pupil, part, 2);
-            lidded = true;
+            // Almond: widest in the middle row, a slit pupil toward the front.
+            int h = att == Attitude.Skittish ? e + 1 : Mathf.Max(2, e);
+            half = e;
+            top = ey - h / 2;
+            for (int r = 0; r < h; r++)
+            {
+                int w = (r == 0 || r == h - 1) ? half - 1 : half;
+                for (int x = ex - w; x <= ex + w; x++) Px(x, top + r, Mat.Glow, r == 0 && x < ex ? 2 : 1);
+            }
+            int px = ex - Mathf.Max(1, e / 2);
+            if (_p.Eyes == EyeKind.Beady || att == Attitude.Skittish) Px(px, top + h / 2, Mat.Pupil);
+            else for (int r = 0; r < h; r++) Px(px, top + r, Mat.Pupil);
         }
 
-        if (att is not (Attitude.Aggressive or Attitude.Proud)) return;
-        // Aggressive: lids slope down toward the middle of the face. Proud: flat, half-closed lids.
-        int inward = far ? 1 : -1;
-        for (int x = ex - e - 1; x <= ex + e + 1; x++)
+        // The brow: always there, shaped by attitude. Front (snout side) is -x.
+        int b0 = top - 1;
+        for (int i = -half - 1; i <= half + 1; i++)
         {
-            float lid = att == Attitude.Aggressive
-                ? ey - e + 0.5f + (x - ex) * inward * 0.6f + e * 0.3f
-                : ey - e * 0.1f;
-            if (!lidded)
+            int x = ex + i;
+            float back = (i + half + 1) / (2f * half + 2); // 0 at the front of the eye, 1 at the back
+            int y = att switch
             {
-                // Beady and compound eyes get a brow line above instead of a lid.
-                int by = Mathf.FloorToInt(lid) - 1;
-                if (Mathf.Abs(x - ex) <= e && _c.MatAt(x, by) is Mat.Main or Mat.Second) _c.Plot(x, by, Mat.Line, part);
-                continue;
-            }
-            for (int y = ey - e - 1; y <= ey + e + 1; y++)
-            {
-                if (_c.MatAt(x, y) is not (Mat.EyeWhite or Mat.Pupil) || _c.PartAt(x, y) != part) continue;
-                if (y < Mathf.FloorToInt(lid)) _c.Plot(x, y, Mat.Main, part);
-                else if (y == Mathf.FloorToInt(lid)) _c.Plot(x, y, Mat.Line, part);
-            }
+                Attitude.Aggressive => b0 + Mathf.RoundToInt((1 - back) * (half + 0.5f)), // drops toward the snout
+                Attitude.Proud => b0 + 1,                                                   // heavy, level, half-lidded
+                Attitude.Skittish => b0 - Mathf.RoundToInt((1 - back) * 1.2f),              // raised at the front
+                Attitude.Curious => b0 - (Mathf.Abs(i) <= half / 2 ? 1 : 0),                 // arched
+                _ => b0,
+            };
+            Px(x, y, Mat.Line);
+            // Anything of the eye above an aggressive or proud brow is covered by it.
+            for (int yy = top - 1; yy < y; yy++)
+                if (_c.MatAt(x, yy) is Mat.Glow or Mat.Pupil) _c.Plot(x, yy, Mat.Main, part, 0);
         }
     }
 
-    void Mouth(int mx, int my, int part, float hr)
+    /// <summary>A jaw line running back from the front of the snout, with fangs; aggression opens it.</summary>
+    void Jaw(Vector2 tip, float len, int part)
     {
-        int w = hr >= 9 ? 2 : 1;
-        var px = new List<(int, int, Mat)>();
-        switch (_cr.Attitude)
+        var att = _cr.Attitude;
+        int mx = Mathf.FloorToInt(tip.X), my = Mathf.FloorToInt(tip.Y);
+        int L = Mathf.Clamp(Mathf.RoundToInt(len), 2, 9);
+        int open = att == Attitude.Aggressive ? (L >= 5 ? 2 : 1) : att == Attitude.Curious && L >= 5 ? 1 : 0;
+        bool Skin(int x, int y) => _c.MatAt(x, y) is Mat.Main or Mat.Second;
+        void Px(int x, int y, Mat m) { if (Skin(x, y)) _c.Plot(x, y, m, part); }
+
+        for (int i = 0; i <= L; i++)
         {
-            case Attitude.Aggressive:
-                for (int x = mx - w; x <= mx + w; x++) px.Add((x, my, Mat.Line));
-                px.Add((mx - w, my + 1, Mat.EyeWhite));
-                if (w == 2) px.Add((mx + 1, my + 1, Mat.EyeWhite));
-                break;
-            case Attitude.Loyal:
-                px.Add((mx - w, my, Mat.Line));
-                for (int x = mx - w + 1; x <= mx + w - 1; x++) px.Add((x, my + 1, Mat.Line));
-                px.Add((mx + w, my, Mat.Line));
-                if (w == 2) px.Add((mx, my, Mat.Mouth));
-                break;
-            case Attitude.Curious:
-                px.Add((mx, my, Mat.Mouth));
-                if (w == 2) { px.Add((mx + 1, my, Mat.Mouth)); px.Add((mx, my + 1, Mat.Mouth)); px.Add((mx + 1, my + 1, Mat.Mouth)); }
-                break;
-            case Attitude.Proud:
-                for (int x = mx - w; x < mx + w; x++) px.Add((x, my + 1, Mat.Line));
-                px.Add((mx + w, my, Mat.Line));
-                break;
-            default: // skittish: a wobbly line
-                for (int i = 0; i <= 2 * w + 1; i++) px.Add((mx - w + i, my + (i % 2 == 0 ? 1 : 0), Mat.Line));
-                break;
+            int y = my - i / 4;
+            if (att == Attitude.Proud && i == L) y--;
+            Px(mx + i, y, Mat.Line);
+            if (i == 0 || i >= L - 1) continue;
+            for (int k = 1; k <= open; k++) Px(mx + i, y + k, Mat.Mouth);
+            if (open > 0) Px(mx + i, y + open + 1, Mat.Line);
         }
-        foreach (var (x, y, m) in px)
-            if (_c.MatAt(x, y) is Mat.Main or Mat.Second) _c.Plot(x, y, m, part);
+        // Fangs: one hanging from the upper jaw near the front, two when it snarls.
+        _c.Plot(mx + 1, my + 1, Mat.EyeWhite, part);
+        if (open > 0)
+        {
+            _c.Plot(mx + 3, my + 1, Mat.EyeWhite, part);
+            Px(mx + 2, my + open, Mat.EyeWhite);
+        }
+        if (Has(Graft.Drips))
+        {
+            // Glowing ooze running off the jaw, past the outline.
+            foreach (var (dx, n) in new[] { (2, 2), (4, 3) })
+            {
+                int x = mx + dx, y0 = my + open + 2;
+                for (int k = 0; k < n; k++) _c.Plot(x, y0 + k, Mat.Glow, part, k == n - 1 ? 2 : 1);
+            }
+        }
     }
 
     // ---------------------------------------------------------------- limbs
@@ -648,17 +686,21 @@ public sealed class CreaturePainter
         float ground = far ? Floor - Mathf.Max(1, S * 0.035f) : Floor;
         var foot = new Vector2(hip.X + (hind ? r * 0.2f : -r * 0.2f), ground - r * 0.6f);
         bool bend = hind && _p.Limbs != Limbs.Stubby && foot.Y - hip.Y > r * 2.5f;
+        // A clockwork graft replaces the near foreleg with a brass one.
+        bool metal = Has(Graft.MetalLimb) && !far && !hind && _sp.Plan != BodyPlan.Biped;
+        Mat m = metal ? Mat.Metal : Mat.Main;
         if (bend)
         {
             // Hind legs bend back at the hock, like a dog's or a deer's.
             var hock = new Vector2(hip.X + r * 0.9f, Mathf.Lerp(hip.Y, foot.Y, 0.55f));
-            _c.Capsule(hip, hock, r * 1.35f, r * 0.8f, Mat.Main, leg, bias);
-            _c.Capsule(hock, foot, r * 0.8f, r * 0.7f, Mat.Main, leg, bias);
+            _c.Capsule(hip, hock, r * 1.35f, r * 0.8f, m, leg, bias);
+            _c.Capsule(hock, foot, r * 0.8f, r * 0.7f, m, leg, bias);
         }
         else
         {
-            _c.Capsule(hip, foot, r * 1.3f, r * 0.78f, Mat.Main, leg, bias);
+            _c.Capsule(hip, foot, r * 1.3f, r * 0.78f, m, leg, bias);
         }
+        if (metal) Joint(Lerp(hip, foot, 0.5f), leg);
 
         if (_p.Limbs == Limbs.Hooved)
         {
@@ -666,7 +708,7 @@ public sealed class CreaturePainter
             return;
         }
         float fx = foot.X - r * 0.3f;
-        _c.Ellipse(fx, ground - r * 0.6f, r * 1.15f, r * 0.62f, Mat.Main, leg, bias, clipBelow: ground);
+        _c.Ellipse(fx, ground - r * 0.6f, r * 1.15f, r * 0.62f, m, leg, bias, clipBelow: ground);
         if (_p.Limbs == Limbs.Clawed) Claws(fx - r * 1.15f, ground, r, leg);
     }
 
@@ -674,14 +716,26 @@ public sealed class CreaturePainter
     {
         int arm = Part(Zone.Limb);
         float bias = far ? -0.32f : 0;
-        _c.Capsule(shoulder, hand, r * 1.0f, r * 0.8f, Mat.Main, arm, bias);
-        _c.Ellipse(hand.X, hand.Y, r * 1.05f, r * 0.95f, Mat.Main, arm, bias);
+        bool metal = Has(Graft.MetalLimb) && !far;
+        Mat m = metal ? Mat.Metal : Mat.Main;
+        _c.Capsule(shoulder, hand, r * 1.0f, r * 0.8f, m, arm, bias);
+        _c.Ellipse(hand.X, hand.Y, r * 1.05f, r * 0.95f, m, arm, bias);
+        if (metal) Joint(Lerp(shoulder, hand, 0.5f), arm);
         if (_p.Limbs == Limbs.Clawed)
         {
             int hx = Mathf.FloorToInt(hand.X - r), hy = Mathf.FloorToInt(hand.Y + r * 0.5f);
             _c.Plot(hx - 1, hy, Mat.Accent, arm, 2);
             _c.Plot(hx, hy + 1, Mat.Accent, arm, 2);
         }
+    }
+
+    /// <summary>A glowing joint on a clockwork limb.</summary>
+    void Joint(Vector2 at, int part)
+    {
+        int x = Mathf.FloorToInt(at.X), y = Mathf.FloorToInt(at.Y);
+        _c.Plot(x, y, Mat.Glow, part, 2);
+        _c.Plot(x + 1, y, Mat.Glow, part);
+        _c.Plot(x, y + 1, Mat.Glow, part);
     }
 
     /// <summary>Claw tips poking out of the front of a foot, on the ground row.</summary>
@@ -923,8 +977,8 @@ public sealed class CreaturePainter
                         float deg = Mathf.Lerp(deg0, deg1, (i + 0.5f) / n);
                         var b = OnEllipse(c, rx, ry, deg, 0.85f);
                         var dir = EllipseNormal(rx, ry, deg).Rotated(0.35f);
-                        float len = S * 0.085f * (0.7f + 0.5f * Mathf.Sin(Mathf.Pi * (i + 0.5f) / n));
-                        _c.Capsule(b, b + dir * (len + ry * 0.15f), S * 0.04f, 0.5f, _spikeMat, spikes);
+                        float len = S * 0.11f * (0.7f + 0.5f * Mathf.Sin(Mathf.Pi * (i + 0.5f) / n));
+                        _c.Capsule(b, b + dir * (len + ry * 0.15f), S * 0.042f, 0.5f, _spikeMat, spikes);
                     }
                     break;
                 }
@@ -1042,6 +1096,106 @@ public sealed class CreaturePainter
                     _c.Ellipse(mc.X, mc.Y, rr, rr, _tuftMat == Mat.Main ? Mat.Second : _tuftMat, part, 0.1f);
                     break;
             }
+        }
+    }
+
+    // ---------------------------------------------------------------- grafts (strains)
+
+    bool Has(Graft g) => (_sp.Grafts & g) != 0;
+    Vector2 _torsoC;
+    float _torsoRx, _torsoRy;
+
+    /// <summary>Grafts that sit on the torso: a chem canister on the back, brass plating, a hextech core.</summary>
+    void BodyGrafts(Vector2 c, float rx, float ry)
+    {
+        _torsoC = c; _torsoRx = rx; _torsoRy = ry;
+        if (Has(Graft.Canister))
+        {
+            int tank = Part(Zone.Body);
+            float r = Mathf.Max(1.5f, S * 0.055f);
+            var a = new Vector2(c.X - rx * 0.05f, c.Y - ry * 0.95f - r * 0.6f);
+            var b = new Vector2(c.X + rx * 0.6f, c.Y - ry * 0.8f - r * 0.6f);
+            _c.Capsule(a, b, r, r, Mat.Metal, tank);
+            _c.Capsule(Lerp(a, b, 0.22f), Lerp(a, b, 0.78f), r * 0.55f, r * 0.55f, Mat.Glow, tank);
+            int pipe = Part(Zone.Body);
+            float pr = Mathf.Max(0.6f, r * 0.35f);
+            _c.Chain(new[] { a, a + new Vector2(-rx * 0.35f, -r * 0.5f), new Vector2(c.X - rx * 0.75f, c.Y - ry * 0.55f) }, pr, pr, Mat.Metal, pipe, -0.1f);
+        }
+        if (Has(Graft.Plating))
+        {
+            int plate = Part(Zone.Body);
+            var pc = new Vector2(c.X - rx * 0.42f, c.Y - ry * 0.3f);
+            _c.Ellipse(pc.X, pc.Y, rx * 0.5f, ry * 0.68f, Mat.Metal, plate, rot: -0.2f);
+            for (int i = -1; i <= 1; i++) // rivets
+                _c.Plot(Mathf.FloorToInt(pc.X + i * rx * 0.28f), Mathf.FloorToInt(pc.Y + ry * 0.38f), Mat.Metal, plate, 2);
+        }
+        if (Has(Graft.Core))
+        {
+            int core = Part(Zone.Body);
+            float r = Mathf.Max(2f, S * 0.055f);
+            var cc = new Vector2(c.X - rx * 0.5f, c.Y + ry * 0.1f);
+            _c.Ellipse(cc.X, cc.Y, r, r, Mat.Metal, core);
+            _c.Ellipse(cc.X, cc.Y, r * 0.6f, r * 0.6f, Mat.Glow, core, flat: true);
+            _c.Plot(Mathf.FloorToInt(cc.X - r * 0.2f), Mathf.FloorToInt(cc.Y - r * 0.2f), Mat.Glow, core, 2);
+        }
+    }
+
+    /// <summary>Grafts worked into the surface once everything is painted: veins, cracks, runes, burning tips.</summary>
+    void SurfaceGrafts()
+    {
+        var rng = new SeededRng(SeededRng.Derive(_sp.Seed, 0x6EAF));
+        bool Skin(int x, int y) => _c.MatAt(x, y) is Mat.Main or Mat.Second
+            && _zones.TryGetValue(_c.PartAt(x, y), out var z) && z is Zone.Body or Zone.Tail or Zone.Head or Zone.Limb;
+
+        if (Has(Graft.Veins) || Has(Graft.Cracks))
+        {
+            bool cracks = Has(Graft.Cracks);
+            for (int k = 0; k < (cracks ? 3 : 4); k++)
+            {
+                // A walk across the torso, mostly sideways: veins wander, cracks zigzag.
+                float x = _torsoC.X + rng.Range(-0.7f, 0.7f) * _torsoRx, y = _torsoC.Y + rng.Range(-0.5f, 0.4f) * _torsoRy;
+                int steps = Mathf.RoundToInt(S * (cracks ? 0.18f : 0.22f));
+                int dir = rng.Chance(0.5f) ? 1 : -1;
+                for (int s = 0; s < steps; s++)
+                {
+                    int px = Mathf.FloorToInt(x), py = Mathf.FloorToInt(y);
+                    if (Skin(px, py)) _c.Plot(px, py, Mat.Glow, _c.PartAt(px, py), cracks && s % 3 == 0 ? 2 : 1);
+                    x += dir * (rng.Chance(0.75f) ? 1 : 0);
+                    y += cracks ? (s % 2 == 0 ? 1 : -1) * (rng.Chance(0.6f) ? 1 : 0) : rng.Range(-0.8f, 0.8f);
+                }
+            }
+        }
+        if (Has(Graft.Runes))
+        {
+            var glyphs = new (int, int)[][]
+            {
+                new[] { (0, -1), (0, 0), (0, 1), (-1, 0), (1, 0) },
+                new[] { (-1, -1), (0, 0), (1, 1), (1, -1), (-1, 1) },
+                new[] { (0, -1), (-1, 1), (0, 1), (1, 1) },
+                new[] { (-1, -1), (-1, 0), (-1, 1), (0, 1), (1, 1) },
+            };
+            int count = S >= 50 ? 3 : 2;
+            for (int k = 0; k < count; k++)
+            {
+                int gx = Mathf.FloorToInt(_torsoC.X + (k - (count - 1) / 2f) * _torsoRx * 0.55f);
+                int gy = Mathf.FloorToInt(_torsoC.Y + (k % 2 == 0 ? -0.1f : 0.15f) * _torsoRy);
+                foreach (var (dx, dy) in glyphs[(k + (int)(_sp.Seed % 4)) % glyphs.Length])
+                    if (Skin(gx + dx, gy + dy)) _c.Plot(gx + dx, gy + dy, Mat.Glow, _c.PartAt(gx + dx, gy + dy));
+            }
+        }
+        if (Has(Graft.GlowTips))
+        {
+            // The top third of every horn, spike and crystal burns.
+            var span = new Dictionary<int, (int min, int max)>();
+            for (int y = 0; y < _c.H; y++)
+            for (int x = 0; x < _c.W; x++)
+            {
+                int part = _c.PartAt(x, y);
+                if (_c.MatAt(x, y) == Mat.None || !_zones.TryGetValue(part, out var z) || z != Zone.Tip) continue;
+                span[part] = span.TryGetValue(part, out var t) ? (t.min, y) : (y, y);
+            }
+            _c.Recolor((x, y) => _c.MatAt(x, y) is Mat.Accent or Mat.Second && span.TryGetValue(_c.PartAt(x, y), out var t)
+                && y <= t.min + (t.max - t.min) * 0.35f, Mat.Glow);
         }
     }
 

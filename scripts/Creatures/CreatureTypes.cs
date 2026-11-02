@@ -29,7 +29,28 @@ public enum Tail { None, Whip, Thick, Fluffy, Fan, Club, Curl }
 
 public enum Wings { None, Bat, Feather, Insect, Tiny }
 
-public enum Pattern { None, Belly, Stripes, Spots, Saddle, Tips, Cheeks }
+public enum Pattern { None, Belly, Stripes, Spots, Saddle, Tips, Markings }
+
+/// <summary>
+/// What a species is, beyond its anatomy (the Arcane-style setting): an ordinary beast, a clockwork
+/// graft from a Piltover-style lab, a Zaun-style chemtech mutant full of neon liquid, an arcane creature
+/// marked with runes, or an abyssal horror.
+/// </summary>
+public enum Strain { Natural, Clockwork, Chemtech, Arcane, Abyssal }
+
+/// <summary>Grafts and marks a strain adds on top of the parts.</summary>
+[System.Flags]
+public enum Graft
+{
+    None = 0, Plating = 1, MetalLimb = 2, Visor = 4, Core = 8, Canister = 16, Veins = 32, Drips = 64,
+    Runes = 128, GlowTips = 256, ExtraEyes = 512, Cracks = 1024,
+}
+
+public enum Weapon { Bite, Claws, Horns, Club, Whip, Hooves }
+
+public enum Armor { Hide, Shell, Spines, Crystal, Mane }
+
+public enum MoveType { Walk, Fly, Swim, Climb }
 
 /// <summary>Every part slot of one creature. A species fixes these; a mutation can swap one.</summary>
 public record struct PartSet(
@@ -48,14 +69,14 @@ public static class SizeInfo
         _ => 86,
     };
 
-    /// <summary>Small creatures get bigger heads and eyes: the baby schema that makes them cute.</summary>
+    /// <summary>Head size by size class. Kept close to 1: big heads read as cute, and these should read as dangerous.</summary>
     public static float HeadScale(SizeClass s) => s switch
     {
-        SizeClass.Tiny => 1.3f,
-        SizeClass.Small => 1.15f,
-        SizeClass.Medium => 1.0f,
-        SizeClass.Large => 0.92f,
-        _ => 0.85f,
+        SizeClass.Tiny => 1.05f,
+        SizeClass.Small => 1.0f,
+        SizeClass.Medium => 0.94f,
+        SizeClass.Large => 0.88f,
+        _ => 0.82f,
     };
 
     public static string Footprint(SizeClass s) => s switch

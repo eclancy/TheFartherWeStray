@@ -26,6 +26,9 @@ public sealed class Species
     /// <summary>Set for hand-authored species (the DrawPets cast): who designed it.</summary>
     public string Origin;
 
+    public Strain Strain;
+    public Graft Grafts;
+
     // Which palette material each part is coloured in. Generated species leave these null and the
     // painter rolls them; authored species can pin them (a ladybug's shell must be red).
     public Mat? SpikeMat, ShellMat, FeatherMat, SailMat, TuftMat, CrestMat;
@@ -50,14 +53,43 @@ public sealed class Species
         s.SnoutLen = rng.Range(0.7f, 1.3f);
         s.EyeSize = rng.Range(0.85f, 1.25f);
         s.WingSpread = rng.Float();
-        s.HornCurve = rng.Range(-1f, 1f);
+        s.HornCurve = rng.Range(-0.4f, 1f); // mostly swept back
         s.WingsFolded = rng.Chance(0.5f);
         s.MuzzleSecond = rng.Chance(0.4f);
 
         s.Parts = RollParts(s.Plan, rng);
         s.Palette = PaletteSpec.Roll(s.Element, rng);
+        s.Strain = rng.Weighted((Strain.Natural, 4.5f), (Strain.Clockwork, 1.8f), (Strain.Chemtech, 1.5f), (Strain.Arcane, 1.2f), (Strain.Abyssal, 1f));
+        s.Grafts = RollGrafts(s.Strain, rng);
+        if (s.Strain == Strain.Abyssal) s.Palette = s.Palette.Abyssal(rng);
         s.Name = CreatureNames.Make(s, rng);
         return s;
+    }
+
+    /// <summary>How strongly the neon rims this species: natural beasts get none.</summary>
+    public float RimStrength => Strain switch { Strain.Natural => 0, Strain.Abyssal => 0.6f, _ => 0.5f };
+
+    /// <summary>Each strain's grafts: two or three of its own, so two clockwork beasts still differ.</summary>
+    public static Graft RollGrafts(Strain strain, SeededRng rng)
+    {
+        Graft[] pool = strain switch
+        {
+            Strain.Clockwork => new[] { Graft.Plating, Graft.MetalLimb, Graft.Visor, Graft.Core },
+            Strain.Chemtech => new[] { Graft.Canister, Graft.Veins, Graft.Drips, Graft.MetalLimb },
+            Strain.Arcane => new[] { Graft.Runes, Graft.GlowTips, Graft.Core },
+            Strain.Abyssal => new[] { Graft.ExtraEyes, Graft.Cracks, Graft.Drips, Graft.GlowTips },
+            _ => System.Array.Empty<Graft>(),
+        };
+        Graft g = Graft.None;
+        int want = pool.Length == 0 ? 0 : rng.Int(2, System.Math.Min(3, pool.Length));
+        while (want > 0)
+        {
+            var pick = pool[rng.Int(pool.Length)];
+            if ((g & pick) != 0) continue;
+            g |= pick;
+            want--;
+        }
+        return g;
     }
 
     /// <summary>Rolls every slot, with each body plan's own odds (fish don't get antlers often).</summary>
@@ -116,7 +148,7 @@ public sealed class Species
         var pattern = plan == BodyPlan.Insectoid
             ? rng.Weighted((Pattern.Stripes, 3f), (Pattern.None, 1f), (Pattern.Spots, 1f), (Pattern.Saddle, 1f))
             : rng.Weighted((Pattern.None, 2f), (Pattern.Belly, 4f), (Pattern.Stripes, 1.2f), (Pattern.Spots, 1.2f),
-                           (Pattern.Saddle, 1f), (Pattern.Tips, 1.2f), (Pattern.Cheeks, 1f));
+                           (Pattern.Saddle, 1f), (Pattern.Tips, 1.2f), (Pattern.Markings, 1f));
 
         return new PartSet(head, ears, eyes, horns, back, limbs, tail, wings, pattern);
     }
@@ -153,7 +185,7 @@ public sealed class Creature
         var palette = species.Palette.Jitter(rng);
         c.Shiny = rng.Chance(1f / 24f);
         if (c.Shiny) palette = palette.Shiny(rng);
-        c.Palette = palette.Build();
+        c.Palette = BuildPalette(palette, species);
 
         if (rng.Chance(1f / 14f)) c.Mutate(rng);
         return c;
@@ -173,7 +205,7 @@ public sealed class Creature
             return new Creature
             {
                 Species = species, Seed = species.Seed, Parts = species.Parts, Size = species.BaseSize,
-                Attitude = species.CommonAttitude, Palette = species.Palette.Build(),
+                Attitude = species.CommonAttitude, Palette = BuildPalette(species.Palette, species),
                 BodyJitter = 1, LegJitter = 1, HeadJitter = 1,
             };
         }
@@ -203,31 +235,74 @@ public sealed class Creature
 
     public string Footprint => SizeInfo.Footprint(Size);
 
+    /// <summary>The part that is this creature's weapon (FFTA's weapon slot).</summary>
+    public Weapon Weapon
+    {
+        get
+        {
+            var p = Parts;
+            bool legs = Species.Plan is not (BodyPlan.Serpent or BodyPlan.Aquatic);
+            return p.Horns is Horns.NoseHorn or Horns.BrowHorn or Horns.TwinHorns or Horns.Antlers ? Weapon.Horns
+                : legs && p.Limbs == Limbs.Clawed ? Weapon.Claws
+                : p.Tail == Tail.Club ? Weapon.Club
+                : p.Tail == Tail.Whip ? Weapon.Whip
+                : legs && p.Limbs == Limbs.Hooved ? Weapon.Hooves
+                : Weapon.Bite;
+        }
+    }
+
+    /// <summary>The part that is its armour.</summary>
+    public Armor Armor => Parts.Back switch
+    {
+        Back.Shell => Armor.Shell,
+        Back.Spikes => Armor.Spines,
+        Back.Crystals => Armor.Crystal,
+        Back.Mane => Armor.Mane,
+        _ => Armor.Hide,
+    };
+
+    /// <summary>How it moves, from its wings or body plan (the accessory slot).</summary>
+    public MoveType MoveType =>
+        Parts.Wings is Wings.Bat or Wings.Feather or Wings.Insect ? MoveType.Fly
+        : Species.Plan is BodyPlan.Aquatic or BodyPlan.Serpent ? MoveType.Swim
+        : Species.Plan == BodyPlan.Insectoid ? MoveType.Climb
+        : MoveType.Walk;
+
     /// <summary>What the parts mean as FFTA equipment: weapon, armour, movement.</summary>
     public (string weapon, string armor, string move) Loadout()
     {
-        var p = Parts;
-        bool legs = Species.Plan is not (BodyPlan.Serpent or BodyPlan.Aquatic);
-        string weapon =
-            p.Horns is Horns.NoseHorn or Horns.BrowHorn or Horns.TwinHorns or Horns.Antlers ? $"{Words(p.Horns)} (charge)" :
-            legs && p.Limbs == Limbs.Clawed ? "claws (slash)" :
-            p.Tail == Tail.Club ? "tail club (smash)" :
-            p.Tail == Tail.Whip ? "whip tail (reach 2)" :
-            legs && p.Limbs == Limbs.Hooved ? "hooves (kick)" : "bite";
-        string armor = p.Back switch
+        string weapon = Weapon switch
         {
-            Back.Shell => "shell (heavy)",
-            Back.Spikes => "spines (thorns)",
-            Back.Crystals => "crystal hide",
-            Back.Mane => "thick mane",
+            Weapon.Horns => $"{Words(Parts.Horns)} (charge, knockback)",
+            Weapon.Claws => "claws (slash)",
+            Weapon.Club => "tail club (smash)",
+            Weapon.Whip => "whip tail (reach 2)",
+            Weapon.Hooves => "hooves (kick, knockback)",
+            _ => "fangs (bite)",
+        };
+        string armor = Armor switch
+        {
+            Armor.Shell => "shell (heavy)",
+            Armor.Spines => "spines (thorns)",
+            Armor.Crystal => "crystal hide",
+            Armor.Mane => "thick mane",
             _ => "bare hide",
         };
-        string move =
-            p.Wings is Wings.Bat or Wings.Feather or Wings.Insect ? "flies over gaps" :
-            Species.Plan is BodyPlan.Aquatic or BodyPlan.Serpent ? "swims" :
-            Species.Plan == BodyPlan.Insectoid ? "climbs" :
-            p.Wings == Wings.Tiny ? "glides down ledges" : "walks";
+        string move = MoveType switch
+        {
+            MoveType.Fly => "flies over gaps and water",
+            MoveType.Swim => "swims",
+            MoveType.Climb => "climbs cliffs",
+            _ => "walks",
+        };
         return (weapon, armor, move);
+    }
+
+    static CreaturePalette BuildPalette(PaletteSpec spec, Species species)
+    {
+        var p = spec.Build();
+        p.RimStrength = species.RimStrength;
+        return p;
     }
 
     public static string Words(Enum e)

@@ -5,7 +5,7 @@ using Godot;
 namespace CreatureTactics.Creatures;
 
 /// <summary>What a pixel is made of. Colours are only picked at the end, from the palette.</summary>
-public enum Mat : byte { None, Main, Second, Accent, Membrane, EyeWhite, Pupil, Mouth, Blush, Line }
+public enum Mat : byte { None, Main, Second, Accent, Membrane, Metal, EyeWhite, Pupil, Glow, Mouth, Line }
 
 /// <summary>
 /// A small pixel grid that creature parts are painted onto as shaded shapes, then resolved into a
@@ -199,7 +199,7 @@ public sealed class PixelCanvas
         }
     }
 
-    static bool IsDetail(Mat m) => m is Mat.EyeWhite or Mat.Pupil or Mat.Mouth or Mat.Line or Mat.Blush;
+    static bool IsDetail(Mat m) => m is Mat.EyeWhite or Mat.Pupil or Mat.Glow or Mat.Mouth or Mat.Line;
 
     /// <summary>
     /// Turns the painted grid into a sprite: tones, seams between parts, and the outer outline.
@@ -235,15 +235,30 @@ public sealed class PixelCanvas
             Color col = fourColor ? FourColor(pal, m, tone, accentTones) : FullColor(pal, m, tone);
 
             // Seam: this pixel borders a part painted after (in front of) it.
+            bool seam = false;
             if (!IsDetail(m))
             {
                 int part = _part[i];
                 Mat front = Neighbour4(x, y, j => _mat[j] != Mat.None && _part[j] > part && !IsDetail(_mat[j]));
-                if (front != Mat.None) col = fourColor ? pal.GbBlack : LineOf(pal, front);
+                if (front != Mat.None) { col = fourColor ? pal.GbBlack : LineOf(pal, front); seam = true; }
+            }
+            if (!fourColor && !seam && !IsDetail(m))
+            {
+                // Glow spill: skin next to something glowing picks up its light.
+                if (Neighbour4(x, y, j => _mat[j] == Mat.Glow) == Mat.Glow) col = col.Lerp(pal.Glow, 0.4f);
+                // Rim light: a neon backlight along the shadow-side silhouette, the Arcane look.
+                else if (pal.RimStrength > 0 && tone <= 2 && OnShadowEdge(x, y)) col = col.Lerp(pal.Glow, pal.RimStrength);
             }
             img.SetPixel(x, y, col);
         }
         return img;
+    }
+
+    /// <summary>A filled pixel on the lower-right edge of the silhouette, away from the light (not the feet).</summary>
+    bool OnShadowEdge(int x, int y)
+    {
+        bool Empty(int px, int py) => !Inside(px, py) || _mat[py * W + px] == Mat.None;
+        return Empty(x + 1, y) || (y < H - 3 && Empty(x, y + 1) && Empty(x + 1, y + 1));
     }
 
     /// <summary>
@@ -289,11 +304,12 @@ public sealed class PixelCanvas
         Mat.Second => pal.Second,
         Mat.Accent => pal.Accent,
         Mat.Membrane => pal.Membrane,
+        Mat.Metal => pal.Metal,
         _ => pal.Main,
     };
 
     static Color LineOf(CreaturePalette pal, Mat m) =>
-        m is Mat.Pupil or Mat.Mouth or Mat.Line or Mat.EyeWhite or Mat.Blush ? pal.Main.Line : RampOf(pal, m).Line;
+        m is Mat.Pupil or Mat.Glow or Mat.Mouth or Mat.Line or Mat.EyeWhite ? pal.Main.Line : RampOf(pal, m).Line;
 
     // Tones: 0 deep shadow, 1 shadow, 2 base, 3 highlight.
     static Color FullColor(CreaturePalette pal, Mat m, int tone)
@@ -303,7 +319,7 @@ public sealed class PixelCanvas
             case Mat.EyeWhite: return tone <= 1 ? pal.EyeShade : pal.EyeWhite;
             case Mat.Pupil: return tone == 3 ? pal.EyeWhite : pal.Pupil;
             case Mat.Mouth: return pal.Mouth;
-            case Mat.Blush: return pal.Blush;
+            case Mat.Glow: return tone == 3 ? pal.GlowHot : pal.Glow;
             case Mat.Line: return pal.Main.Line;
         }
         return RampOf(pal, m)[tone];
@@ -326,10 +342,11 @@ public sealed class PixelCanvas
         {
             Mat.Main => tone <= 1 ? Gb.Dark : tone == 3 ? Gb.White : Gb.Light,
             Mat.Second or Mat.Membrane => tone <= 1 ? Gb.Light : Gb.White,
-            Mat.Accent => accentTones[tone],
+            Mat.Accent or Mat.Metal => accentTones[tone],
             Mat.EyeWhite => Gb.White,
             Mat.Pupil => tone == 3 ? Gb.White : Gb.Black,
-            Mat.Mouth or Mat.Blush => Gb.Dark,
+            Mat.Glow => Gb.White,
+            Mat.Mouth => Gb.Dark,
             _ => Gb.Black,
         };
         return g switch { Gb.White => pal.GbWhite, Gb.Light => pal.GbLight, Gb.Dark => pal.GbDark, _ => pal.GbBlack };

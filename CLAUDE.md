@@ -85,12 +85,12 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   the skittish, a glowberry lures the curious). `--autoboard=12` on 2026-11-02: rout 12/14,
   capture 5/11 (was 3), hunt 12/12, hold out 11/11 (was 9). Aggressive and loyal captures are the
   weak spot. `--trace=TITLE` prints the full log of matching missions.
-- **Generals and the party (the user's direction, 2026-11-02, not built):** the player is a
-  general leading three creatures, maybe on the field, always boosting or altering the team; a
-  second party member later brings it to six; at most two characters and six creatures per
-  battle, swapped between battles. Decided points and open questions are in
-  `docs/design-notes.md`, with the shinies the user wants to think on. Don't build either
-  without the user.
+- **Wardens and the party (the user's direction, 2026-11-02):** the player leads creatures as a
+  warden (working name; the user wants something other than "general" and hasn't picked yet).
+  Wardens stay off the field and give passive boosts; each leads three creatures; at most two
+  wardens and six creatures per battle, swapped between battles. Details, defaults and open
+  questions are in `docs/design-notes.md`, with PvP (casual, turn timers, your own squad) and
+  shinies (1 in 512; the battle opens with a camera pan and a glint on each one).
 - **Online PvP is a goal** (2026-11-02, not built): see `docs/design-notes.md`. It leans on what
   already holds: rules apart from drawing, every roll from `SeededRng`. Keep it that way: no
   randomness or rule decisions in screens, so a match can be replayed from commands alone.

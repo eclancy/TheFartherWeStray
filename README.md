@@ -36,7 +36,11 @@ Every strain except natural gets a neon rim light and glow spill.
 `GODOT_BIN` is set in `.claude/settings.json` (Godot 4.5.1 mono). Build C# with
 `dotnet build CreatureTactics.sln`. On a fresh checkout, run `"$GODOT_BIN" --headless --path . --import` once.
 
-The game opens at your **home base**. **Tab** switches to the **Sprite Lab** and back. **N** mutes the
+The game opens on the **title**: Continue, New game, Load (three save slots, each showing where
+that game stands), Settings and Quit. A game starts at your **home base**; **Esc** there opens the
+menu (settings, save and return to the title, save and quit). **Settings** hold music and effects
+volume, mute, cutscene text speed, a battle turn timer and fullscreen, and are kept between
+sessions. **Tab** switches to the **Sprite Lab** and back. **N** mutes the
 sound and music (`--mute` starts muted, `--nomusic` plays without music).
 
 **Music** is made in code like everything else: a flute and harp at the ranch, a marching horn on

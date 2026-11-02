@@ -24,6 +24,8 @@ public partial class BaseScreen : Control
     public List<int> JustJoined = new(); // recruits from the last battle, to point out
     public bool AutoFight;               // --autoplay: head out on its own
     public string DemoGoTo;              // --goto=ID: walk to that station and use it (checking the walk and the stations)
+    public Action ToTitle;               // the pause menu's way back to the title
+    public bool DemoPause;               // --pause: open on the pause menu (screenshots)
     public static Vector2I? Standing;    // where you were, for coming back from a station
 
     const int Scale = 3;
@@ -90,6 +92,7 @@ public partial class BaseScreen : Control
         RanchScreen.AskChoice(this, Ranch, AutoFight, Flash, Refresh);
         if (AutoFight) GetTree().CreateTimer(1.5).Timeout += () => { if (IsInsideTree()) RanchScreen.AutoBattle(this, Ranch, Fight); };
         if (HomeBase.Get(DemoGoTo) is { } demo) GetTree().CreateTimer(0.6).Timeout += () => { if (IsInsideTree()) GoTo(demo); };
+        if (DemoPause) Pause();
     }
 
     // ------------------------------------------------------------------ the board
@@ -209,7 +212,7 @@ public partial class BaseScreen : Control
         _prompt.Position = new Vector2(0, 960);
         _prompt.Size = new Vector2(1920, 40);
         ui.AddChild(_prompt);
-        var hint = Ui.Text("Click: walk (or WASD / arrows)    E or click a station: use it    N: sound", 15, Dim, 4);
+        var hint = Ui.Text("Click: walk (or WASD / arrows)    E or click a station: use it    Esc: menu    N: sound", 15, Dim, 4);
         hint.Position = new Vector2(32, 1036);
         ui.AddChild(hint);
         foreach (var s in HomeBase.Stations)
@@ -260,8 +263,58 @@ public partial class BaseScreen : Control
         }
     }
 
+    // ------------------------------------------------------------------ the pause menu
+
+    CanvasLayer _pause;
+
+    /// <summary>Esc at the base: resume, the settings, save and go back to the title, or quit.</summary>
+    void Pause()
+    {
+        if (_pause != null) return;
+        _pause = new CanvasLayer { Layer = 4 };
+        AddChild(_pause);
+        var shade = new ColorRect { Color = new Color(0.02f, 0.01f, 0.05f, 0.7f), MouseFilter = MouseFilterEnum.Stop };
+        shade.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        _pause.AddChild(shade);
+        var col = new VBoxContainer { Position = new Vector2(760, 330) };
+        col.AddThemeConstantOverride("separation", 14);
+        _pause.AddChild(col);
+        col.AddChild(Ui.Text("PAUSED", 30, Gold, 8));
+        Button Item(string text, Action pressed)
+        {
+            var b = new Button { Text = text, CustomMinimumSize = new Vector2(400, 58) };
+            b.AddThemeFontSizeOverride("font_size", 22);
+            b.Pressed += pressed;
+            col.AddChild(b);
+            return b;
+        }
+        Item("Resume", Unpause).CallDeferred(Control.MethodName.GrabFocus);
+        Item("Settings", () =>
+        {
+            col.Visible = false;
+            var settings = new SettingsPanel { Position = new Vector2(640, 280) };
+            settings.Closed = () => { settings.QueueFree(); col.Visible = true; };
+            _pause.AddChild(settings);
+        });
+        Item("Save and return to title", () => { Standing = _you.Tile; Ranch.Save(); ToTitle?.Invoke(); });
+        Item("Save and quit", () => { Standing = _you.Tile; Ranch.Save(); GetTree().Quit(); });
+    }
+
+    void Unpause()
+    {
+        _pause?.QueueFree();
+        _pause = null;
+    }
+
     public override void _UnhandledInput(InputEvent e)
     {
+        if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape })
+        {
+            if (_pause == null) Pause(); else Unpause();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+        if (_pause != null) return;
         if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click)
         {
             if (StationAt(click.Position) is { } s) GoTo(s);

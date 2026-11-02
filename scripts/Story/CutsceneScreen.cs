@@ -345,7 +345,7 @@ public partial class CutsceneScreen : Control
         _advance = false;
         Audio.Sound.Play("tick");
         // Typed out; a press shows the rest at once.
-        for (float shown = 0; shown < text.Length && !_skipped; shown += (float)GetProcessDeltaTime() * 55)
+        for (float shown = 0; shown < text.Length && !_skipped; shown += (float)GetProcessDeltaTime() * Settings.CharsPerSecond)
         {
             if (_advance) { _advance = false; break; }
             _text.VisibleCharacters = (int)shown;

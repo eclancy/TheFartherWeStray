@@ -42,11 +42,50 @@ public partial class GameRoot : Node
         var args = ParseArgs(OS.GetCmdlineUserArgs());
         // Sound: every button clicks; N mutes, --mute starts muted.
         AddChild(new Audio.Sound());
-        Audio.Sound.Muted = args.ContainsKey("mute");
+        // The player's settings (volumes, mute, text speed, turn timer, fullscreen); --mute mutes on top.
+        UI.Settings.Load();
+        if (args.ContainsKey("mute")) Audio.Sound.Muted = true;
         // Music: rendered on a worker thread once the game starts (not for headless tests); --nomusic turns it off.
         Audio.Music.Off = args.ContainsKey("nomusic");
         if (DisplayServer.GetName() != "headless") AddChild(new Audio.Music());
         GetTree().NodeAdded += node => { if (node is BaseButton button) button.Pressed += () => Audio.Sound.Play("click"); };
+
+        if (args.ContainsKey("slotstest"))
+        {
+            // Save slots and settings without a screen, in test files (--slots=NAME, default slots_test):
+            // two games saved, their summaries read back, one deleted and made again; the settings kept
+            // after a save and load. Leaves slots 2 and 3 for a look at the title (--slots=NAME --title=load).
+            Ranching.Ranch.SlotPrefix = "user://" + args.GetValueOrDefault("slots", "slots_test");
+            for (int sl = 1; sl <= Ranching.Ranch.Slots; sl++) Ranching.Ranch.DeleteSlot(sl);
+            Ranching.Ranch MakeSlot(int sl, int day, int chem, string at, params string[] story)
+            {
+                var r = Ranching.Ranch.New();
+                (r.Day, r.Chem, r.Location) = (day, chem, at);
+                foreach (var m in story) r.Story.Add(m);
+                Ranching.Ranch.SavePath = Ranching.Ranch.SlotPath(sl);
+                r.Save();
+                return r;
+            }
+            var two = MakeSlot(2, 12, 340, "lantern", "main_foundry");
+            var three = MakeSlot(3, 94, 2029, "foundry", "main_foundry", "main_bridges", "main_coast");
+            bool kept = Ranching.Ranch.Peek(2)?.Day == 12 && Ranching.Ranch.Peek(3)?.Chem == 2029 && Ranching.Ranch.Peek(1) == null;
+            GD.Print($"slots used: {string.Join(", ", Enumerable.Range(1, Ranching.Ranch.Slots).Where(Ranching.Ranch.SlotUsed))}; read back {(kept ? "identical" : "DIFFERENT")}");
+            for (int sl = 1; sl <= Ranching.Ranch.Slots; sl++)
+                GD.Print($"  slot {sl}: {(Ranching.Ranch.Peek(sl) is { } r ? r.Summary() + $" (saved {Ranching.Ranch.SlotSaved(sl):HH:mm})" : "empty")}");
+            Ranching.Ranch.DeleteSlot(3);
+            bool gone = !Ranching.Ranch.SlotUsed(3);
+            MakeSlot(3, 94, 2029, "foundry", "main_foundry", "main_bridges", "main_coast");
+            GD.Print($"delete: slot 3 {(gone ? "gone" : "STILL THERE")}, then made again");
+            UI.Settings.Path = "user://settings_test.cfg";
+            (UI.Settings.Music, UI.Settings.Effects, UI.Settings.TextSpeed, UI.Settings.TurnTimer, UI.Settings.LastSlot) = (0.35f, 0.6f, 2, 30, 3);
+            UI.Settings.Save();
+            (UI.Settings.Music, UI.Settings.Effects, UI.Settings.TextSpeed, UI.Settings.TurnTimer, UI.Settings.LastSlot) = (1, 1, 0, 0, 1);
+            UI.Settings.Load();
+            bool same = Mathf.IsEqualApprox(UI.Settings.Music, 0.35f) && Mathf.IsEqualApprox(UI.Settings.Effects, 0.6f) && UI.Settings.TextSpeed == 2 && UI.Settings.TurnTimer == 30 && UI.Settings.LastSlot == 3;
+            GD.Print($"settings: {(same ? "kept" : "DIFFERENT")} after save and load (music {UI.Settings.Music:0.00}, effects {UI.Settings.Effects:0.00}, text {UI.Settings.Speeds[UI.Settings.TextSpeed]}, timer {UI.Settings.TurnTimer}s, last slot {UI.Settings.LastSlot})");
+            GetTree().Quit();
+            return;
+        }
 
         if (args.ContainsKey("scenetest"))
         {
@@ -1057,8 +1096,20 @@ public partial class GameRoot : Node
             Show(_home());
             return;
         }
-        // The game proper: the ranch, battles from it, and back.
+        // The game proper: the title (save slots and settings), then the base, battles from it, and back.
+        // Test and screenshot flags go straight in; --title opens the title anyway (=new|load|settings for a panel),
+        // --slots=NAME keeps the slots in other files.
+        _home = () => Base(new List<int>());
+        if (args.TryGetValue("slots", out var slotName) && slotName != "") Ranching.Ranch.SlotPrefix = $"user://{slotName}";
+        string[] direct = { "save", "newranch", "autoplay", "station", "labmode", "jobsmode", "partymode", "vatdemo", "scene", "mapmode", "boardmode", "dispatchdemo", "shopdemo", "goto", "choicedemo", "encounter", "losses", "select", "pause" };
+        if (args.ContainsKey("title") || !direct.Any(args.ContainsKey))
+        {
+            _titlePanel = args.GetValueOrDefault("title");
+            ShowTitle();
+            return;
+        }
         if (args.TryGetValue("save", out var saveName) && saveName != "") Ranching.Ranch.SavePath = $"user://{saveName}.json";
+        _demoPause = args.ContainsKey("pause");
         _ranch = args.ContainsKey("newranch") ? Ranching.Ranch.New() : Ranching.Ranch.Load();
         // --choicedemo: a main mission's choice waiting (screenshots; use it with --save=NAME).
         if (args.ContainsKey("choicedemo")) _ranch.Pending ??= "main_foundry";
@@ -1067,8 +1118,6 @@ public partial class GameRoot : Node
         // --losses=L: every rival has beaten you L times running (the board shows them cocky).
         if (args.TryGetValue("losses", out var ranchLosses) && int.TryParse(ranchLosses, out var rl)) foreach (var r in Party.RivalBook.All) _ranch.RivalLosses[r.Id] = rl;
         bool vatDemo = args.ContainsKey("vatdemo");
-        // Home is the base you walk around; its stations open the ranch's systems one at a time.
-        _home = () => Base(new List<int>());
         // Screenshots open a station directly: --labmode, --jobsmode, --partymode, --vatdemo, --station=ID (with --select=NAME).
         string station = args.GetValueOrDefault("station") ?? (args.ContainsKey("labmode") ? "lab" : args.ContainsKey("jobsmode") ? "yard" : args.ContainsKey("partymode") ? "war" : vatDemo ? "vats" : null);
         if (station != null) { Show(Station(station, vatDemo, args.GetValueOrDefault("select"))); return; }
@@ -1082,11 +1131,31 @@ public partial class GameRoot : Node
         else Show(_home());
     }
 
+    // Home is the base you walk around; its stations open the ranch's systems one at a time.
     Ranching.BaseScreen Base(List<int> joined)
     {
-        var home = new Ranching.BaseScreen { Ranch = _ranch, Use = UseStation, Fight = StartRanchBattle, JustJoined = joined, AutoFight = _autoPlay, DemoGoTo = _goTo };
+        var home = new Ranching.BaseScreen { Ranch = _ranch, Use = UseStation, Fight = StartRanchBattle, JustJoined = joined, AutoFight = _autoPlay, DemoGoTo = _goTo, DemoPause = _demoPause, ToTitle = ShowTitle };
         _goTo = null; // a demo walk happens once
+        _demoPause = false;
         return home;
+    }
+
+    void ShowTitle()
+    {
+        Show(new UI.TitleScreen { Start = StartSlot, Open = _titlePanel });
+        _titlePanel = null;
+    }
+
+    /// <summary>Plays a save slot: a new game there, or the one saved in it. It's the slot to continue next time.</summary>
+    void StartSlot(int slot, bool fresh)
+    {
+        Ranching.Ranch.SavePath = Ranching.Ranch.SlotPath(slot);
+        _ranch = fresh ? Ranching.Ranch.New() : Ranching.Ranch.Load();
+        if (fresh) _ranch.Save();
+        UI.Settings.LastSlot = slot;
+        UI.Settings.Save();
+        Ranching.BaseScreen.Standing = null;
+        Show(_home());
     }
 
     /// <summary>A station of the base, used: the gate goes out to the map; the rest open their part of the ranch.</summary>
@@ -1109,6 +1178,8 @@ public partial class GameRoot : Node
     int _shotFrames = -1, _recordFrames, _recorded;
     bool _recordWhole;
     string _goTo; // --goto=ID: at the base, walk to that station and use it
+    string _titlePanel; // --title=new|load|settings: open the title on that panel
+    bool _demoPause;   // --pause: open the base on its pause menu
 
     void Show(Node screen)
     {
@@ -1134,7 +1205,7 @@ public partial class GameRoot : Node
     {
         Show(new Tactics.BattleScreen
         {
-            Seed = mission.Seed, Mission = mission, Squad = _ranch.SquadCreatures(), AutoPlay = _autoPlay, Prepare = _ranch.LeadUnits,
+            Seed = mission.Seed, Mission = mission, Squad = _ranch.SquadCreatures(), AutoPlay = _autoPlay, Prepare = _ranch.LeadUnits, TurnSeconds = UI.Settings.TurnTimer,
             Finished = battle =>
             {
                 var joined = _ranch.AfterBattle(battle, mission);
@@ -1153,7 +1224,9 @@ public partial class GameRoot : Node
     {
         if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.N })
         {
-            Audio.Sound.Muted = !Audio.Sound.Muted;
+            UI.Settings.Muted = !Audio.Sound.Muted;
+            UI.Settings.Apply();
+            UI.Settings.Save();
             Audio.Sound.Play("click");
             return;
         }

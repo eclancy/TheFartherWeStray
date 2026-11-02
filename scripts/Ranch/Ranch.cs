@@ -158,6 +158,41 @@ public sealed class Ranch
         f.StoreString(JsonSerializer.Serialize(this, Json));
     }
 
+    // ------------------------------------------------------------------ save slots
+
+    public const int Slots = 3;
+    /// <summary>Where the slots live: slot 1 is the save from before slots (ranch.json), the rest ranch2, ranch3.</summary>
+    public static string SlotPrefix = "user://ranch";
+
+    public static string SlotPath(int slot) => slot == 1 ? $"{SlotPrefix}.json" : $"{SlotPrefix}{slot}.json";
+    public static bool SlotUsed(int slot) => FileAccess.FileExists(SlotPath(slot));
+
+    /// <summary>The ranch in a slot, read without making it the one being played.</summary>
+    public static Ranch Peek(int slot)
+    {
+        if (!SlotUsed(slot)) return null;
+        var keep = SavePath;
+        SavePath = SlotPath(slot);
+        try { return Load(); }
+        finally { SavePath = keep; }
+    }
+
+    /// <summary>When a slot was last saved (local time), or null if it's empty.</summary>
+    public static System.DateTime? SlotSaved(int slot) =>
+        SlotUsed(slot) ? System.DateTimeOffset.FromUnixTimeSeconds((long)FileAccess.GetModifiedTime(SlotPath(slot))).LocalDateTime : null;
+
+    static string Plural(int n, string what) => $"{n} {what}{(n == 1 ? "" : "s")}";
+
+    public static void DeleteSlot(int slot)
+    {
+        if (SlotUsed(slot)) DirAccess.RemoveAbsolute(ProjectSettings.GlobalizePath(SlotPath(slot)));
+    }
+
+    /// <summary>A slot in a line: where you are, the day, the roster, the story so far.</summary>
+    public string Summary() =>
+        $"{World.Country.Get(Location)?.Name ?? "The Ranch"}  ·  day {Day}  ·  {Creatures.Count} creatures  ·  {Chem} chem  ·  {Plural(Story.Count(m => World.StoryBook.Get(m)?.Ending == null), "main mission")}"
+        + (Ending != null ? $"  ·  ending: {World.StoryBook.Get(Ending)?.Ending}" : "");
+
     public int Add(Creature c, bool rested = true)
     {
         int id = NextId++;

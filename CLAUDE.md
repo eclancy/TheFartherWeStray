@@ -85,6 +85,17 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   off there. `BaseScreen.Standing` keeps where you stood. `--goto=ID` walks to a station and uses
   it; `--station=ID` (and `--labmode`, `--jobsmode`, `--partymode`, `--vatdemo`) opens one
   directly. New stations: a `StationDef` entry, a prop letter on the map, and a `Station` case.
+- **Title, save slots and settings (2026-11-02, the user's pick, built):** the game starts on
+  `UI/TitleScreen.cs` (the home base drifting behind the name; Continue, New game, Load, Settings,
+  Quit). Three slots (`Ranch.Slots`, `SlotPath`, `Peek`, `Summary`, `DeleteSlot`): slot 1 is the
+  old `user://ranch.json`, so saves from before slots are slot 1; overwriting or deleting asks
+  twice. `UI/Settings.cs` keeps music and effects volume, mute, cutscene text speed, the battle
+  turn timer, fullscreen and the last slot in `user://settings.cfg`, applied at start
+  (`Settings.Apply`); `SettingsPanel` edits them on the title and in the base's pause menu (Esc:
+  resume, settings, save and return to title, save and quit). N saves the mute. Test and
+  screenshot flags (`--save`, `--newranch`, `--autoplay`, `--station`, `--scene`, `--mapmode`...)
+  skip the title; `--title[=new|load|settings]` opens it anyway, `--slots=NAME` keeps slots in test
+  files, `--pause` opens the base's pause menu, `--slotstest` checks slots and settings headless.
 - Ranch and breeding (`scripts/Ranch/`, `Creatures/Breeding.cs`): a saved roster, squad picking,
   two-vat breeding (one child per pair; parents rest until the next battle), and the
   ranch-battle-ranch loop. Bred species exist only in the save, so `CreatureRecord` stores the
@@ -314,7 +325,7 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   from its icon in `SkillIcons`, so new skills get one for free. `--battle=3 --fxdemo` fires one of
   each; `"$GODOT_BIN" --fixed-fps 30 --path . -- --battle=3 --fxdemo --shot=10 --record=560` saves
   its frames to `.shots/rec/` for a GIF.
-- **Screens:** `"$GODOT_BIN" --path . -- --shot=40` (add `--autoplay` for mid-battle, `--save=X --newranch --mapmode`
+- **Screens:** `"$GODOT_BIN" --path . -- --shot=40` shows the title (`--save=X --newranch` for the base; add `--autoplay` for mid-battle, `--save=X --newranch --mapmode`
   for the country map, `--battle=3 --aim --shot=900`
   for the aimed-skill panel, `--lab` for
   the Lab) writes `.shots/shot.png`. It opens a window briefly.

@@ -124,6 +124,19 @@ fields up to two and fills their three slots each; battles apply the boosts befo
   duels and reaches its ending. Before, the headless squad never changed class (a test harness
   gap, fixed) and won about one duel in ten.
 
+## Title, save slots and settings (the user's pick, 2026-11-02; built)
+
+A title screen (the base drifting behind the name) with Continue, New game, Load, Settings and
+Quit; three save slots, each summarised (place, day, roster, chem, main missions, when saved),
+with overwriting and deleting asking twice; the old save is slot 1. Settings: music and effects
+volume, mute, cutscene text speed, a battle turn timer (off by default), fullscreen; kept in
+`user://settings.cfg`. Esc at the base opens a pause menu.
+
+**Open:**
+- [ ] More settings: key rebinding, a colour-blind palette for the side rings, screen shake?
+- [ ] Autosave on every return home (now: saves on station use, battles, and leaving)?
+- [ ] Naming a save, or a portrait of your squad on each slot?
+
 ## The home base (the user's direction, 2026-11-02; built)
 
 **The user's words:** all menus and systems grounded in a home base, where systems and areas

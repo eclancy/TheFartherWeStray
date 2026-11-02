@@ -124,6 +124,13 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   `--export=.shots/x.png --sheet=1` still writes the front views. `--only=Lung,Jelly` narrows
   `--forms`; adding `--idle=NAME` writes the idle loop as frames to `.shots/idle/NAME/` (make a GIF
   with ffmpeg: `-framerate 8 -i f%02d.png`).
+- **Skill effects** (2026-11-02): `Tactics/SkillFx.cs` draws them as board pixels with an additive
+  glow layer: projectiles from user to target, themed bursts, one wave per blast, rising motes for
+  heals and boosts, hit sparks, status marks. A skill's look (`FxTheme`: ember, frost, tide, leaf,
+  spark, stone, venom, shade, holy, arcane, brass, chem, sound, wind, boost, plain strike) comes
+  from its icon in `SkillIcons`, so new skills get one for free. `--battle=3 --fxdemo` fires one of
+  each; `"$GODOT_BIN" --fixed-fps 30 --path . -- --battle=3 --fxdemo --shot=10 --record=560` saves
+  its frames to `.shots/rec/` for a GIF.
 - **Screens:** `"$GODOT_BIN" --path . -- --shot=40` (add `--autoplay` for mid-battle, `--battle=3 --aim --shot=900`
   for the aimed-skill panel, `--lab` for
   the Lab) writes `.shots/shot.png`. It opens a window briefly.

@@ -17,6 +17,7 @@ public partial class BattleScreen : Control
     public ulong Seed = 1;
     public bool AutoPlay;   // the AI plays your side too (demos and screenshots)
     public bool DemoAim;    // on the first turn, aim a skill at the busiest tile (screenshots of the skill panel)
+    public bool DemoFx;     // show one skill of every look in turn, without touching the battle (--fxdemo)
     public bool DemoShiny;  // make the first wild creature shiny, to see the reveal (they're 1 in 512)
     public float TurnSeconds; // a turn timer (PvP will use one): your turn ends when it runs out; 0 for none
     double _turnLeft;
@@ -52,6 +53,7 @@ public partial class BattleScreen : Control
     Classes.SkillDef _skill;      // the skill being aimed (Mode.Skill)
     HBoxContainer _skillBar;
     readonly List<(List<Vector2I> area, Color color, double until)> _flashes = new();
+    SkillFx _fx;
     Mode _mode = Mode.Busy;
     Unit _active;
     Vector2I? _hoverTile;
@@ -163,6 +165,8 @@ public partial class BattleScreen : Control
         }
         _overlay = new BoardOverlay { Screen = this, ZIndex = 1 };
         _board.AddChild(_overlay);
+        _fx = new SkillFx { ZIndex = 300 };
+        _board.AddChild(_fx);
 
         foreach (var u in _battle.Units)
         {
@@ -205,7 +209,47 @@ public partial class BattleScreen : Control
             back.TweenProperty(_board, "position", home, 0.6f).SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
             await ToSignal(back, Tween.SignalName.Finished);
         }
-        RunTurns();
+        if (DemoFx) FxDemo();
+        else RunTurns();
+    }
+
+    /// <summary>--fxdemo: a creature fires one skill of each look at the nearest wild one, centred on screen.</summary>
+    async void FxDemo()
+    {
+        var user = _battle.Units.First(u => u.Side == Side.Player);
+        var foe = _battle.Units.Where(u => u.Side == Side.Wild && u.Size == 1).OrderBy(u => Battle.Dist(user, user.Pos, u)).First();
+        // Bring the target three tiles away (a demo: no turns are played after it).
+        var near = Enumerable.Range(0, _battle.Map.W * _battle.Map.H).Select(i => new Vector2I(i % _battle.Map.W, i / _battle.Map.W))
+            .Where(t => Mathf.Abs(t.X - user.Pos.X) + Mathf.Abs(t.Y - user.Pos.Y) == 3 && _battle.CanStand(foe, t))
+            .OrderBy(t => Mathf.Abs(_battle.Map.HeightAt(t) - _battle.Map.HeightAt(user.Pos))).FirstOrDefault(foe.Pos);
+        foe.Pos = near;
+        _views[foe].Place(near);
+        var mid = (_views[user].Position + _views[foe].Position) / 2 + new Vector2(0, -20);
+        _board.Position = new Vector2(960, 540) - mid * Scale;
+        var picks = new List<Classes.SkillDef>();
+        foreach (var theme in System.Enum.GetValues<FxTheme>())
+        {
+            bool Ranged(Classes.SkillDef s) => s.Range > 1 && !s.Leap && !s.AroundSelf;
+            var pick = Classes.ClassBook.Skills.Where(s => SkillFx.ThemeOf(s, user) == theme).OrderByDescending(Ranged).FirstOrDefault();
+            if (pick != null) picks.Add(pick);
+        }
+        picks.Add(Classes.ClassBook.Skills.First(s => s.AroundSelf && s.Power > 0));
+        await Wait(0.5f);
+        foreach (var s in picks)
+        {
+            bool onSelf = s.AroundSelf || s.Target is Classes.TargetKind.Self or Classes.TargetKind.Ally;
+            var centre = onSelf ? user.Pos : foe.Pos;
+            var view = _views[user];
+            var target = onSelf ? null : _views[foe];
+            Popup(view, s.Name, Gold, -10, SkillIcons.Skill(s, 1));
+            AddLog($"{s.Name}: {SkillFx.ThemeOf(s, user)}");
+            bool melee = s.Power > 0 && (s.Range <= 1 || s.Leap) && !s.AroundSelf;
+            if (target != null) view.Face(target.Position - view.Position);
+            await SkillEffect(new SkillEvent(user, s, centre, _battle.SkillArea(user, s, centre)), view, target, melee);
+            if (s.Power > 0 && target != null) { _fx.Hit(Body(target), 9, false); _views[foe].Hurt(0, false); }
+            if (s.Heal > 0) _fx.Rise(Body(view), view.Position, FxTheme.Leaf);
+            await Wait(0.55f);
+        }
     }
 
     // ------------------------------------------------------------------ geometry
@@ -801,6 +845,7 @@ public partial class BattleScreen : Control
                     await _views[s.A].Lunge(_views[s.T]);
                     break;
                 case DamageEvent d:
+                    _fx.Hit(Body(_views[d.U]), d.Amount, d.Miss);
                     _views[d.U].Hurt(d.Amount, d.Miss);
                     Popup(_views[d.U], d.Miss ? "miss" : d.Amount.ToString(), d.Miss ? Dim : Ink);
                     await Wait(0.22f);
@@ -813,12 +858,14 @@ public partial class BattleScreen : Control
                     break;
                 case RecruitEvent r:
                     _views[r.U].Recruited();
+                    _fx.Burst(Body(_views[r.U]), _views[r.U].Position, FxTheme.Holy);
                     Popup(_views[r.U], "joins!", Cyan);
                     AddLog($"{r.U.Name} joins you: {r.Why}.");
                     await Wait(0.7f);
                     break;
                 case HealEvent h:
                     _views[h.U].Heal(h.Amount);
+                    _fx.Rise(Body(_views[h.U]), _views[h.U].Position, FxTheme.Leaf);
                     Popup(_views[h.U], $"+{h.Amount}", new Color(0.5f, 1f, 0.6f));
                     await Wait(0.2f);
                     break;
@@ -841,11 +888,11 @@ public partial class BattleScreen : Control
                     bool melee = sk.Skill.Power > 0 && (sk.Skill.Range <= 1 || sk.Skill.Leap) && !sk.Skill.AroundSelf;
                     if (target != null) view.Face(target.Position - view.Position);
                     else if (sk.Center != sk.U.Pos) view.Face(FeetAt(sk.U, sk.Center) - view.Position);
-                    if (melee && target != null) await view.Lunge(target);
-                    else await view.Cast();
+                    await SkillEffect(sk, view, target, melee);
                     break;
                 }
                 case StatusEvent st:
+                    _fx.Status(Body(_views[st.U], 0.9f), _views[st.U].Position, st.Text);
                     Popup(_views[st.U], st.Text, Color.FromHtml("#c79bff"), 8);
                     _views[st.U].QueueRedraw();
                     await Wait(0.15f);
@@ -854,6 +901,68 @@ public partial class BattleScreen : Control
         }
         RefreshPanel();
     }
+
+    /// <summary>
+    /// A skill going off, in its theme: a strike lands with a burst; a ranged skill flies from the
+    /// user to its target and bursts over the area; skills around the user ripple out from it;
+    /// heals and boosts shine on whoever they reach.
+    /// </summary>
+    async Task SkillEffect(SkillEvent sk, UnitView view, UnitView target, bool melee)
+    {
+        var theme = SkillFx.ThemeOf(sk.Skill, sk.U);
+        var element = sk.U.Creature?.Species.Element;
+        var kind = SkillIcons.KindOf(sk.Skill);
+        var reached = _views.Values.Where(v => !v.Unit.Gone && v.Unit.Tiles.Any(sk.Area.Contains)).ToList();
+        if (melee && target != null)
+        {
+            var lunge = view.Lunge(target);
+            await Wait(0.19f);
+            _fx.Burst(Body(target), target.Position, theme, element);
+            foreach (var v in reached.Where(v => v != target && v != view)) _fx.Burst(Body(v), v.Position, theme, element, 0.6f);
+            await lunge;
+            return;
+        }
+        var cast = view.Cast();
+        await Wait(0.18f);
+        if (kind is SkillIcons.Kind.Heal or SkillIcons.Kind.Boost)
+        {
+            if (sk.Skill.AroundSelf) _fx.Wave(view.Position, (sk.Skill.Radius + 0.6f) * IsoArt.TW / 2f, theme, element);
+            foreach (var v in reached.Where(v => v.Unit.Side == sk.U.Side))
+            {
+                if (kind == SkillIcons.Kind.Heal) _fx.Burst(Body(v), v.Position, FxTheme.Holy, element, 0.5f);
+                else _fx.Rise(Body(v), v.Position, theme == FxTheme.Strike ? FxTheme.Boost : theme, element);
+            }
+        }
+        else if (kind == SkillIcons.Kind.Move)
+            _fx.Burst(Body(view, 0.25f), view.Position, FxTheme.Wind, element, 0.6f);
+        else if (sk.Skill.AroundSelf)
+        {
+            _fx.Wave(view.Position, (sk.Skill.Radius + 0.6f) * IsoArt.TW / 2f, theme, element);
+            await Wait(0.12f);
+            foreach (var v in reached.Where(v => v != view)) _fx.Burst(Body(v), v.Position, theme, element, 0.8f);
+        }
+        else
+        {
+            var to = target != null ? Body(target) : TileMid(sk.Center) + new Vector2(0, -6);
+            await _fx.Projectile(Body(view, 0.6f), to, theme, element);
+            if (sk.Area.Count > 1)
+            {
+                // A blast: one wave over the whole area, debris on every tile, the full hit on whoever's caught.
+                _fx.Wave(TileMid(sk.Center), (sk.Skill.Radius + 0.6f) * IsoArt.TW / 2f, theme, element);
+                foreach (var t in sk.Area.Where(t => !reached.Any(v => v.Unit.Tiles.Contains(t))))
+                    _fx.Burst(TileMid(t) + new Vector2(0, -3), TileMid(t), theme, element, 0.35f, piece: true);
+                foreach (var v in reached.Where(v => v != view)) _fx.Burst(Body(v), v.Position, theme, element, 0.8f);
+            }
+            else if (target != null) _fx.Burst(to, target.Position, theme, element);
+            else _fx.Burst(to, TileMid(sk.Center), theme, element, 0.7f);
+        }
+        await cast;
+    }
+
+    /// <summary>A point up a creature's body: 0 its feet, 1 the top of its sprite.</summary>
+    static Vector2 Body(UnitView v, float up = 0.5f) => v.Position + new Vector2(0, -v.SpriteHeight * up);
+
+    Vector2 TileMid(Vector2I t) => _art.TileCenter(new Vector2(t.X, t.Y), _battle.Map.HeightAt(t));
 
     /// <summary>Text rising over a creature (board pixels, so it scales with the board), with an icon above it if given.</summary>
     void Popup(UnitView v, string text, Color color, float dy = 0, Texture2D icon = null)

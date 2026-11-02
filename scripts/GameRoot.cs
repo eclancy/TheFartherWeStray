@@ -454,13 +454,14 @@ public partial class GameRoot : Node
         _lab = () => new SpriteLabScreen { SheetSeed = sheet, SpeciesView = species, DrawPets = drawPets, FourColor = four };
         _autoPlay = args.ContainsKey("autoplay");
         _shotFrames = args.TryGetValue("shot", out var shot) && int.TryParse(shot, out var f) ? f : -1;
+        _recordFrames = args.TryGetValue("record", out var recordArg) && int.TryParse(recordArg, out var recordCount) ? recordCount : 0;
 
         if (args.ContainsKey("lab") || drawPets || species != null) { _home = _lab; Show(_lab()); return; }
         if (args.TryGetValue("battle", out var oneOff))
         {
             // A one-off battle with the default squad, no ranch involved.
             ulong seed = ulong.TryParse(oneOff, out var bs) ? bs : 1;
-            _home = () => new Tactics.BattleScreen { Seed = seed, AutoPlay = _autoPlay, DemoAim = args.ContainsKey("aim"), DemoShiny = args.ContainsKey("shiny"), TurnSeconds = args.TryGetValue("timer", out var timerArg) && float.TryParse(timerArg, out var timerSeconds) ? timerSeconds : 0, MapName = args.TryGetValue("map", out var mapName) ? mapName : "Undercity Foundry" };
+            _home = () => new Tactics.BattleScreen { Seed = seed, AutoPlay = _autoPlay, DemoAim = args.ContainsKey("aim"), DemoFx = args.ContainsKey("fxdemo"), DemoShiny = args.ContainsKey("shiny"), TurnSeconds = args.TryGetValue("timer", out var timerArg) && float.TryParse(timerArg, out var timerSeconds) ? timerSeconds : 0, MapName = args.TryGetValue("map", out var mapName) ? mapName : "Undercity Foundry" };
             Show(_home());
             return;
         }
@@ -476,7 +477,7 @@ public partial class GameRoot : Node
     Ranching.Ranch _ranch;
     bool _autoPlay;
     Node _screen;
-    int _shotFrames = -1;
+    int _shotFrames = -1, _recordFrames, _recorded;
 
     void Show(Node screen)
     {
@@ -510,10 +511,20 @@ public partial class GameRoot : Node
     public override void _Process(double delta)
     {
         // --shot=N: save frame N to .shots/shot.png and quit (how screen changes get checked).
+        // --record=K: then save the next K frames' middle (960x540, full size) to .shots/rec/ (run with --fixed-fps 30 for real time).
         if (_shotFrames < 0 || --_shotFrames > 0) return;
         string dir = ProjectSettings.GlobalizePath("res://.shots");
         DirAccess.MakeDirRecursiveAbsolute(dir);
-        GetViewport().GetTexture().GetImage().SavePng($"{dir}/shot.png");
+        var frame = GetViewport().GetTexture().GetImage();
+        if (_recorded < _recordFrames)
+        {
+            DirAccess.MakeDirRecursiveAbsolute($"{dir}/rec");
+            frame = frame.GetRegion(new Rect2I(frame.GetWidth() / 4, frame.GetHeight() / 4, frame.GetWidth() / 2, frame.GetHeight() / 2));
+            frame.SavePng($"{dir}/rec/f{_recorded++:000}.png");
+            _shotFrames = 1;
+            return;
+        }
+        frame.SavePng($"{dir}/shot.png");
         GetTree().Quit();
     }
 

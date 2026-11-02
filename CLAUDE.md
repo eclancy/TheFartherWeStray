@@ -130,7 +130,8 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   duel lost to a rival in a row makes them cocky: they bring one creature fewer, then two
   (`RivalBook.Fewer`, `Ranch.RivalLosses`, saved; never under two; a win resets it). **Prizes
   (the user's pick, 2026-11-02): every win draws one by rarity** from `RivalDef.Prizes`
-  (`RivalBook.Draw`: common 55%, uncommon 30, rare 12, very rare 3, then a prize of that rarity):
+  (`RivalBook.Draw`: common 57%, uncommon 30, rare 12, very rare 1 (the user's call: 3% shiny
+  was too common), then a prize of that rarity):
   items or chem (common); their signature gear (in `GearBook.Gear`, never sold), their augments,
   a title (once, `Ranch.Titles`, saved; names are placeholders) (uncommon); an egg from their line
   (rare; shiny, very rare): `RivalBook.Egg` breeds two species to their taste, given their blood,

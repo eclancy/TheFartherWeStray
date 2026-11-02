@@ -153,8 +153,11 @@ public static class RivalBook
         new() { Rarity = Rarity.VeryRare, Egg = true, Shiny = true },
     }).ToArray();
 
-    /// <summary>How often each rarity is drawn, in percent (among those with a prize left to draw).</summary>
-    public static int Odds(Rarity r) => r switch { Rarity.Common => 55, Rarity.Uncommon => 30, Rarity.Rare => 12, _ => 3 };
+    /// <summary>
+    /// How often each rarity is drawn, in percent (among those with a prize left to draw). The shiny
+    /// egg is 1 in 100 (the user's call, 2026-11-02: 3% was too common).
+    /// </summary>
+    public static int Odds(Rarity r) => r switch { Rarity.Common => 57, Rarity.Uncommon => 30, Rarity.Rare => 12, _ => 1 };
 
     public static string Word(Rarity r) => r == Rarity.VeryRare ? "very rare" : r.ToString().ToLowerInvariant();
 

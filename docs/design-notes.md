@@ -204,7 +204,8 @@ first version, and is open to change.
 - **Prizes (the user's pick, 2026-11-02):** asked whether the prize should be an egg, a graft or a
   title, the user chose all of them in a list with rarity, and a random prize on every win (repeat
   wins still pay chem as before). Each rival has a hoard (`RivalDef.Prizes`); a win draws a rarity
-  (common 55%, uncommon 30%, rare 12%, very rare 3%), then one of its prizes:
+  (common 57%, uncommon 30%, rare 12%, very rare 1%: the user found 3% too common for a shiny),
+  then one of its prizes:
   - common: items for the bag (tonics, smelling salts, snare nets, chimes, glowberries) or a purse
     of chem;
   - uncommon: their signature gear (Brass Gorget, Witch's Phial, Fang Necklace, Occult Sigil,
@@ -222,7 +223,8 @@ first version, and is open to change.
 **Open:**
 - [ ] Who the rivals are (names, looks, why they breed what they breed): the story.
 - [x] Should beating a rival give something unique? Yes: a random prize every win, by rarity (above).
-- [ ] Prize odds and hoards are defaulted: is the egg (12%, 3% shiny) too rare or too common?
+- [x] The shiny egg: 1 in 100 a win (the user's call, 2026-11-02).
+- [ ] The rest of the odds and hoards are defaulted: is the egg (12%) too rare or too common?
 - [ ] How often they come back (now: every other board, taking turns), and whether you can refuse.
 - [ ] The round limit and its tie-break (defaulted, for duels and later PvP).
 

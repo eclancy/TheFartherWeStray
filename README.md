@@ -194,6 +194,12 @@ shows its map, difficulty, chem reward and objective:
 | Cup | at the Grand Coliseum: three duels in a row against named contenders; take the cup for a big prize |
 | Dispatch | no battle: send one creature off on a pun-titled job for a few days; the better it suits, the likelier it comes back with chem |
 
+**Shops** at most places sell **gear** (one piece per creature: a collar, a scarf, knuckle caps,
+a rebreather...) and **items** for battle: snare nets to catch a worn-down wild creature,
+soothing chimes to stop one moving, tonics, smelling salts and extra glowberries. Each place
+sells its own stock, priced in chem; you buy where you stand (S on the map). Put gear on at the
+ranch (Gear); items appear in the battle's command bar with their counts.
+
 **Roaming packs** wander the country, a few at a time, moving on most days. Each shows on the
 map as its leader. Travel goes a road a day, and arriving where a pack is means fighting it first;
 or go after one on purpose for its creatures.

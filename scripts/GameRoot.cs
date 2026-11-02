@@ -206,6 +206,65 @@ public partial class GameRoot : Node
             return;
         }
 
+        if (args.ContainsKey("shoptest"))
+        {
+            // The shops without a screen: buy where you stand (and not elsewhere), wear gear, use items
+            // in a battle (a snare net on a worn-down wild creature, a tonic), then the bag after it.
+            Ranching.Ranch.SavePath = "user://shop_test.json";
+            var ranch = Ranching.Ranch.New();
+            ranch.Chem = 400;
+            ranch.Story.Add("main_foundry");
+            ranch.TravelTo("gardens");
+            foreach (var id in new[] { "bell_collar", "tonic", "tonic", "soothing_chime", World.ShopBook.Berry, "snare_net" })
+                GD.Print("  " + ranch.Buy(World.ShopBook.Stock.First(w => w.Id == id)));
+            ranch.TravelTo("lantern");
+            for (int k = 0; k < 6; k++) GD.Print("  " + ranch.Buy(World.ShopBook.Stock.First(w => w.Id == "snare_net")));
+            GD.Print($"  at {ranch.Location}: {string.Join(", ", World.ShopBook.At(ranch, ranch.Location).Select(w => $"{World.ShopBook.Name(w.Id)} {w.Price}"))}");
+            int blaze = ranch.Creatures.First(r => r.Species.Name == "Blaze").Id;
+            var before = Tactics.Unit.From(ranch.Get(blaze), Tactics.Side.Player, ranch.Record(blaze).Training);
+            GD.Print("  " + ranch.Equip(blaze, "bell_collar"));
+            var after = Tactics.Unit.From(ranch.Get(blaze), Tactics.Side.Player, ranch.Record(blaze).Training);
+            GD.Print($"gear: Blaze DEF {before.Def} -> {after.Def}, evade {before.Mod(Classes.StatKind.Evade)} -> {after.Mod(Classes.StatKind.Evade)}");
+
+            var mission = new Tactics.Mission { Seed = 9, MapName = "Lantern Row", Goal = Tactics.Objective.Rout, Pack = 3 };
+            var battle = mission.CreateBattle(ranch.SquadCreatures());
+            ranch.LeadUnits(battle);
+            GD.Print($"bag in battle: {string.Join(", ", battle.Bag.Select(kv => $"{kv.Key} x{kv.Value}"))}; berries {battle.Berries}");
+            var thrower = battle.Units.First(u => u.Side == Tactics.Side.Player);
+            var net = Classes.ClassBook.Skill("snare_net");
+            int caught = 0, throws = 0;
+            foreach (var wild in battle.Units.Where(u => u.Side == Tactics.Side.Wild).ToList())
+            {
+                wild.Hp = 1; // worn right down
+                var spot = Enumerable.Range(0, battle.Map.W * battle.Map.H).Select(i => new Godot.Vector2I(i % battle.Map.W, i / battle.Map.W))
+                    .FirstOrDefault(p => battle.CanStand(thrower, p) && Tactics.Battle.Dist(thrower, p, wild) <= 3, new Godot.Vector2I(-1, -1));
+                if (spot.X < 0 || battle.Bag.GetValueOrDefault("snare_net") == 0) continue;
+                thrower.Pos = spot;
+                // Throw until it's caught or the nets run out.
+                while (wild.Side == Tactics.Side.Wild && !wild.Gone && battle.Bag.GetValueOrDefault("snare_net") > 0)
+                {
+                    throws++;
+                    int mark = battle.Events.Count;
+                    battle.Order(Tactics.CommandKind.Skill, thrower, wild.Pos, skill: net);
+                    GD.Print("    " + string.Join(" / ", battle.Events.Skip(mark).Select(Tactics.Encounter.Describe).Where(d => !d.StartsWith("--"))));
+                }
+                if (wild.Side == Tactics.Side.Player) caught++;
+            }
+            GD.Print($"nets: {throws} thrown at worn-down wild creatures, {caught} caught (60% a throw); recruited {battle.Recruited.Count}");
+            thrower.Hp = thrower.MaxHp / 2;
+            int hp = thrower.Hp;
+            battle.Order(Tactics.CommandKind.Skill, thrower, thrower.Pos, skill: Classes.ClassBook.Skill("tonic"));
+            GD.Print($"tonic: {hp} -> {thrower.Hp} HP; used {string.Join(", ", battle.Used.Select(kv => $"{kv.Key} x{kv.Value}"))}");
+            while (battle.Winner == null && battle.Round <= 30) { var u = battle.NextTurn(); if (u == null) break; battle.AiTurn(u); }
+            ranch.AfterBattle(battle, mission);
+            GD.Print($"bag after: {string.Join(", ", ranch.Items.Select(kv => $"{kv.Key} x{kv.Value}"))}; chem {ranch.Chem}");
+            var back = Ranching.Ranch.Load();
+            bool kept = back.Items.Count == ranch.Items.Count && back.Items.All(kv => ranch.Items.GetValueOrDefault(kv.Key) == kv.Value) && back.Record(blaze).Training.Gear == "bell_collar";
+            GD.Print($"shop: {(kept ? "kept" : "DIFFERENT")} after save and load (Blaze wears {back.Record(blaze).Training.Gear})");
+            GetTree().Quit();
+            return;
+        }
+
         if (args.TryGetValue("rivals", out var rivalTries))
         {
             // Every rival tamer at their first three turns on the board (beaten each time before), against
@@ -691,7 +750,9 @@ public partial class GameRoot : Node
                 int duelWins = args.TryGetValue("wins", out var winsArg) && int.TryParse(winsArg, out var wv) ? wv : 0;
                 duel = Tactics.Mission.Duel(Party.RivalBook.All[duelIndex % Party.RivalBook.All.Length], duelEnc, duelWins, seed);
             }
-            _home = () => new Tactics.BattleScreen { Seed = seed, Mission = duel, AutoPlay = _autoPlay, DemoAim = args.ContainsKey("aim"), DemoFx = args.ContainsKey("fxdemo"), DemoShiny = args.ContainsKey("shiny"), TurnSeconds = args.TryGetValue("timer", out var timerArg) && float.TryParse(timerArg, out var timerSeconds) ? timerSeconds : 0, MapName = args.TryGetValue("map", out var mapName) ? mapName : "Undercity Foundry" };
+            // --bag: a few shop items in the bag, to see them in the command bar.
+            System.Action<Tactics.Battle> bag = args.ContainsKey("bag") ? b => b.Pack(new Dictionary<string, int> { ["snare_net"] = 3, ["soothing_chime"] = 1, ["tonic"] = 2, ["smelling_salts"] = 1 }) : null;
+            _home = () => new Tactics.BattleScreen { Seed = seed, Mission = duel, Prepare = bag, AutoPlay = _autoPlay, DemoAim = args.ContainsKey("aim"), DemoFx = args.ContainsKey("fxdemo"), DemoShiny = args.ContainsKey("shiny"), TurnSeconds = args.TryGetValue("timer", out var timerArg) && float.TryParse(timerArg, out var timerSeconds) ? timerSeconds : 0, MapName = args.TryGetValue("map", out var mapName) ? mapName : "Undercity Foundry" };
             Show(_home());
             return;
         }
@@ -704,12 +765,13 @@ public partial class GameRoot : Node
         _home = () => new Ranching.RanchScreen { Ranch = _ranch, Fight = StartRanchBattle, OpenMap = ShowMap, VatDemo = vatDemo, AutoFight = _autoPlay, StartInLab = args.ContainsKey("labmode"), StartOnParty = args.ContainsKey("partymode"), StartOnJobs = args.ContainsKey("jobsmode") };
         // --mapmode (or --boardmode, from before the map) opens on the country map.
         _demoDispatch = args.ContainsKey("dispatchdemo");
-        if (args.ContainsKey("mapmode") || args.ContainsKey("boardmode") || _demoDispatch) ShowMap();
+        _demoShop = args.ContainsKey("shopdemo");
+        if (args.ContainsKey("mapmode") || args.ContainsKey("boardmode") || _demoDispatch || _demoShop) ShowMap();
         else Show(_home());
     }
 
-    void ShowMap() => Show(new World.CountryScreen { Ranch = _ranch, Fight = StartRanchBattle, Back = () => Show(_home()), DemoDispatch = _demoDispatch });
-    bool _demoDispatch;
+    void ShowMap() => Show(new World.CountryScreen { Ranch = _ranch, Fight = StartRanchBattle, Back = () => Show(_home()), DemoDispatch = _demoDispatch, DemoShop = _demoShop });
+    bool _demoDispatch, _demoShop;
 
     System.Func<Node> _lab, _home;
     Ranching.Ranch _ranch;

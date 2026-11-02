@@ -153,6 +153,16 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   where a pack is and it attacks first (`TravelTo` returns it). Packs are on the board as fights
   to seek out, drawn on the map as their leader's sprite; their creatures come from where they
   first turned up (`Mission.FaunaMap`). Beaten packs are gone; they don't count as contracts.
+- **The shop (2026-11-02, built):** `Classes/Gear.cs` holds the wares as data: gear is a
+  `PassiveDef` with `Class = "Gear"` (one slot, `Training.Gear`, merged into `Unit.Passive` and
+  baked into stats like a shiny's), items are `SkillDef`s with `Class = "Item"` (a count in
+  `Battle.Bag` instead of a cooldown; aimed like skills; `Catch`/`CatchChance` for the snare net).
+  `World/Shop.cs` says which place sells what for how much chem, some only after a main mission
+  or a cup. `Ranch.Items` is the bag (saved); `Ranch.Buy` only where you stand; `Ranch.Equip`;
+  `LeadUnits` packs the bag into a battle and `AfterBattle` takes out what was used (glowberries
+  only past the three every battle brings). The AI never uses items. Shop button (S) on the map's
+  place panel (it can travel you there); Gear button on the ranch. `--shoptest` checks it all;
+  `--shopdemo` and `--battle=N --bag` are for screenshots.
 - **Sound (begun 2026-11-02):** `scripts/Audio/`. Every sound is made in code like the sprites:
   `SfxSynth` sums voices (square, triangle, saw, sine, noise; pitch slides, envelopes, low-pass,
   vibrato, tremolo) into 22 kHz mono, and `SoundBook` holds the 40 sounds as data (menus, steps,
@@ -171,8 +181,8 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   match can't be replayed from its commands. `BattleScreen.TurnSeconds` is the turn timer
   (`--timer=N`).
 - Not built yet: story and cutscenes (themes and three endings set by the user, in
-  `docs/story-notes.md`), story flags beyond the main-mission chain, the shop, traits and
-  augments, music, and the network side of PvP. The
+  `docs/story-notes.md`), story flags beyond the main-mission chain, traits and augments
+  (augments will be wares at undercity shops), music, and the network side of PvP. The
   user's direction and a suggested build order are in `docs/design-notes.md`.
 
 ## Build and check

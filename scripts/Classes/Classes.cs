@@ -42,6 +42,7 @@ public sealed class SkillDef
     public float HealOnKill;         // share of max HP regained if the hit kills
     public float Desperate;          // extra damage multiplier while the user is below half HP
     public float Execute;            // extra damage multiplier against a foe below 40% HP
+    public float Catch, CatchChance; // a snare: below this share of its HP, a free wild creature is caught with this chance
 }
 
 
@@ -121,6 +122,7 @@ public sealed class Training
     public List<string> Masteries = new(); // classes trained to three stars
     public string Passive;  // the support passive equipped, from any class trained
     public string Reaction; // the reaction equipped (FFTA's R-ability slot)
+    public string Gear;     // the gear it wears, bought at a shop (one slot)
 
     public int JpIn(string cls) => Jp.TryGetValue(cls, out int v) ? v : 0;
     public int LearnedIn(string cls) => Skills.Count(id => ClassBook.Skill(id).Class == cls);
@@ -182,7 +184,7 @@ public sealed class Training
         return t;
     }
 
-    public Training Copy() => new() { Class = Class, Secondary = Secondary, Jp = new(Jp), Skills = new(Skills), Innate = Innate, Passives = new(Passives), Passive = Passive, Reaction = Reaction, Masteries = new(Masteries) };
+    public Training Copy() => new() { Class = Class, Secondary = Secondary, Jp = new(Jp), Skills = new(Skills), Innate = Innate, Passives = new(Passives), Passive = Passive, Reaction = Reaction, Masteries = new(Masteries), Gear = Gear };
 }
 
 /// <summary>Every class and skill. The notes' MVP: six base classes and three unlockable ones, two of which need a part.</summary>
@@ -731,7 +733,7 @@ public static class ClassBook
     public static PassiveDef ShinyPassive(Creature c) =>
         c.Shiny ? ShinyPassives[(int)(SeededRng.Derive(c.Seed, 0x5419) % (ulong)ShinyPassives.Length)] : null;
 
-    static readonly Dictionary<string, PassiveDef> _passives = Passives.Concat(ShinyPassives).ToDictionary(p => p.Id);
+    static readonly Dictionary<string, PassiveDef> _passives = Passives.Concat(ShinyPassives).Concat(GearBook.Gear).ToDictionary(p => p.Id);
     public static PassiveDef Passive(string id) => id != null && _passives.TryGetValue(id, out var p) ? p : null;
     public static List<PassiveDef> PassivesOf(string cls) => Passives.Where(p => p.Class == cls).OrderBy(p => p.Kind).ToList();
 
@@ -758,7 +760,7 @@ public static class ClassBook
         return atk > 0 ? "ATK +1" : def > 0 ? "DEF +1" : spd > 0 ? "SPD +1" : $"max HP +{hp}";
     }
 
-    static readonly Dictionary<string, SkillDef> _skills = Skills.ToDictionary(s => s.Id);
+    static readonly Dictionary<string, SkillDef> _skills = Skills.Concat(GearBook.Items).ToDictionary(s => s.Id);
     static readonly Dictionary<string, ClassDef> _classes = Classes.ToDictionary(c => c.Id);
 
     public static SkillDef Skill(string id) => _skills[id];

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using CreatureTactics.Classes;
 using CreatureTactics.Creatures;
 using CreatureTactics.Ranching;
 using CreatureTactics.Tactics;
@@ -21,6 +23,7 @@ public partial class CountryScreen : Control
     public Action<Mission> Fight;
     public Action Back;
     public bool DemoDispatch;   // --dispatchdemo: open on the first dispatch's chooser (screenshots)
+    public bool DemoShop;       // --shopdemo: open on the shop where you stand (screenshots)
 
     const int Scale = 4;
     static readonly Vector2 MapAt = new(40, 112);
@@ -32,7 +35,7 @@ public partial class CountryScreen : Control
     bool _travelling;
     List<Mission> _board = new();
     MissionBoardPanel _missions;
-    PanelContainer _chooser;
+    PanelContainer _chooser, _shop;
     readonly Dictionary<int, (Texture2D tex, Vector2I anchor)> _packs = new(); // each roaming pack's leader, painted once
     VBoxContainer _place;
     Label _status;
@@ -65,6 +68,7 @@ public partial class CountryScreen : Control
         Select(first?.Location ?? Ranch.Location);
         _status.Text = "Pick a place, then a mission; Depart (F) travels there and starts it. Esc: back to the ranch.";
         if (DemoDispatch && _board.FirstOrDefault(m => m.Dispatch != null) is { } job) { Select(job.Location); Choose(job.Dispatch); }
+        if (DemoShop && ShopBook.At(Ranch, Ranch.Location).Count > 0) { Select(Ranch.Location); OpenShop(Ranch.Location); }
     }
 
     static Vector2 Screen(LocationDef l) => MapAt + new Vector2(l.At.X, l.At.Y) * Scale;
@@ -103,6 +107,13 @@ public partial class CountryScreen : Control
             new Chip("move", id == Ranch.Location ? "you are here" : $"{days} {(days == 1 ? "day" : "days")} away", id == Ranch.Location ? Green : Ink, "each road takes a day"),
             new Chip("clock", $"day {Ranch.Day}", Dim, "days travelled so far"),
         }, 16));
+        CloseShop();
+        if (ShopBook.At(Ranch, id).Count > 0)
+        {
+            var shop = new Button { Text = "Shop  (S)", FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(140, 36), SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
+            shop.Pressed += () => OpenShop(id);
+            _place.AddChild(shop);
+        }
 
         var here = _board.Where(m => m.Location == id).ToList();
         _missions.Visible = l.MapName != null;
@@ -135,29 +146,7 @@ public partial class CountryScreen : Control
         if (Ranch.Squad.Count == 0) { _status.Text = "Pick at least one creature for the squad at the ranch (S)."; return; }
         _travelling = true;
         Audio.Sound.Play("depart");
-        // Walk the token along the roads, a day at every place on the way; a roaming pack there stops you.
-        var route = Country.Route(Ranch, Ranch.Location, m.Location) ?? new List<string> { m.Location };
-        foreach (var stop in route.Skip(1))
-        {
-            var tween = CreateTween();
-            tween.TweenMethod(Callable.From<Vector2>(p => { _token = p; QueueRedraw(); }), _token, Screen(Country.Get(stop)), 0.35f)
-                .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
-            await ToSignal(tween, Tween.SignalName.Finished);
-            Audio.Sound.Play("step", 1.2f);
-            if (Ranch.TravelStep(stop) is { } met)
-            {
-                Ranch.Save();
-                if (met.Id != m.Roamer)
-                {
-                    _status.Text = $"A roaming pack at {Country.Get(stop).Name} blocks the road!";
-                    Audio.Sound.Play("gong", 1.4f);
-                    await ToSignal(GetTree().CreateTimer(1.0), SceneTreeTimer.SignalName.Timeout);
-                }
-                Fight?.Invoke(Roaming.Battle(met));
-                return;
-            }
-        }
-        Ranch.Save();
+        if (await WalkTo(m.Location, m.Roamer)) return;
         // Going after a pack that moved on while you travelled finds only its tracks.
         if (m.Roamer != 0)
         {
@@ -168,6 +157,116 @@ public partial class CountryScreen : Control
             return;
         }
         Fight?.Invoke(m);
+    }
+
+    /// <summary>
+    /// Walks the token along the roads, a day at every place on the way. A roaming pack where you
+    /// arrive stops you and the fight with it starts (true); otherwise you're there (false).
+    /// </summary>
+    async Task<bool> WalkTo(string dest, int hunting = 0)
+    {
+        var route = Country.Route(Ranch, Ranch.Location, dest) ?? new List<string> { dest };
+        foreach (var stop in route.Skip(1))
+        {
+            var tween = CreateTween();
+            tween.TweenMethod(Callable.From<Vector2>(p => { _token = p; QueueRedraw(); }), _token, Screen(Country.Get(stop)), 0.35f)
+                .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+            await ToSignal(tween, Tween.SignalName.Finished);
+            Audio.Sound.Play("step", 1.2f);
+            if (Ranch.TravelStep(stop) is { } met)
+            {
+                Ranch.Save();
+                if (met.Id != hunting)
+                {
+                    _status.Text = $"A roaming pack at {Country.Get(stop).Name} blocks the road!";
+                    Audio.Sound.Play("gong", 1.4f);
+                    await ToSignal(GetTree().CreateTimer(1.0), SceneTreeTimer.SignalName.Timeout);
+                }
+                Fight?.Invoke(Roaming.Battle(met));
+                return true;
+            }
+        }
+        Ranch.Save();
+        return false;
+    }
+
+    /// <summary>The shop where a place's stock is: what it sells, what you have, buy where you stand.</summary>
+    void OpenShop(string place)
+    {
+        CloseShop();
+        _shop = new PanelContainer { Position = new Vector2(1170, 262), Size = new Vector2(720, 0) };
+        var box = new StyleBoxFlat { BgColor = new Color(0.07f, 0.05f, 0.12f, 1f), BorderColor = Gold };
+        box.SetBorderWidthAll(2);
+        box.SetCornerRadiusAll(8);
+        box.SetContentMarginAll(14);
+        _shop.AddThemeStyleboxOverride("panel", box);
+        var col = new VBoxContainer();
+        col.AddThemeConstantOverride("separation", 6);
+        _shop.AddChild(col);
+        bool here = place == Ranch.Location;
+        var head = new HBoxContainer();
+        head.AddThemeConstantOverride("separation", 12);
+        head.AddChild(Ui.Text($"SHOP  ·  {Country.Get(place).Name}", 18, Gold));
+        head.AddChild(Ui.ChipView(new Chip("flask", $"{Ranch.Chem} chem", Gold, "chem to spend"), 16));
+        col.AddChild(head);
+        if (!here)
+        {
+            int days = Country.Days(Ranch, place);
+            col.AddChild(Wrap($"You're {days} {(days == 1 ? "day" : "days")} away: travel here to buy (roaming packs may be on the road).", 15, Dim));
+            var go = new Button { Text = $"Travel here  ({days}d)", FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(200, 40), SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
+            go.Pressed += () => TravelToShop(place);
+            col.AddChild(go);
+        }
+        var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(690, here ? 560 : 500), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        var rows = new VBoxContainer();
+        rows.AddThemeConstantOverride("separation", 8);
+        scroll.AddChild(rows);
+        col.AddChild(scroll);
+        foreach (var ware in ShopBook.At(Ranch, place))
+        {
+            var row = new HBoxContainer();
+            row.AddThemeConstantOverride("separation", 10);
+            var icon = ware.Id == ShopBook.Berry ? SkillIcons.Action("berry", 2)
+                : GearBook.IsGear(ware.Id) ? SkillIcons.Passive(Classes.ClassBook.Passive(ware.Id), 2) : SkillIcons.Skill(Classes.ClassBook.Skill(ware.Id), 2);
+            row.AddChild(Ui.Picture(icon, ShopBook.Text(ware.Id)));
+            var words = new VBoxContainer { CustomMinimumSize = new Vector2(440, 0) };
+            int owned = Ranch.Items.GetValueOrDefault(ware.Id);
+            words.AddChild(Ui.Text($"{ShopBook.Name(ware.Id)}{(GearBook.IsGear(ware.Id) ? "  (gear)" : "")}{(owned > 0 ? $"   ·   {owned} in the bag" : "")}", 16, Ink));
+            var text = Wrap(ShopBook.Text(ware.Id), 13, Dim);
+            text.CustomMinimumSize = new Vector2(440, 0);
+            words.AddChild(text);
+            row.AddChild(words);
+            var buy = new Button { Text = $"Buy  {ware.Price}", FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(120, 40), Disabled = !here || Ranch.Chem < ware.Price };
+            var w = ware;
+            buy.Pressed += () => { _status.Text = Ranch.Buy(w); Ranch.Save(); Audio.Sound.Play("confirm"); OpenShop(place); };
+            row.AddChild(buy);
+            rows.AddChild(row);
+        }
+        var close = new Button { Text = "Close  (Esc)", FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(160, 40), SizeFlagsHorizontal = SizeFlags.ShrinkEnd };
+        close.Pressed += CloseShop;
+        col.AddChild(close);
+        _missions.Visible = false;
+        AddChild(_shop);
+    }
+
+    void CloseShop()
+    {
+        if (_shop == null) return;
+        _shop.QueueFree();
+        _shop = null;
+        _missions.Visible = Country.Get(_selected)?.MapName != null;
+    }
+
+    async void TravelToShop(string place)
+    {
+        if (_travelling) return;
+        CloseShop();
+        _travelling = true;
+        if (await WalkTo(place)) return;
+        _travelling = false;
+        _board = Country.Board(Ranch);
+        Select(place);
+        OpenShop(place);
     }
 
     /// <summary>Who goes on a dispatch: everyone at home, best suited first, with their odds.</summary>
@@ -252,6 +351,8 @@ public partial class CountryScreen : Control
     {
         if (e is not InputEventKey { Pressed: true, Echo: false } k) return;
         if (k.Keycode == Key.Escape && _chooser != null) { CloseChooser(); GetViewport().SetInputAsHandled(); }
+        else if (k.Keycode == Key.Escape && _shop != null) { CloseShop(); GetViewport().SetInputAsHandled(); }
+        else if (k.Keycode == Key.S && _shop == null && _selected != null && ShopBook.At(Ranch, _selected).Count > 0) OpenShop(_selected);
         else if (k.Keycode is Key.Escape or Key.M) { Back?.Invoke(); GetViewport().SetInputAsHandled(); }
         else if (k.Keycode == Key.F && _missions.Visible && _missions.Missions.Count > 0) Depart(_missions.Missions[_missions.Selected]);
     }
@@ -261,6 +362,8 @@ public partial class CountryScreen : Control
         var font = GetThemeDefaultFont();
         DrawRect(new Rect2(Vector2.Zero, Size), Color.FromHtml("#0b0913"));
         DrawString(font, new Vector2(40, 52), "THE COUNTRY", HorizontalAlignment.Left, 400, 30, Gold);
+        DrawTexture(Glyphs.Get("flask", 2), new Vector2(290, 30));
+        DrawString(font, new Vector2(318, 50), $"{Ranch.Chem}", HorizontalAlignment.Left, 120, 20, Gold);
         DrawString(font, new Vector2(40, 84), NextLine(), HorizontalAlignment.Left, 1100, 16, Dim);
         var tex = CountryArt.Texture;
         DrawTextureRect(tex, new Rect2(MapAt, tex.GetSize() * Scale), false);

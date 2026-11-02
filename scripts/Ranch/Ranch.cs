@@ -83,6 +83,7 @@ public sealed class Ranch
     public Dictionary<int, AwayRecord> Away = new(); // creatures off on dispatches
     public HashSet<string> Cups = new();             // coliseum cups won
     public List<World.Wanderer> Wanderers = new();   // wild packs roaming the country
+    public Dictionary<string, int> Items = new();    // the bag: gear not worn, items, extra glowberries
     public int NextWanderer = 1;
 
     readonly Dictionary<int, Creature> _cache = new();
@@ -223,6 +224,28 @@ public sealed class Ranch
     public void LeadUnits(Battle battle)
     {
         foreach (var id in Squad) battle.Lead(Get(id), LeaderOf(id));
+        battle.Pack(Items);
+    }
+
+    /// <summary>Buys a ware at the shop where you stand. Returns what happened.</summary>
+    public string Buy(World.Ware ware)
+    {
+        if (!ware.At.Contains(Location)) return $"{World.ShopBook.Name(ware.Id)} is sold at {string.Join(" or ", ware.At.Select(a => World.Country.Get(a).Name))}.";
+        if (Chem < ware.Price) return $"Not enough chem: {World.ShopBook.Name(ware.Id)} costs {ware.Price}.";
+        Chem -= ware.Price;
+        Items[ware.Id] = Items.GetValueOrDefault(ware.Id) + 1;
+        return $"Bought {World.ShopBook.Name(ware.Id)} for {ware.Price} chem ({Items[ware.Id]} in the bag).";
+    }
+
+    /// <summary>Puts gear from the bag on a creature (null: takes it off); what it wore goes back in the bag.</summary>
+    public string Equip(int id, string gear)
+    {
+        var t = Record(id).Training;
+        if (gear != null && Items.GetValueOrDefault(gear) <= 0) return "There's none in the bag.";
+        if (t.Gear != null) Items[t.Gear] = Items.GetValueOrDefault(t.Gear) + 1;
+        if (gear != null && --Items[gear] == 0) Items.Remove(gear);
+        t.Gear = gear;
+        return gear == null ? $"{Record(id).Name} takes its gear off." : $"{Record(id).Name} wears the {ClassBook.Passive(gear).Name}: {ClassBook.Passive(gear).Text}";
     }
 
     /// <summary>Sends a creature off on a dispatch (out of the squad, if it was in it).</summary>
@@ -289,6 +312,7 @@ public sealed class Ranch
     public void Release(int id)
     {
         Away.Remove(id);
+        if (Record(id).Training.Gear is { } worn) Items[worn] = Items.GetValueOrDefault(worn) + 1; // its gear stays
         Chem += 5; // salvage
         Creatures.RemoveAll(r => r.Id == id);
         RemoveFromSquad(id);
@@ -374,6 +398,11 @@ public sealed class Ranch
                     : $"{rival.Name} wins this time.");
             }
         }
+        // Items used come out of the bag; glowberries only past the three every battle brings.
+        foreach (var (item, n) in battle.Used)
+            if ((Items[item] = Items.GetValueOrDefault(item) - n) <= 0) Items.Remove(item);
+        int berriesUsed = 3 + battle.BerriesBrought - battle.Berries;
+        if (battle.BerriesBrought > 0 && berriesUsed > 3 && (Items[World.ShopBook.Berry] -= berriesUsed - 3) <= 0) Items.Remove(World.ShopBook.Berry);
         // Only your own creatures train here (a rival's are rebuilt for every duel).
         foreach (var u in battle.Units.Where(u => u.Training != null && u.Side == Tactics.Side.Player))
         {

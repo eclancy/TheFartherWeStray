@@ -360,6 +360,9 @@ public partial class BattleScreen : Control
         _skillBar.AddChild(new Control { CustomMinimumSize = new Vector2(18, 0) });
         if (_mode == Mode.Command && _battle.BerrySpots(_active).Count > 0)
             _skillBar.AddChild(BarSlot(SkillIcons.Action("berry", 3), "B", $"Glowberry: set one down to lure the curious ({_battle.Berries} left)", true, false, 0, BerryMode, _battle.Berries.ToString()));
+        foreach (var item in _battle.ItemsFor(_active))
+            _skillBar.AddChild(BarSlot(SkillIcons.Skill(item, 3), "", $"{item.Name} (item)\n{item.Text}", !_active.Acted, item == _skill, 0,
+                () => SelectSkill(item), _battle.Bag[item.Id].ToString()));
         if (_mode == Mode.Command && _battle.CanUndo(_active))
             _skillBar.AddChild(BarSlot(SkillIcons.Action("undo", 3), "Esc", "Undo the move", true, false, 0, () => PlayerAct(() => _battle.Order(CommandKind.Undo, _active))));
         if (_mode == Mode.Command)
@@ -731,8 +734,8 @@ public partial class BattleScreen : Control
             var icons = new HFlowContainer();
             icons.AddThemeConstantOverride("h_separation", 4);
             foreach (var s in u.Skills) icons.AddChild(UI.Ui.Picture(SkillIcons.Skill(s, 2), $"{s.Name} ({s.Class})\n{s.Text}"));
-            foreach (var p in new[] { u.Equipped, u.ShinyPassive, u.Reaction }.Where(p => p != null))
-                icons.AddChild(UI.Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p == u.ShinyPassive ? "shiny" : p.Kind == Classes.PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"));
+            foreach (var p in new[] { u.Equipped, u.ShinyPassive, u.GearPassive, u.Reaction }.Where(p => p != null))
+                icons.AddChild(UI.Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p == u.ShinyPassive ? "shiny" : p == u.GearPassive ? "gear" : p.Kind == Classes.PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"));
             _info.AddChild(icons);
         }
 

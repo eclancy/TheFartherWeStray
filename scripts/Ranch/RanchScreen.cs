@@ -37,7 +37,7 @@ public partial class RanchScreen : Control
     VatPanel _vats;
     Button _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _labButton, _boardButton, _jobsButton;
     HBoxContainer _buttonsRow;
-    Button _nameButton;
+    Button _nameButton, _gearButton;
     LineEdit _nameBox;
     int _naming;
     LabPanel _lab;
@@ -109,6 +109,7 @@ public partial class RanchScreen : Control
         _vatButton = Make("Vat", () => { if (_selected is { } id) TogglePen(id); });
         _releaseButton = Make("Release", () => { if (_selected is { } id) Release(id); });
         _nameButton = Make("Name", () => { if (_selected is { } id) StartNaming(id); });
+        _gearButton = Make("Gear", () => { if (_selected is { } id) CycleGear(id); });
         _nameBox = new LineEdit { PlaceholderText = "A name (Enter keeps, Esc cancels)", MaxLength = 14, Visible = false, Position = new Vector2(1170, 916), CustomMinimumSize = new Vector2(420, 44) };
         _nameBox.AddThemeFontSizeOverride("font_size", 18);
         _nameBox.TextSubmitted += text => FinishNaming(text);
@@ -246,7 +247,7 @@ public partial class RanchScreen : Control
     void RefreshSelected()
     {
         bool any = _selected != null && Ranch.Creatures.Any(r => r.Id == _selected);
-        foreach (var b in new[] { _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _nameButton }) b.Disabled = !any;
+        foreach (var b in new[] { _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _nameButton, _gearButton }) b.Disabled = !any;
         Clear(_training);
         if (!any) return;
         int id = _selected.Value;
@@ -260,6 +261,9 @@ public partial class RanchScreen : Control
         _secondButton.Icon = t.Secondary != null ? Glyphs.Get(SkillIcons.ClassEmblem(t.Secondary), 1) : null;
         _secondButton.TooltipText = "Cycle the secondary skill set";
         _vatButton.Text = PenSlot(id) >= 0 ? "Out of vat" : "Into vat";
+        _gearButton.Text = $"Gear: {ClassBook.Passive(t.Gear)?.Name ?? "none"}  >";
+        var bag = Ranch.Items.Where(kv => GearBook.IsGear(kv.Key)).Select(kv => $"{kv.Value} {ClassBook.Passive(kv.Key).Name}").ToList();
+        _gearButton.TooltipText = "Cycle the gear it wears (bought at shops on the map)\nIn the bag: " + (bag.Count > 0 ? string.Join(", ", bag) : "no gear");
 
         var cls = ClassBook.Class(t.Class);
         var head = Row(Ui.Picture(SkillIcons.Class(cls.Id, ClassBook.Standing.Open, 2), cls.Blurb), Ui.Text(cls.Name, 18, Gold),
@@ -294,10 +298,11 @@ public partial class RanchScreen : Control
             extras.AddChild(Ui.Picture(SkillIcons.Skill(s, 2), $"Innate, from a parent: {s.Name}\n{s.Text}"));
         }
         var shine = ClassBook.ShinyPassive(c);
-        foreach (var p in new[] { ClassBook.Passive(t.Passive), shine, ClassBook.Passive(t.Reaction) }.Where(p => p != null))
+        var gear = ClassBook.Passive(t.Gear);
+        foreach (var p in new[] { ClassBook.Passive(t.Passive), shine, gear, ClassBook.Passive(t.Reaction) }.Where(p => p != null))
         {
-            extras.AddChild(Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p == shine ? "shiny, its own" : p.Kind == PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"));
-            extras.AddChild(Ui.Text(p.Name, 14, p == shine ? Gold : p.Kind == PassiveKind.Reaction ? Ui.Pink : Ui.Good, 4));
+            extras.AddChild(Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p == shine ? "shiny, its own" : p == gear ? "gear" : p.Kind == PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"));
+            extras.AddChild(Ui.Text(p.Name, 14, p == shine || p == gear ? Gold : p.Kind == PassiveKind.Reaction ? Ui.Pink : Ui.Good, 4));
         }
         if (extras.GetChildCount() > 0) _training.AddChild(extras);
 
@@ -338,6 +343,22 @@ public partial class RanchScreen : Control
         if (Ranch.Squad.Count == 0) { Flash("Pick at least one creature for the squad (S) first."); return; }
         Ranch.Save();
         OpenMap?.Invoke();
+    }
+
+    /// <summary>The next piece of gear from the bag (or none), in name order.</summary>
+    void CycleGear(int id)
+    {
+        var t = Ranch.Record(id).Training;
+        var options = new List<string> { null };
+        options.AddRange(Ranch.Items.Where(kv => GearBook.IsGear(kv.Key) && kv.Value > 0).Select(kv => kv.Key).Append(t.Gear)
+            .Where(g => g != null).Distinct().OrderBy(g => ClassBook.Passive(g).Name));
+        if (options.Count == 1) { Flash("No gear in the bag: shops on the map (M) sell it."); return; }
+        string next = options[(options.IndexOf(t.Gear) + 1) % options.Count];
+        Flash(Ranch.Equip(id, next));
+        Ranch.Save();
+        Rebuild();
+        ShowDetail(id);
+        RefreshSelected();
     }
 
     void CycleClass(int id)

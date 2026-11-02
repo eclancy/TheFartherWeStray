@@ -36,6 +36,10 @@ public sealed partial class Battle
     public readonly HashSet<Vector2I> BerryTiles = new();
     public readonly List<Unit> Recruited = new();
     public int Berries = 3;
+    // Items brought from the ranch (snare nets, chimes, tonics...), and how many of each were used.
+    public readonly Dictionary<string, int> Bag = new();
+    public readonly Dictionary<string, int> Used = new();
+    public int BerriesBrought;
     public int Round;
     public Unit Active;
     public Side? Winner;
@@ -687,7 +691,7 @@ public sealed partial class Battle
         return Alive.Where(o => (o.Side == u.Side) == friendly && o.Tiles.Any(area.Contains)).ToList();
     }
 
-    static bool Rolls(SkillDef s) => s.Power > 0 || s.Poison > 0 || s.StunChance > 0 || s.Root;
+    static bool Rolls(SkillDef s) => s.Power > 0 || s.Poison > 0 || s.StunChance > 0 || s.Root || s.Catch > 0;
 
     /// <summary>The damage multiplier of a skill on a target: its power, plus high-ground and flanking bonuses.</summary>
     float PowerOn(Unit u, SkillDef s, Unit t)
@@ -788,10 +792,28 @@ public sealed partial class Battle
         if (any) Status(t, "cleansed");
     }
 
+    /// <summary>Packs the bag before the first turn: the items you own, and any glowberries on top of the three every battle brings.</summary>
+    public void Pack(IReadOnlyDictionary<string, int> owned)
+    {
+        foreach (var (id, n) in owned)
+            if (GearBook.IsItem(id) && n > 0) Bag[id] = n;
+        BerriesBrought = owned.GetValueOrDefault(World.ShopBook.Berry);
+        Berries += BerriesBrought;
+    }
+
+    /// <summary>The items a unit could use now: yours, while any are left.</summary>
+    public IEnumerable<SkillDef> ItemsFor(Unit u) => u.Side != Side.Player ? Enumerable.Empty<SkillDef>()
+        : Bag.Where(kv => kv.Value > 0).Select(kv => ClassBook.Skill(kv.Key));
+
     public void UseSkill(Unit u, SkillDef s, Vector2I tile)
     {
         u.Acted = true;
-        u.Cooldowns[s.Id] = Math.Max(1, s.Cooldown - (u.Passive?.CooldownCut ?? 0));
+        if (GearBook.IsItem(s))
+        {
+            Bag[s.Id] = Bag.GetValueOrDefault(s.Id) - 1;
+            Used[s.Id] = Used.GetValueOrDefault(s.Id) + 1;
+        }
+        else u.Cooldowns[s.Id] = Math.Max(1, s.Cooldown - (u.Passive?.CooldownCut ?? 0));
         int range = RangeOf(u, s);
         if (s.Target == TargetKind.Tile)
         {
@@ -827,6 +849,14 @@ public sealed partial class Battle
                     if (s.Power > 0 && Dodges(t))
                     {
                         Events.Add(new DamageEvent(t, 0, Miss: true));
+                        continue;
+                    }
+                    if (s.Catch > 0)
+                    {
+                        // A snare: only a free wild creature, and only once it's worn down.
+                        if (!t.Free) Status(t, "won't be caught");
+                        else if (t.Hp <= t.MaxHp * s.Catch && _rng.Chance(s.CatchChance)) Recruit(t, $"caught in a {s.Name.ToLowerInvariant()}");
+                        else Status(t, "slips free");
                         continue;
                     }
                     if (s.Power > 0)

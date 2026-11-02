@@ -214,7 +214,7 @@ public partial class JobsPanel : Control
         kit.AddThemeConstantOverride("h_separation", 4);
         kit.AddChild(Ui.Text("IN BATTLE", 13, Dim, 4));
         foreach (var s in t.Usable()) kit.AddChild(Ui.Picture(SkillIcons.Skill(s, 2), $"{s.Name} ({s.Class})\n{s.Text}"));
-        foreach (var p in new[] { ClassBook.Passive(t.Passive), ClassBook.ShinyPassive(c), ClassBook.Passive(t.Reaction) }.Where(p => p != null))
+        foreach (var p in new[] { ClassBook.Passive(t.Passive), ClassBook.ShinyPassive(c), ClassBook.Passive(t.Gear), ClassBook.Passive(t.Reaction) }.Where(p => p != null))
             kit.AddChild(Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name}{(p.Class == "Shiny" ? " (shiny)" : "")}\n{p.Text}"));
         foreach (var m in t.Masteries)
         {

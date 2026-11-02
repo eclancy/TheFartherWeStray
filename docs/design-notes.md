@@ -91,13 +91,18 @@ fields up to two and fills their three slots each; battles apply the boosts befo
    open places, moving on most days; travel is a day a road, and arriving where a pack is starts
    a rout against it (recruiting allowed). You can also go after one from its place's list. They
    show on the map as their leader.
-5. **The shop:** a currency (chem, or coin earned alongside it), equipment (a new slot on each
-   creature, on top of parts as gear), and catching items (lures for each temper, nets, calming
-   incense), all as data.
+5. ~~**The shop**~~ (built 2026-11-02, the user's pick): **chem** is the currency (defaulted: one
+   currency, so the lab and the shops compete for it). Each place sells its own stock; some wares
+   appear only after a main mission or a cup; you buy where you stand. **Gear**: one slot per
+   creature, 18 pieces (fine things in the city above, chem and machinery in the undercity, gear
+   for the weather in the far country), each a small passive. **Items**, used in battle from the
+   command bar: snare nets (catch a worn-down wild creature, 60%), soothing chimes (root one, to
+   corner the skittish), tonics, smelling salts, and extra glowberries.
 
 **Open:**
 - [ ] Equipment: one accessory slot per creature, or more? Does it show on the sprite?
-- [ ] Shop currency: chem (already earned), or a separate coin?
+  (Defaulted: one slot, not drawn yet.)
+- [x] Shop currency: **chem** (defaulted; easy to split into a coin later).
 - [ ] Dispatch: can a dispatched creature be lost, or only come back empty-handed? (Defaulted:
   never lost.)
 - [ ] Coliseum: your own squad only, or loaner squads; prizes? (Defaulted: your own squad; chem.

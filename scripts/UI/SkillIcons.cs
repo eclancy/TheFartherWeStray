@@ -63,6 +63,8 @@ public static class SkillIcons
         ["benediction"] = "heal", ["radiance"] = "sun", ["sanctuary"] = "def",
         ["brand"] = "flame", ["sigil_burst"] = "rune", ["warding_circle"] = "def",
         ["stone_peck"] = "mountain", ["serpent_lash"] = "whip", ["dread_crow"] = "sound",
+        // Items from the shops.
+        ["snare_net"] = "chain", ["soothing_chime"] = "sound", ["tonic"] = "heal", ["smelling_salts"] = "sparkle",
     };
 
     /// <summary>Each class's emblem.</summary>
@@ -180,7 +182,7 @@ public static class SkillIcons
     public static Texture2D Passive(PassiveDef p, int scale = 2) => Cached("passive:" + p.Id, scale, () =>
     {
         var img = Image.CreateEmpty(BadgeSize, BadgeSize, false, Image.Format.Rgba8);
-        Frame(img, 0, 0, BadgeSize, Color.FromHtml(p.Class == "Shiny" ? "#f2c14e" : p.Kind == PassiveKind.Reaction ? "#d84f8f" : "#3faa6a"));
+        Frame(img, 0, 0, BadgeSize, Color.FromHtml(p.Class switch { "Shiny" => "#f2c14e", "Gear" => "#c9a24a", _ => p.Kind == PassiveKind.Reaction ? "#d84f8f" : "#3faa6a" }));
         Glyphs.Draw(img, PassiveGlyph(p), 2, 2);
         return img;
     });

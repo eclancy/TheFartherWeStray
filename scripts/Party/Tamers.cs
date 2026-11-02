@@ -6,14 +6,15 @@ using CreatureTactics.Creatures;
 namespace CreatureTactics.Party;
 
 /// <summary>
-/// A warden: a member of your party who leads up to three creatures into battle from off the
+/// A tamer: a member of your party who leads up to three creatures into battle from off the
 /// field (the user's direction, 2026-11-02). Each has one specialty, a passive boost to the
 /// creatures they lead, and some only reach certain creatures. Data, like skills and passives.
 ///
-/// "Warden" is a working name until the user picks one. The names here are titles standing in for
+/// "Tamer" is the user's name for them (2026-11-02): friendlier to the creatures, someone who
+/// collects and works with them, like a Pokémon trainer. The names here are titles standing in for
 /// the characters the story will introduce, and <see cref="JoinsAt"/> stands in for story beats.
 /// </summary>
-public sealed class WardenDef
+public sealed class TamerDef
 {
     public string Id, Name, Specialty, Text, Glyph;
     public int JoinsAt;                        // the encounter they join at (a placeholder for the story)
@@ -25,13 +26,13 @@ public sealed class WardenDef
     public bool Boosts(Creature c) => Leads == null || Leads(c);
 }
 
-public static class WardenBook
+public static class TamerBook
 {
     public const string You = "you";
     public const int CreaturesEach = 3, MaxFielded = 2;
     const Graft Brass = Graft.Plating | Graft.MetalLimb | Graft.Visor | Graft.Core;
 
-    public static readonly WardenDef[] All =
+    public static readonly TamerDef[] All =
     {
         new() { Id = You, Name = "You", Specialty = "Steady Hand", Glyph = "crown", Atk = 1, Def = 1,
             Text = "ATK +1 and DEF +1 for every creature you lead." },
@@ -51,9 +52,9 @@ public static class WardenBook
             Move = 1, Spd = 1, Text = "MOVE +1 and SPD +1 for every creature it leads." },
     };
 
-    static readonly Dictionary<string, WardenDef> ById = All.ToDictionary(w => w.Id);
-    public static WardenDef Get(string id) => id != null && ById.TryGetValue(id, out var w) ? w : null;
+    static readonly Dictionary<string, TamerDef> ById = All.ToDictionary(w => w.Id);
+    public static TamerDef Get(string id) => id != null && ById.TryGetValue(id, out var w) ? w : null;
 
     /// <summary>Everyone in the party by this encounter.</summary>
-    public static IEnumerable<WardenDef> Joined(ulong encounter) => All.Where(w => (ulong)w.JoinsAt <= encounter);
+    public static IEnumerable<TamerDef> Joined(ulong encounter) => All.Where(w => (ulong)w.JoinsAt <= encounter);
 }

@@ -44,9 +44,9 @@ public sealed class Unit
     public bool Stunned, Rooted;
     public Unit TauntedBy;
     public PassiveDef Passive => ClassBook.Passive(Training?.Passive);
-    public Party.WardenDef Warden;                   // who leads it from off the field (your side), if anyone
-    /// <summary>The warden's boost, if it reaches this creature (some wardens only lead certain kinds).</summary>
-    public Party.WardenDef Boost => Warden != null && Warden.Boosts(Creature) ? Warden : null;
+    public Party.TamerDef Tamer;                   // who leads it from off the field (your side), if anyone
+    /// <summary>The tamer's boost, if it reaches this creature (some tamers only lead certain kinds).</summary>
+    public Party.TamerDef Boost => Tamer != null && Tamer.Boosts(Creature) ? Tamer : null;
     public PassiveDef Reaction => ClassBook.Passive(Training?.Reaction);
     public bool AdrenalineUsed;
 

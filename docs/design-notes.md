@@ -1,43 +1,44 @@
 # Design notes: decided directions and things to think on
 
-_Systems the user has asked for: wardens (the generals) and the party, online PvP, shinies. Each
+_Systems the user has asked for: tamers (first called generals) and the party, online PvP, shinies. Each
 says what's decided (the user's words), what was defaulted to build a first version, and what's
 still open. Story themes live in `story-notes.md`; the user will come back to the story later._
 
-## Wardens and the party (the user's direction, 2026-11-02)
+## Tamers and the party (the user's direction, 2026-11-02)
 
-**Name:** the user wants a different name than "general". **Warden** is the working name in the
-code and UI (other ideas offered: Handler, Keeper, Beastcaller, Marshal); rename when the user picks.
+**Name:** **Tamer**, the user's pick (2026-11-02): "something friendlier to the creatures, something
+that suggests you collect and work with them, like trainer for Pokemon". It replaced "general" and the
+working name "warden", and matches the rival tamers planned for later.
 
 **Decided by the user:**
-- The player is a warden. A warden leads up to **three creatures**.
-- Wardens are **not on the field**. They give **passive boosts** to the creatures they lead.
-- A **second party member** joins in the story, so two wardens field up to **six creatures**.
+- The player is a tamer. A tamer leads up to **three creatures**.
+- Tamers are **not on the field**. They give **passive boosts** to the creatures they lead.
+- A **second party member** joins in the story, so two tamers field up to **six creatures**.
 - More party members join later, **each with their own specialties and passives**.
-- At most **two wardens and six creatures** go into a battle. Wardens and creatures can be swapped
+- At most **two tamers and six creatures** go into a battle. Tamers and creatures can be swapped
   between battles.
 
 **Defaulted for the first version (2026-11-02), open to change:**
-- Creatures belong to the ranch and are assigned to a warden before each battle.
-- Each warden has one specialty: a passive boost to the creatures they lead, as data
-  (`Wardens.cs`), like skills and passives.
-- Until the story exists, other wardens join on a schedule of encounters (a placeholder for the
+- Creatures belong to the ranch and are assigned to a tamer before each battle.
+- Each tamer has one specialty: a passive boost to the creatures they lead, as data
+  (`Tamers.cs`), like skills and passives.
+- Until the story exists, other tamers join on a schedule of encounters (a placeholder for the
   story beats that will bring them).
 
-**Built (first version, 2026-11-02):** six wardens as data in `scripts/Party/Wardens.cs`: You
+**Built (first version, 2026-11-02):** six tamers as data in `scripts/Party/Tamers.cs`: You
 (Steady Hand: ATK and DEF +1 for all), the Beastmaster (natural creatures), the Tinker (clockwork
 and brass), the Chemist (chemtech and abyssal), the Arcanist (arcane or aura) and the Drillmaster
 (MOVE and SPD for all), joining at encounters 3, 6, 9, 12 and 15. The ranch's Party panel (P)
 fields up to two and fills their three slots each; battles apply the boosts before the first turn.
 
 **Open:**
-- [ ] The name.
-- [ ] Do wardens grow (levels, more boosts, a tree of their own)?
+- [x] The name: **Tamer**.
+- [ ] Do tamers grow (levels, more boosts, a tree of their own)?
 - [ ] Who each party member is, and how they join (the story).
 
 ## Online PvP battles (a goal, the user's direction, 2026-11-02)
 
-**Decided by the user:** casual matches, turn timers, each player using their own squad (wardens
+**Decided by the user:** casual matches, turn timers, each player using their own squad (tamers
 and creatures from their ranch). More to come later.
 
 **What already helps:** the rules live in `Battle`, apart from any drawing, and every roll comes
@@ -59,12 +60,12 @@ each side replay them: lockstep, the usual way turn-based games go online.
 **What it will still need:**
 - Matchmaking and transport: Godot's high-level multiplayer (ENet or WebSocket) for direct or
   relayed matches, or a small server. A server also stops cheating on squads.
-- PvP rules: two wardens and six creatures a side, turn timers, disconnects, no recruiting.
+- PvP rules: two tamers and six creatures a side, turn timers, disconnects, no recruiting.
 - Balance: classes, skills and grafts tuned for fairness, not only against wild packs.
 
 **Open:**
 - [x] Ranked or casual? **Casual.**
-- [x] Squads? **Your own** wardens and creatures.
+- [x] Squads? **Your own** tamers and creatures.
 - [x] Pace? **Turn timers.**
 - [ ] Matchmaking or friend codes? Timer length? What happens on a disconnect?
 

@@ -97,13 +97,14 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   because the target fights at full strength while you may not touch it (the rule is a
   placeholder). `--trace=TITLE` prints the full log of matching missions (`--trace=8Loyal` in
   `--capturetest`).
-- **Wardens and the party (the user's direction, 2026-11-02, built):** the player leads creatures
-  as a warden (working name; the user wants something other than "general" and hasn't picked yet).
-  Wardens stay off the field and give passive boosts; each leads three creatures; at most two
-  wardens and six creatures per battle, swapped between battles. `scripts/Party/Wardens.cs` holds
+- **Tamers and the party (the user's direction, 2026-11-02, built):** the player leads creatures
+  as a tamer (the user's name, 2026-11-02: friendlier than "general" or the working name "warden";
+  someone who collects and works with creatures, like a Pokémon trainer).
+  Tamers stay off the field and give passive boosts; each leads three creatures; at most two
+  tamers and six creatures per battle, swapped between battles. `scripts/Party/Tamers.cs` holds
   them as data (a specialty boost, which creatures it reaches, the encounter they join at: a
   placeholder for the story); `Ranch.Fielded`/`LedBy` save who leads whom; `Battle.Lead` applies
-  the boost before the first turn; the Party panel (P) on the ranch fields wardens and fills slots. Details, defaults and open
+  the boost before the first turn; the Party panel (P) on the ranch fields tamers and fills slots. Details, defaults and open
   questions are in `docs/design-notes.md`, with PvP (casual, turn timers, your own squad) and
   shinies (1 in 512; the battle opens with a camera pan and a glint on each one).
 - **Online PvP is a goal** (2026-11-02, groundwork built): see `docs/design-notes.md`. Every

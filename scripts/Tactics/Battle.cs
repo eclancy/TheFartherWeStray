@@ -60,14 +60,14 @@ public sealed partial class Battle
     }
 
     /// <summary>
-    /// Puts one of your creatures under a warden, before the first turn: the warden's boost goes on
+    /// Puts one of your creatures under a tamer, before the first turn: the tamer's boost goes on
     /// its stats if it reaches this kind of creature. Part of the rules, so a replay or a match sees it too.
     /// </summary>
-    public void Lead(Creature c, Party.WardenDef w)
+    public void Lead(Creature c, Party.TamerDef w)
     {
         var u = Units.FirstOrDefault(x => x.Creature == c && x.Side == Side.Player);
         if (u == null || w == null) return;
-        u.Warden = w;
+        u.Tamer = w;
         if (u.Boost is not { } b) return;
         u.Atk += b.Atk; u.Def += b.Def; u.Spd += b.Spd; u.Move += b.Move; u.HitBonus += b.Hit;
         u.MaxHp = Mathf.RoundToInt(u.MaxHp * (1 + b.HpPct));

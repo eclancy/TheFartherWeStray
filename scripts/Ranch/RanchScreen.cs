@@ -180,7 +180,7 @@ public partial class RanchScreen : Control
         _headerChips = Ui.Chips(new[]
         {
             new Chip("paw", Ranch.Creatures.Count.ToString(), Ink, "creatures"),
-            new Chip("fist", $"{Ranch.Squad.Count}/{Ranch.SquadSize}", Ranch.Squad.Count == 0 ? Ui.Bad : Ink, "squad: three creatures for each warden leading (P)"),
+            new Chip("fist", $"{Ranch.Squad.Count}/{Ranch.SquadSize}", Ranch.Squad.Count == 0 ? Ui.Bad : Ink, "squad: three creatures for each tamer leading (P)"),
             new Chip("flask", Ranch.Chem.ToString(), Gold, "chem, for the lab"),
             new Chip("mountain", "#" + Ranch.Encounter, Ink, "next encounter"),
         }, 22, 2, 22);
@@ -298,7 +298,7 @@ public partial class RanchScreen : Control
             Panel.Lab => "The lab: graft parts from your codex, fit brass, or infuse new blood. It all costs chem.",
             Panel.Board => "Pick a contract, then Depart (F) with your squad.",
             Panel.Jobs => "The job tree: every class this creature could ever train, and what each still needs.",
-            Panel.Party => "Your wardens lead from off the field: up to two, three creatures each.",
+            Panel.Party => "Your tamers lead from off the field: up to two, three creatures each.",
             _ => "",
         });
     }
@@ -337,14 +337,14 @@ public partial class RanchScreen : Control
     {
         if (InSquad(id)) Ranch.RemoveFromSquad(id);
         else if (Ranch.AddToSquad(id)) Flash($"{Ranch.Get(id).Species.Name} joins {Ranch.LeaderOf(id).Name}'s squad.");
-        else { Flash("Every warden leads three already: take someone out first, or field another warden (P)."); return; }
+        else { Flash("Every tamer leads three already: take someone out first, or field another tamer (P)."); return; }
         Ranch.Save();
         Rebuild();
         if (_panel == Panel.Party) _party.Refresh();
     }
 
     /// <summary>The short name on a squad creature's card: who leads it.</summary>
-    public string LeaderTag(int id) => Ranch.LeaderOf(id) is { } w ? (w.Id == Party.WardenBook.You ? "YOU" : w.Name.Replace("The ", "").ToUpperInvariant()) : "SQUAD";
+    public string LeaderTag(int id) => Ranch.LeaderOf(id) is { } w ? (w.Id == Party.TamerBook.You ? "YOU" : w.Name.Replace("The ", "").ToUpperInvariant()) : "SQUAD";
 
     void TogglePen(int id)
     {

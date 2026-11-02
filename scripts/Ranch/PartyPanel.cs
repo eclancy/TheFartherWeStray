@@ -7,10 +7,10 @@ using Godot;
 namespace CreatureTactics.Ranching;
 
 /// <summary>
-/// The party: every warden, who's joined, who's going into the next battle (at most two), and the
-/// three creatures each one leads. Wardens stay off the field; their specialty boosts the creatures
+/// The party: every tamer, who's joined, who's going into the next battle (at most two), and the
+/// three creatures each one leads. Tamers stay off the field; their specialty boosts the creatures
 /// they lead. Click a creature to send it back to the ranch; "+ selected" puts the creature selected
-/// on the left under that warden.
+/// on the left under that tamer.
 /// </summary>
 public partial class PartyPanel : Control
 {
@@ -42,9 +42,9 @@ public partial class PartyPanel : Control
     {
         if (_box == null) return;
         foreach (var child in _box.GetChildren()) { _box.RemoveChild(child); child.QueueFree(); }
-        _box.AddChild(Ui.Text($"PARTY · {Ranch.Fielded.Count}/{WardenBook.MaxFielded} wardens leading · {Ranch.Squad.Count}/{Ranch.SquadSize} creatures", 17, Gold));
+        _box.AddChild(Ui.Text($"PARTY · {Ranch.Fielded.Count}/{TamerBook.MaxFielded} tamers leading · {Ranch.Squad.Count}/{Ranch.SquadSize} creatures", 17, Gold));
         var joined = Ranch.Party.Select(w => w.Id).ToHashSet();
-        foreach (var w in WardenBook.All)
+        foreach (var w in TamerBook.All)
         {
             bool isIn = joined.Contains(w.Id), fielded = Ranch.Fielded.Contains(w.Id);
             var card = new PanelContainer();
@@ -72,7 +72,7 @@ public partial class PartyPanel : Control
             if (isIn)
             {
                 var id = w.Id;
-                head.AddChild(Btn(fielded ? "Stand down" : "Lead", () => Toggle(id), fielded ? Ranch.Fielded.Count > 1 : Ranch.Fielded.Count < WardenBook.MaxFielded));
+                head.AddChild(Btn(fielded ? "Stand down" : "Lead", () => Toggle(id), fielded ? Ranch.Fielded.Count > 1 : Ranch.Fielded.Count < TamerBook.MaxFielded));
             }
             rows.AddChild(head);
             var text = Ui.Text(w.Text, 14, isIn ? Ink : Dim, 4);
@@ -92,7 +92,7 @@ public partial class PartyPanel : Control
                     b.TooltipText = w.Boosts(c) ? $"Boosted: {w.Text}\nClick to send back to the ranch." : $"Not boosted: {w.Name} leads {w.LeadsHint}.\nClick to send back to the ranch.";
                     slots.AddChild(b);
                 }
-                int room = WardenBook.CreaturesEach - Ranch.Led(w.Id);
+                int room = TamerBook.CreaturesEach - Ranch.Led(w.Id);
                 for (int k = 0; k < room; k++) slots.AddChild(Ui.Text("· empty ·", 14, Dim, 3));
                 var wid = w.Id;
                 var sel = Selected?.Invoke();
@@ -104,11 +104,11 @@ public partial class PartyPanel : Control
         }
     }
 
-    void Toggle(string warden)
+    void Toggle(string tamer)
     {
-        bool was = Ranch.Fielded.Contains(warden);
-        if (!Ranch.ToggleField(warden)) return;
-        Done(was ? $"{WardenBook.Get(warden).Name} stands down; their creatures return to the ranch." : $"{WardenBook.Get(warden).Name} will lead in the next battle.");
+        bool was = Ranch.Fielded.Contains(tamer);
+        if (!Ranch.ToggleField(tamer)) return;
+        Done(was ? $"{TamerBook.Get(tamer).Name} stands down; their creatures return to the ranch." : $"{TamerBook.Get(tamer).Name} will lead in the next battle.");
     }
 
     void Remove(int id)
@@ -117,10 +117,10 @@ public partial class PartyPanel : Control
         Done($"{Ranch.Get(id).Species.Name} returns to the ranch.");
     }
 
-    void Add(int id, string warden)
+    void Add(int id, string tamer)
     {
-        if (!Ranch.AddToSquad(id, warden)) return;
-        Done($"{Ranch.Get(id).Species.Name} joins {WardenBook.Get(warden).Name}'s squad.");
+        if (!Ranch.AddToSquad(id, tamer)) return;
+        Done($"{Ranch.Get(id).Species.Name} joins {TamerBook.Get(tamer).Name}'s squad.");
     }
 
     void Done(string message)

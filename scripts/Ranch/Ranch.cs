@@ -55,11 +55,11 @@ public sealed class Ranch
 
     public List<CreatureRecord> Creatures = new();
     public List<int> Squad = new();
-    // The wardens going into the next battle (at most two), and which of them leads each squad creature.
-    public List<string> Fielded = new() { WardenBook.You };
+    // The tamers going into the next battle (at most two), and which of them leads each squad creature.
+    public List<string> Fielded = new() { TamerBook.You };
     public Dictionary<int, string> LedBy = new();
-    /// <summary>Three creatures for each warden in the field.</summary>
-    [JsonIgnore] public int SquadSize => WardenBook.CreaturesEach * Fielded.Count;
+    /// <summary>Three creatures for each tamer in the field.</summary>
+    [JsonIgnore] public int SquadSize => TamerBook.CreaturesEach * Fielded.Count;
     public ulong Encounter = 1;
     public int NextId = 1;
     public int Bred;
@@ -136,20 +136,20 @@ public sealed class Ranch
 
     public List<(Creature, Training)> SquadCreatures() => Squad.Select(id => (Get(id), Record(id).Training)).ToList();
 
-    // ------------------------------------------------------------------ wardens
+    // ------------------------------------------------------------------ tamers
 
-    [JsonIgnore] public IEnumerable<WardenDef> Party => WardenBook.Joined(Encounter);
-    public WardenDef LeaderOf(int id) => LedBy.TryGetValue(id, out var w) ? WardenBook.Get(w) : null;
-    public int Led(string warden) => Squad.Count(id => LeaderOf(id)?.Id == warden);
+    [JsonIgnore] public IEnumerable<TamerDef> Party => TamerBook.Joined(Encounter);
+    public TamerDef LeaderOf(int id) => LedBy.TryGetValue(id, out var w) ? TamerBook.Get(w) : null;
+    public int Led(string tamer) => Squad.Count(id => LeaderOf(id)?.Id == tamer);
 
-    /// <summary>Into the squad under the first fielded warden with room; false if every warden's hands are full.</summary>
-    public bool AddToSquad(int id, string warden = null)
+    /// <summary>Into the squad under the first fielded tamer with room; false if every tamer's hands are full.</summary>
+    public bool AddToSquad(int id, string tamer = null)
     {
         if (Squad.Contains(id)) RemoveFromSquad(id);
-        warden ??= Fielded.FirstOrDefault(w => Led(w) < WardenBook.CreaturesEach);
-        if (warden == null || !Fielded.Contains(warden) || Led(warden) >= WardenBook.CreaturesEach) return false;
+        tamer ??= Fielded.FirstOrDefault(w => Led(w) < TamerBook.CreaturesEach);
+        if (tamer == null || !Fielded.Contains(tamer) || Led(tamer) >= TamerBook.CreaturesEach) return false;
         Squad.Add(id);
-        LedBy[id] = warden;
+        LedBy[id] = tamer;
         return true;
     }
 
@@ -159,33 +159,33 @@ public sealed class Ranch
         LedBy.Remove(id);
     }
 
-    /// <summary>Sends a warden into the field, or stands them down (their creatures leave the squad with them).</summary>
-    public bool ToggleField(string warden)
+    /// <summary>Sends a tamer into the field, or stands them down (their creatures leave the squad with them).</summary>
+    public bool ToggleField(string tamer)
     {
-        if (Fielded.Contains(warden))
+        if (Fielded.Contains(tamer))
         {
             if (Fielded.Count == 1) return false; // someone has to lead
-            Fielded.Remove(warden);
-            foreach (var id in Squad.Where(id => LedBy.GetValueOrDefault(id) == warden).ToList()) RemoveFromSquad(id);
+            Fielded.Remove(tamer);
+            foreach (var id in Squad.Where(id => LedBy.GetValueOrDefault(id) == tamer).ToList()) RemoveFromSquad(id);
             return true;
         }
-        if (Fielded.Count >= WardenBook.MaxFielded || !Party.Any(w => w.Id == warden)) return false;
-        Fielded.Add(warden);
+        if (Fielded.Count >= TamerBook.MaxFielded || !Party.Any(w => w.Id == tamer)) return false;
+        Fielded.Add(tamer);
         return true;
     }
 
     /// <summary>
-    /// Keeps the party consistent: only wardens who've joined are fielded, a newcomer takes the field
+    /// Keeps the party consistent: only tamers who've joined are fielded, a newcomer takes the field
     /// if there's room, and every squad creature has a fielded leader with room (older saves had a
-    /// squad of four and no wardens).
+    /// squad of four and no tamers).
     /// </summary>
     public void Tidy()
     {
         var joined = Party.Select(w => w.Id).ToHashSet();
         Fielded.RemoveAll(w => !joined.Contains(w));
         foreach (var w in Party)
-            if (Fielded.Count < WardenBook.MaxFielded && !Fielded.Contains(w.Id)) Fielded.Add(w.Id);
-        if (Fielded.Count == 0) Fielded.Add(WardenBook.You);
+            if (Fielded.Count < TamerBook.MaxFielded && !Fielded.Contains(w.Id)) Fielded.Add(w.Id);
+        if (Fielded.Count == 0) Fielded.Add(TamerBook.You);
         var squad = Squad.ToList();
         var leaders = squad.ToDictionary(id => id, id => LedBy.GetValueOrDefault(id));
         Squad.Clear();
@@ -194,7 +194,7 @@ public sealed class Ranch
             if (!(leaders[id] is { } w && Fielded.Contains(w) && AddToSquad(id, w))) AddToSquad(id);
     }
 
-    /// <summary>Puts each squad creature in a battle under its warden.</summary>
+    /// <summary>Puts each squad creature in a battle under its tamer.</summary>
     public void LeadUnits(Battle battle)
     {
         foreach (var id in Squad) battle.Lead(Get(id), LeaderOf(id));

@@ -305,16 +305,16 @@ public partial class GameRoot : Node
             GD.Print($"training: {trained}/{ranch.Creatures.Count} identical after save and load; " + string.Join("; ", ranch.Creatures.Select(r => $"{ranch.Get(r.Id).Species.Name} {r.Training.Class} [{string.Join(",", r.Training.Skills)}]{(r.Training.Innate != null ? " innate " + r.Training.Innate : "")}")));
             GD.Print($"roundtrip: {same}/{ranch.Creatures.Count} creatures identical after save and load; squad {string.Join(",", loaded.Squad)}; next encounter {loaded.Encounter}");
             bool party = ranch.Fielded.SequenceEqual(loaded.Fielded) && ranch.Squad.All(id => ranch.LeaderOf(id)?.Id == loaded.LeaderOf(id)?.Id);
-            GD.Print($"wardens: {(party ? "identical" : "DIFFERENT")} after save and load; fielded {string.Join(", ", loaded.Fielded)}; "
+            GD.Print($"tamers: {(party ? "identical" : "DIFFERENT")} after save and load; fielded {string.Join(", ", loaded.Fielded)}; "
                 + string.Join("; ", loaded.Fielded.Select(w => $"{w} leads {string.Join(", ", loaded.Squad.Where(id => loaded.LeaderOf(id)?.Id == w).Select(id => loaded.Get(id).Species.Name))}")));
-            // An old save: a squad of four, no wardens, past the encounter where the second joins.
+            // An old save: a squad of four, no tamers, past the encounter where the second joins.
             var old = Ranching.Ranch.New();
             foreach (var r in old.Creatures.Take(4).ToList()) { old.Squad.Remove(r.Id); old.Squad.Add(r.Id); }
             old.LedBy.Clear();
-            old.Fielded = new List<string> { Party.WardenBook.You };
+            old.Fielded = new List<string> { Party.TamerBook.You };
             old.Encounter = 4;
             old.Tidy();
-            GD.Print($"old save: squad of {old.Squad.Count} kept under {old.Fielded.Count} wardens ({string.Join("; ", old.Fielded.Select(w => $"{w} {old.Led(w)}"))})");
+            GD.Print($"old save: squad of {old.Squad.Count} kept under {old.Fielded.Count} tamers ({string.Join("; ", old.Fielded.Select(w => $"{w} {old.Led(w)}"))})");
             GetTree().Quit();
             return;
         }

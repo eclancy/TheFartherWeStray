@@ -26,7 +26,7 @@ public partial class BattleScreen : Control
     Label _timerText;
     public List<(Creature, Classes.Training)> Squad; // your creatures and their training; null for the default squad
     public System.Action<Battle> Finished; // set when a ranch is waiting for the result
-    public System.Action<Battle> Prepare;  // before the first turn: a ranch puts its creatures under their wardens
+    public System.Action<Battle> Prepare;  // before the first turn: a ranch puts its creatures under their tamers
     public Mission Mission;               // the contract being played; null for a one-off rout
     public string MapName = "Undercity Foundry";
 
@@ -695,7 +695,7 @@ public partial class BattleScreen : Control
         // Class, then loadout and temper; the long words live in the tooltips.
         var (weapon, armor, move) = c.Loadout();
         var kit = new List<UI.Chip>();
-        if (u.Warden is { } w) kit.Add(new(w.Glyph, w.Name, u.Boost != null ? Cyan : Dim, u.Boost != null ? $"Led by {w.Name}: {w.Text}" : $"Led by {w.Name}, whose boost reaches only {w.LeadsHint}."));
+        if (u.Tamer is { } w) kit.Add(new(w.Glyph, w.Name, u.Boost != null ? Cyan : Dim, u.Boost != null ? $"Led by {w.Name}: {w.Text}" : $"Led by {w.Name}, whose boost reaches only {w.LeadsHint}."));
         if (u.ClassName != null) kit.Add(new(SkillIcons.ClassEmblem(u.ClassName), u.ClassName, Gold, "class"));
         if (u.Training?.Secondary != null) kit.Add(new(SkillIcons.ClassEmblem(u.Training.Secondary), u.Training.Secondary, Ink, "secondary skill set"));
         _info.AddChild(UI.Ui.Chips(kit, 17));

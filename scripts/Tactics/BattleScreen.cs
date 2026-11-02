@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using CreatureTactics.Creatures;
+using CreatureTactics.UI;
 using Godot;
 
 namespace CreatureTactics.Tactics;
@@ -15,6 +16,7 @@ public partial class BattleScreen : Control
 {
     public ulong Seed = 1;
     public bool AutoPlay;   // the AI plays your side too (demos and screenshots)
+    public bool DemoAim;    // on the first turn, aim a skill at the busiest tile (screenshots of the skill panel)
     public List<(Creature, Classes.Training)> Squad; // your creatures and their training; null for the default squad
     public System.Action<Battle> Finished; // set when a ranch is waiting for the result
     public Mission Mission;               // the contract being played; null for a one-off rout
@@ -32,8 +34,11 @@ public partial class BattleScreen : Control
     readonly Dictionary<Unit, UnitView> _views = new();
     readonly HashSet<Vector2I> _berries = new();
 
-    Label _panel, _log, _banner, _objective;
+    Label _log, _banner, _objective;
+    PanelContainer _infoPanel;
+    VBoxContainer _info;
     HBoxContainer _strip;
+    const float PanelW = 430;
     readonly List<string> _logLines = new();
 
     enum Mode { Busy, Command, Berry, Skill, Over }
@@ -65,20 +70,27 @@ public partial class BattleScreen : Control
         _strip.AddThemeConstantOverride("separation", 6);
         AddChild(_strip);
 
-        var backing = new ColorRect { Color = new Color(0.04f, 0.03f, 0.08f, 0.72f), Position = new Vector2(1470, 100), Size = new Vector2(430, 560), MouseFilter = MouseFilterEnum.Ignore };
-        AddChild(backing);
-        _panel = MakeLabel(17, Ink);
-        _panel.Position = new Vector2(1490, 120);
-        _panel.Size = new Vector2(410, 760);
-        _panel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        AddChild(_panel);
+        // The info panel: whoever is under the cursor (or whose turn it is), in glyphs and numbers.
+        _infoPanel = new PanelContainer { Position = new Vector2(1470, 100), CustomMinimumSize = new Vector2(PanelW, 0), MouseFilter = MouseFilterEnum.Ignore };
+        var backing = new StyleBoxFlat { BgColor = new Color(0.04f, 0.03f, 0.08f, 0.8f), BorderColor = new Color(0.3f, 0.26f, 0.42f) };
+        backing.SetBorderWidthAll(1);
+        backing.SetCornerRadiusAll(6);
+        backing.SetContentMarginAll(14);
+        _infoPanel.AddThemeStyleboxOverride("panel", backing);
+        _info = new VBoxContainer();
+        _info.AddThemeConstantOverride("separation", 8);
+        _infoPanel.AddChild(_info);
+        AddChild(_infoPanel);
 
-        _skillBar = new HBoxContainer { Position = new Vector2(380, 975) };
-        _skillBar.AddThemeConstantOverride("separation", 8);
+        _skillBar = new HBoxContainer { Position = new Vector2(260, 994) };
+        _skillBar.AddThemeConstantOverride("separation", 6);
         AddChild(_skillBar);
 
-        _log = MakeLabel(16, Dim);
-        _log.Position = new Vector2(24, 930);
+        _log = MakeLabel(15, Dim);
+        _log.Position = new Vector2(1474, 880);
+        _log.Size = new Vector2(PanelW - 8, 190);
+        _log.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _log.VerticalAlignment = VerticalAlignment.Bottom;
         AddChild(_log);
 
         _objective = MakeLabel(19, Gold);
@@ -183,31 +195,118 @@ public partial class BattleScreen : Control
         RefreshPanel();
         RefreshSkillBar();
         _overlay.QueueRedraw();
+        if (DemoAim && _demoHover == null && _active.Side == Side.Player) DemoTurn();
     }
 
-    /// <summary>The active creature's skills as buttons (1-9), greyed out while cooling down.</summary>
+    /// <summary>For screenshots: walk toward the pack, then aim the skill that reaches the most creatures.</summary>
+    void DemoTurn()
+    {
+        var best = _active.Skills.Where(_active.Ready)
+            .SelectMany(s => _battle.SkillTiles(_active, s).Select(t => (s, t, n: _battle.SkillTargets(_active, s, t).Count)))
+            .OrderByDescending(x => x.n).FirstOrDefault();
+        if (best.s != null && best.n > 0)
+        {
+            SelectSkill(best.s);
+            _demoHover = best.t;
+        }
+        else if (!_active.Moved && _reach.Count > 0)
+        {
+            var foes = _battle.Alive.Where(f => f.Side != _active.Side).ToList();
+            var to = _reach.Keys.OrderBy(t => foes.Min(f => System.Math.Abs(f.Pos.X - t.X) + System.Math.Abs(f.Pos.Y - t.Y))).First();
+            PlayerAct(() => _battle.Move(_active, to));
+        }
+        else EndPlayerTurn();
+    }
+
+    Vector2I? _demoHover;
+
+    /// <summary>
+    /// The command bar: the basic attack, every skill (keys 1-9) with its cooldown over it, then
+    /// glowberry (B), undo (Esc) and end turn (Space). Names and full text are in the tooltips.
+    /// </summary>
     void RefreshSkillBar()
     {
         foreach (var child in _skillBar.GetChildren()) child.QueueFree();
         if (_mode is not (Mode.Command or Mode.Skill) || _active == null) return;
+
+        var attack = BarSlot(SkillIcons.Attack(_active.Weapon, 3), "", $"Attack: click a red-marked foe\n{_active.Creature.Loadout().weapon}", !_active.Acted, false, 0, null);
+        _skillBar.AddChild(attack);
         for (int i = 0; i < _active.Skills.Count; i++)
         {
             var s = _active.Skills[i];
-            bool ready = _active.Ready(s) && !_active.Acted;
             int cd = _active.Cooldowns.TryGetValue(s.Id, out int c) ? c : 0;
-            var b = new Button
-            {
-                Text = $"{i + 1}  {s.Name}{(cd > 0 ? $"  ({cd})" : "")}",
-                Disabled = !ready,
-                TooltipText = $"{s.Class}: {s.Text}",
-                FocusMode = FocusModeEnum.None,
-                CustomMinimumSize = new Vector2(170, 44),
-            };
-            b.AddThemeFontSizeOverride("font_size", 16);
-            if (s == _skill) b.Modulate = Gold;
-            b.Pressed += () => SelectSkill(s);
-            _skillBar.AddChild(b);
+            _skillBar.AddChild(BarSlot(SkillIcons.Skill(s, 3), (i + 1).ToString(), $"{s.Name} ({s.Class})\n{s.Text}",
+                _active.Ready(s) && !_active.Acted, s == _skill, cd, () => SelectSkill(s)));
         }
+        _skillBar.AddChild(new Control { CustomMinimumSize = new Vector2(18, 0) });
+        if (_mode == Mode.Command && _battle.BerrySpots(_active).Count > 0)
+            _skillBar.AddChild(BarSlot(SkillIcons.Action("berry", 3), "B", $"Glowberry: set one down to lure the curious ({_battle.Berries} left)", true, false, 0, BerryMode, _battle.Berries.ToString()));
+        if (_mode == Mode.Command && _battle.CanUndo(_active))
+            _skillBar.AddChild(BarSlot(SkillIcons.Action("undo", 3), "Esc", "Undo the move", true, false, 0, () => PlayerAct(() => _battle.UndoMove(_active))));
+        if (_mode == Mode.Command)
+            _skillBar.AddChild(BarSlot(SkillIcons.Action("end", 3), "Spc", "End the turn", true, false, 0, EndPlayerTurn));
+    }
+
+    static StyleBoxFlat SlotBox(Color border, int width)
+    {
+        var box = new StyleBoxFlat { BgColor = new Color(0.05f, 0.04f, 0.09f, 0.88f), BorderColor = border };
+        box.SetBorderWidthAll(width);
+        box.SetCornerRadiusAll(6);
+        return box;
+    }
+
+    /// <summary>One slot of the command bar: an icon, its key in the corner, its cooldown or count over it.</summary>
+    Control BarSlot(Texture2D icon, string key, string tip, bool enabled, bool selected, int cooldown, System.Action onPress, string count = null)
+    {
+        Control slot;
+        var size = new Vector2(72, 72);
+        if (onPress == null)
+        {
+            var panel = new PanelContainer { CustomMinimumSize = size, TooltipText = tip, Modulate = enabled ? Colors.White : new Color(1, 1, 1, 0.4f) };
+            panel.AddThemeStyleboxOverride("panel", SlotBox(new Color(0.3f, 0.27f, 0.4f), 2));
+            panel.AddChild(UI.Ui.Picture(icon));
+            slot = panel;
+        }
+        else
+        {
+            var b = new Button { Icon = icon, Disabled = !enabled, TooltipText = tip, FocusMode = FocusModeEnum.None, CustomMinimumSize = size, IconAlignment = HorizontalAlignment.Center };
+            b.AddThemeStyleboxOverride("normal", SlotBox(selected ? Gold : new Color(0.3f, 0.27f, 0.4f), selected ? 3 : 2));
+            b.AddThemeStyleboxOverride("hover", SlotBox(selected ? Gold : Ink, selected ? 3 : 2));
+            b.AddThemeStyleboxOverride("pressed", SlotBox(Gold, 3));
+            b.AddThemeStyleboxOverride("disabled", SlotBox(new Color(0.2f, 0.18f, 0.26f), 2));
+            b.Pressed += onPress;
+            slot = b;
+        }
+        if (key != "")
+        {
+            var k = UI.Ui.Text(key, 14, Ink, 5);
+            k.Position = new Vector2(5, 0);
+            slot.AddChild(k);
+        }
+        if (cooldown > 0)
+        {
+            slot.AddChild(new ColorRect { Color = new Color(0.02f, 0.01f, 0.05f, 0.55f), Size = size, MouseFilter = MouseFilterEnum.Ignore });
+            var cd = UI.Ui.Text(cooldown.ToString(), 32, Ink, 8);
+            cd.HorizontalAlignment = HorizontalAlignment.Center;
+            cd.Size = size;
+            slot.AddChild(cd);
+        }
+        if (count != null)
+        {
+            var n = UI.Ui.Text(count, 16, Gold, 5);
+            n.Position = new Vector2(54, 46);
+            slot.AddChild(n);
+        }
+        return slot;
+    }
+
+    void BerryMode()
+    {
+        if (_mode != Mode.Command || _battle.BerrySpots(_active).Count == 0) return;
+        _mode = Mode.Berry;
+        _overlay.QueueRedraw();
+        RefreshPanel();
+        RefreshSkillBar();
     }
 
     void SelectSkill(Classes.SkillDef s)
@@ -270,7 +369,9 @@ public partial class BattleScreen : Control
     public override void _Process(double delta)
     {
         if (_flashes.Count > 0) _overlay?.QueueRedraw();
-        var tile = _art?.Pick(_board.GetLocalMousePosition());
+        // The info panel hugs its rows (a lone control doesn't shrink by itself).
+        if (_infoPanel != null && _infoPanel.Size.Y != _infoPanel.GetCombinedMinimumSize().Y) _infoPanel.Size = new Vector2(PanelW, 0);
+        var tile = _demoHover ?? _art?.Pick(_board.GetLocalMousePosition());
         if (tile != _hoverTile)
         {
             _hoverTile = tile;
@@ -310,10 +411,8 @@ public partial class BattleScreen : Control
                 case Key.Escape when _battle.CanUndo(_active):
                     PlayerAct(() => _battle.UndoMove(_active));
                     break;
-                case Key.B when _battle.BerrySpots(_active).Count > 0:
-                    _mode = Mode.Berry;
-                    _overlay.QueueRedraw();
-                    RefreshPanel();
+                case Key.B:
+                    BerryMode();
                     break;
                 case Key.Space:
                 case Key.E:
@@ -393,52 +492,177 @@ public partial class BattleScreen : Control
 
     void RefreshPanel()
     {
-        if (_battle == null) return;
+        if (_battle == null || _info == null) return;
+        foreach (var child in _info.GetChildren()) { _info.RemoveChild(child); child.QueueFree(); }
         var hover = UnitOn(_hoverTile);
         var u = hover ?? _active;
-        var lines = new List<string>();
-        if (u != null)
+        if (u != null) UnitRows(u);
+        if (hover != null && _mode == Mode.Command && hover.Side != _active.Side && _battle.Targets(_active).Contains(hover))
         {
-            var c = u.Creature;
-            var (weapon, armor, move) = c.Loadout();
-            lines.Add($"{u.Name}{(u.Side == Side.Wild ? "  (wild)" : "")}");
-            lines.Add($"{c.Size} {c.Species.Plan}{(c.Species.Strain != Strain.Natural ? $", {c.Species.Strain}" : "")}");
-            lines.Add($"HP {Mathf.Max(0, _views.TryGetValue(u, out var v) ? v.DisplayHp : u.Hp)}/{u.MaxHp}   ATK {u.AtkNow}   DEF {u.DefNow}   SPD {u.SpdNow}   MOVE {u.MoveNow}");
-            if (u.ClassName != null) lines.Add($"Class: {u.ClassName}{(u.Training.Secondary != null ? $" / {u.Training.Secondary}" : "")}");
-            if (u.Skills.Count > 0) lines.Add($"Skills: {string.Join(", ", u.Skills.Select(s => s.Name))}");
-            var status = StatusLine(u);
-            if (status != "") lines.Add($"Status: {status}");
-            lines.Add($"Weapon: {weapon}");
-            lines.Add($"Armour: {armor}");
-            lines.Add($"Moves: {move}");
-            lines.Add($"{u.Attitude}: {AttitudeInfo.Reaction(u.Attitude)}");
-            if (u.Side == Side.Wild) lines.Add(_battle.RecruitHint(u));
-            if (hover != null && _mode == Mode.Command && hover.Side != _active.Side && _battle.Targets(_active).Contains(hover))
-            {
-                var (dmg, hit) = _battle.Preview(_active, hover);
-                lines.Add("");
-                lines.Add($">> {_active.Name} attacks: about {dmg} damage, {hit}% to hit");
-            }
+            var (dmg, hit) = _battle.Preview(_active, hover);
+            _info.AddChild(new HSeparator());
+            var row = new HBoxContainer();
+            row.AddThemeConstantOverride("separation", 10);
+            row.AddChild(UI.Ui.Picture(SkillIcons.Attack(_active.Weapon, 2)));
+            row.AddChild(UI.Ui.Chips(new UI.Chip[] { new("atk", $"~{dmg}", Ink, "damage"), new("hit", $"{hit}%", Ink, "chance to hit") }, 20));
+            _info.AddChild(row);
         }
-        if (_mode == Mode.Skill)
+        if (_mode == Mode.Skill) SkillRows();
+        if (_mode == Mode.Berry)
         {
-            lines.Add("");
-            lines.Add($"{_skill.Name} ({_skill.Class}): {_skill.Text}");
-            lines.Add(SkillAim() is { } aim ? ">> " + _battle.SkillPreview(_active, _skill, aim) : "Point at an orange tile.");
-            lines.Add(_skill.AroundSelf || _skill.Target == Classes.TargetKind.Self ? "Click (or Enter) to use.   Esc: cancel" : "Click an orange tile to use.   Esc: cancel");
+            _info.AddChild(new HSeparator());
+            _info.AddChild(UI.Ui.Chips(new UI.Chip[] { new("berry", $"{_battle.Berries}", Gold), new("mini:area", "green tile", Ink), new("undo", "Esc", Dim) }));
         }
-        if (_mode is Mode.Command or Mode.Berry)
+        else if (_mode == Mode.Command && !_active.Moved || _mode == Mode.Command && !_active.Acted)
         {
-            lines.Add("");
-            lines.Add($"{_active.Name}'s turn");
-            if (!_active.Acted && _active.Skills.Count > 0) lines.Add("1-9 or the buttons below: use a skill");
-            lines.Add(_mode == Mode.Berry
-                ? "Click a green tile to set down a glowberry.   Esc: cancel"
-                : $"{(_active.Moved ? "" : "Click a blue tile to move.   ")}{(_active.Acted ? "" : "Click a marked enemy to attack.   ")}"
-                  + $"{(_battle.BerrySpots(_active).Count > 0 ? $"B: glowberry ({_battle.Berries}).   " : "")}"
-                  + $"{(_battle.CanUndo(_active) ? "Esc: undo move.   " : "")}Space: end turn");
+            // What the coloured tiles mean, once, instead of instructions.
+            var legend = new List<UI.Chip>();
+            if (!_active.Moved) legend.Add(new(SkillIcons.MoveGlyph(_active.MoveType), "move", Cyan, "click a blue tile"));
+            if (!_active.Acted) legend.Add(new(SkillIcons.WeaponGlyph(_active.Weapon), "attack", Magenta, "click a red-marked foe"));
+            _info.AddChild(new HSeparator());
+            _info.AddChild(UI.Ui.Chips(legend, 16));
         }
-        _panel.Text = string.Join("\n", lines);
+    }
+
+    static readonly string[] SizeWords = { "tiny", "small", "medium", "large", "huge" };
+
+    void UnitRows(Unit u)
+    {
+        var c = u.Creature;
+        // Portrait, name, and what it is.
+        var head = new HBoxContainer();
+        head.AddThemeConstantOverride("separation", 10);
+        if (_views.TryGetValue(u, out var view))
+        {
+            var portrait = UI.Ui.Picture(view.Texture);
+            portrait.CustomMinimumSize = new Vector2(76, 76);
+            portrait.StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered;
+            portrait.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
+            portrait.FlipH = u.Side == Side.Wild;
+            head.AddChild(portrait);
+        }
+        var names = new VBoxContainer { SizeFlagsVertical = SizeFlags.ShrinkCenter };
+        names.AddThemeConstantOverride("separation", 0);
+        names.AddChild(UI.Ui.Text(u.Name, 22, u.Side == Side.Player ? Cyan : Magenta));
+        string what = $"{SizeWords[(int)c.Size]} {c.Species.Plan.ToString().ToLowerInvariant()}" + (c.Species.Strain != Strain.Natural ? $" · {c.Species.Strain.ToString().ToLowerInvariant()}" : "");
+        names.AddChild(UI.Ui.Text(what, 15, Dim, 4));
+        head.AddChild(names);
+        _info.AddChild(head);
+
+        // Stats: a glyph before every number, tinted when a boost or curse moves it.
+        int hp = Mathf.Max(0, view?.DisplayHp ?? u.Hp);
+        float frac = hp / (float)u.MaxHp;
+        Color Moved(int now, int baseValue) => now > baseValue ? UI.Ui.Good : now < baseValue ? UI.Ui.Bad : Ink;
+        var stats = new List<UI.Chip>
+        {
+            new("hp", $"{hp}/{u.MaxHp}", frac > 0.5f ? Ink : frac > 0.25f ? Gold : UI.Ui.Bad, "HP"),
+            new("atk", u.AtkNow.ToString(), Moved(u.AtkNow, u.Atk), "ATK: damage"),
+            new("def", u.DefNow.ToString(), Moved(u.DefNow, u.Def), "DEF: damage taken"),
+            new("spd", u.SpdNow.ToString(), Moved(u.SpdNow, u.Spd), "SPD: turn order and hit chance"),
+            new("move", u.MoveNow.ToString(), Moved(u.MoveNow, u.Move), "MOVE: tiles per turn"),
+        };
+        int evade = u.Mod(Classes.StatKind.Evade);
+        if (evade != 0) stats.Add(new("evade", (evade > 0 ? "+" : "") + evade + "%", evade > 0 ? UI.Ui.Good : UI.Ui.Bad, "harder (or easier) to hit"));
+        if (u.Thorns > 0) stats.Add(new("thorns", u.Thorns.ToString(), Ink, "melee attackers take this much"));
+        if (u.Range > 1) stats.Add(new("range", u.Range.ToString(), Ink, "attack reach"));
+        _info.AddChild(UI.Ui.Chips(stats, 19));
+
+        // Statuses.
+        var status = new List<UI.Chip>();
+        if (u.PoisonTurns > 0) status.Add(new("poison", $"{u.PoisonDmg}x{u.PoisonTurns}", UI.Ui.Good, $"poisoned: {u.PoisonDmg} a turn for {u.PoisonTurns} turns"));
+        if (u.Stunned) status.Add(new("stun", "", null, "stunned: loses its next turn"));
+        if (u.Rooted) status.Add(new("root", "", null, "rooted: can't move"));
+        if (u.TauntedBy != null) status.Add(new("taunt", u.TauntedBy.Name, UI.Ui.Bad, "taunted: must go after this creature"));
+        foreach (var (stat, amount, turns) in u.Buffs)
+            status.Add(new(SkillIcons.StatGlyph(stat), $"{(amount > 0 ? "+" : "")}{amount}{(stat == Classes.StatKind.Evade ? "%" : "")} ({turns})", amount > 0 ? UI.Ui.Good : UI.Ui.Bad, $"{stat} for {turns} more turns"));
+        if (status.Count > 0) _info.AddChild(UI.Ui.Chips(status, 17));
+
+        // Class, then loadout and temper; the long words live in the tooltips.
+        var (weapon, armor, move) = c.Loadout();
+        var kit = new List<UI.Chip>();
+        if (u.ClassName != null) kit.Add(new(SkillIcons.ClassEmblem(u.ClassName), u.ClassName, Gold, "class"));
+        if (u.Training?.Secondary != null) kit.Add(new(SkillIcons.ClassEmblem(u.Training.Secondary), u.Training.Secondary, Ink, "secondary skill set"));
+        _info.AddChild(UI.Ui.Chips(kit, 17));
+        var gear = new List<UI.Chip>
+        {
+            new(SkillIcons.WeaponGlyph(u.Weapon), u.Weapon.ToString().ToLowerInvariant(), Ink, "weapon: " + weapon),
+            new(SkillIcons.ArmorGlyph(u.Armor), u.Armor.ToString().ToLowerInvariant(), Ink, "armour: " + armor),
+            new(SkillIcons.MoveGlyph(u.MoveType), u.MoveType.ToString().ToLowerInvariant(), Ink, "moves: " + move),
+            new(SkillIcons.AttitudeGlyph(u.Attitude), u.Attitude.ToString().ToLowerInvariant(), Ink, $"{u.Attitude}: {AttitudeInfo.Reaction(u.Attitude)}"),
+        };
+        _info.AddChild(UI.Ui.Chips(gear, 16));
+
+        // Skills, passive and reaction as icons.
+        if (u.Skills.Count > 0 || u.Passive != null || u.Reaction != null)
+        {
+            var icons = new HFlowContainer();
+            icons.AddThemeConstantOverride("h_separation", 4);
+            foreach (var s in u.Skills) icons.AddChild(UI.Ui.Picture(SkillIcons.Skill(s, 2), $"{s.Name} ({s.Class})\n{s.Text}"));
+            foreach (var p in new[] { u.Passive, u.Reaction }.Where(p => p != null))
+                icons.AddChild(UI.Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p.Kind == Classes.PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"));
+            _info.AddChild(icons);
+        }
+
+        if (u.Side == Side.Wild)
+        {
+            var hint = UI.Ui.Text(RecruitShort(u), 16, Gold, 4);
+            hint.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            hint.TooltipText = _battle.RecruitHint(u);
+            hint.MouseFilter = MouseFilterEnum.Stop;
+            var row = new HBoxContainer();
+            row.AddThemeConstantOverride("separation", 4);
+            row.AddChild(UI.Ui.Picture(UI.Glyphs.Get("star", 2)));
+            hint.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            row.AddChild(hint);
+            _info.AddChild(row);
+        }
+    }
+
+    /// <summary>How to win this one over, in a few words (the full hint is its tooltip).</summary>
+    string RecruitShort(Unit u) => u.Attitude switch
+    {
+        Attitude.Proud => u.HitBy.Count <= 1 ? "recruit: beat it one-on-one" : "too many hands on it: it will flee",
+        Attitude.Skittish => "recruit: corner it",
+        Attitude.Curious => $"recruit: lure it with a glowberry (B, {_battle.Berries} left)",
+        Attitude.Aggressive => $"recruit: survive its attacks {u.Weathered}/3",
+        _ => "recruit: win over its packmates first",
+    };
+
+    void SkillRows()
+    {
+        _info.AddChild(new HSeparator());
+        var head = new HBoxContainer();
+        head.AddThemeConstantOverride("separation", 10);
+        head.AddChild(UI.Ui.Picture(SkillIcons.Skill(_skill, 3)));
+        var names = new VBoxContainer { SizeFlagsVertical = SizeFlags.ShrinkCenter };
+        names.AddThemeConstantOverride("separation", 0);
+        names.AddChild(UI.Ui.Text(_skill.Name, 21, Gold));
+        names.AddChild(UI.Ui.Text($"{_skill.Class} · {SkillIcons.KindName(SkillIcons.KindOf(_skill))}", 15, Dim, 4));
+        head.AddChild(names);
+        head.TooltipText = _skill.Text;
+        _info.AddChild(head);
+        _info.AddChild(UI.Ui.Chips(UI.Ui.SkillChips(_skill), 18));
+
+        if (SkillAim() is not { } aim) { _info.AddChild(UI.Ui.Text("aim at an orange tile", 16, Dim, 4)); return; }
+        if (_skill.Target == Classes.TargetKind.Tile) { _info.AddChild(UI.Ui.Chips(new UI.Chip[] { new("swirl", "here", Ink), new("mini:area", "Enter", Dim) })); return; }
+        var rows = _battle.SkillOutlook(_active, _skill, aim);
+        if (rows.Count == 0) _info.AddChild(UI.Ui.Text("nothing there", 16, Dim, 4));
+        foreach (var (t, dmg, hit, heal) in rows.Take(5))
+        {
+            var chips = new List<UI.Chip>();
+            if (dmg != null) chips.Add(new("atk", $"~{dmg}", Ink, "damage"));
+            if (hit != null) chips.Add(new("hit", $"{hit}%", Ink, "chance to land"));
+            if (heal != null) chips.Add(new("heal", $"+{heal}", UI.Ui.Good, "HP recovered"));
+            var row = new HBoxContainer();
+            row.AddThemeConstantOverride("separation", 10);
+            var name = UI.Ui.Text(t.Name, 17, t.Side == Side.Player ? Cyan : Magenta, 4);
+            name.CustomMinimumSize = new Vector2(150, 0);
+            name.ClipText = true;
+            row.AddChild(name);
+            row.AddChild(UI.Ui.Chips(chips, 17));
+            _info.AddChild(row);
+        }
+        if (rows.Count > 5) _info.AddChild(UI.Ui.Text($"+{rows.Count - 5} more", 15, Dim, 4));
     }
 
     void RefreshObjective()
@@ -450,17 +674,6 @@ public partial class BattleScreen : Control
         _objective.Text = text;
     }
 
-    /// <summary>Poison, stun, root, taunt and buffs, in words.</summary>
-    public static string StatusLine(Unit u)
-    {
-        var parts = new List<string>();
-        if (u.PoisonTurns > 0) parts.Add($"poisoned ({u.PoisonTurns})");
-        if (u.Stunned) parts.Add("stunned");
-        if (u.Rooted) parts.Add("rooted");
-        if (u.TauntedBy != null) parts.Add($"taunted by {u.TauntedBy.Name}");
-        foreach (var b in u.Buffs) parts.Add($"{(b.stat == Classes.StatKind.Evade ? "evasion" : b.stat.ToString().ToUpperInvariant())} {(b.amount > 0 ? "+" : "")}{b.amount} ({b.turns})");
-        return string.Join(", ", parts);
-    }
 
     void RefreshStrip()
     {
@@ -548,7 +761,7 @@ public partial class BattleScreen : Control
                 {
                     // Call the skill's name over the user and flash the ground it covers.
                     var view = _views[sk.U];
-                    Popup(view, sk.Skill.Name, Gold, -10);
+                    Popup(view, sk.Skill.Name, Gold, -10, SkillIcons.Skill(sk.Skill, 1));
                     var color = sk.Skill.Target is Classes.TargetKind.Ally or Classes.TargetKind.Self ? Cyan : Color.FromHtml("#ff8a3d");
                     _flashes.Add((sk.Area, color, Time.GetTicksMsec() / 1000.0 + 0.45));
                     _overlay.QueueRedraw();
@@ -567,14 +780,15 @@ public partial class BattleScreen : Control
         RefreshPanel();
     }
 
-    void Popup(UnitView v, string text, Color color, float dy = 0)
+    /// <summary>Text rising over a creature (board pixels, so it scales with the board), with an icon above it if given.</summary>
+    void Popup(UnitView v, string text, Color color, float dy = 0, Texture2D icon = null)
     {
-        var l = MakeLabel(9, color);
-        l.Text = text;
+        var l = Ui.Text(text, 9, color, 3);
         l.ZIndex = 400;
         l.Position = v.Position + new Vector2(-40, -v.SpriteHeight - 14 + dy);
         l.Size = new Vector2(80, 12);
         l.HorizontalAlignment = HorizontalAlignment.Center;
+        if (icon != null) l.AddChild(new TextureRect { Texture = icon, Position = new Vector2(40 - icon.GetWidth() / 2f, -icon.GetHeight() - 1), TextureFilter = TextureFilterEnum.Nearest, MouseFilter = MouseFilterEnum.Ignore });
         _board.AddChild(l);
         var tw = CreateTween();
         tw.TweenProperty(l, "position:y", l.Position.Y - 10, 0.6f);
@@ -680,20 +894,22 @@ public partial class UnitView : Node2D
             var m = new Vector2(w / 2 + 6, y);
             DrawColoredPolygon(new[] { m + new Vector2(0, -4), m + new Vector2(3, 0), m + new Vector2(0, 4), m + new Vector2(-3, 0) }, Color.FromHtml("#f2c14e"));
         }
-        // Status pips above the HP bar: poison, stun, root, buffs up, debuffs down.
-        var pips = new List<Color>();
-        if (Unit.PoisonTurns > 0) pips.Add(new Color(0.45f, 1f, 0.4f));
-        if (Unit.Stunned) pips.Add(new Color(1f, 0.9f, 0.3f));
-        if (Unit.Rooted) pips.Add(new Color(0.75f, 0.5f, 0.3f));
-        if (Unit.Buffs.Any(b => b.amount > 0)) pips.Add(new Color(0.3f, 0.9f, 1f));
-        if (Unit.Buffs.Any(b => b.amount < 0) || Unit.TauntedBy != null) pips.Add(new Color(1f, 0.35f, 0.5f));
+        // Status marks above the HP bar, shaped so they read without colour: poison drop, stun star,
+        // root, taunt, and arrows for boosts and curses.
+        var pips = new List<string>();
+        if (Unit.PoisonTurns > 0) pips.Add("poison");
+        if (Unit.Stunned) pips.Add("stun");
+        if (Unit.Rooted) pips.Add("root");
+        if (Unit.TauntedBy != null) pips.Add("taunt");
+        if (Unit.Buffs.Any(b => b.amount > 0)) pips.Add("up");
+        if (Unit.Buffs.Any(b => b.amount < 0)) pips.Add("down");
         for (int i = 0; i < pips.Count; i++)
-            DrawRect(new Rect2(-w / 2 + i * 4, y - 5, 3, 3), pips[i]);
+            DrawTexture(UI.Glyphs.Mini(pips[i], 1), new Vector2(-w / 2 - 1 + i * 6, y - 9));
 
         if (active)
         {
             // A marker over the active creature.
-            var m = new Vector2(0, y - 6 + Mathf.Sin(Time.GetTicksMsec() / 200f) * 1.5f);
+            var m = new Vector2(0, y - 6 - (pips.Count > 0 ? 7 : 0) + Mathf.Sin(Time.GetTicksMsec() / 200f) * 1.5f);
             DrawColoredPolygon(new[] { m + new Vector2(-3, -3), m + new Vector2(3, -3), m + new Vector2(0, 1) }, _ring);
         }
     }

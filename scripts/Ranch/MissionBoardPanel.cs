@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using CreatureTactics.Tactics;
+using CreatureTactics.UI;
 using Godot;
 
 namespace CreatureTactics.Ranching;
@@ -42,7 +43,7 @@ public partial class MissionBoardPanel : Control
 
     public override void _Draw()
     {
-        DrawString(GetThemeDefaultFont(), new Vector2(0, 18), $"MISSION BOARD - contracts for encounter {Ranch.Encounter}. The board changes after every battle.",
+        DrawString(GetThemeDefaultFont(), new Vector2(0, 18), $"MISSION BOARD · encounter {Ranch.Encounter}",
             HorizontalAlignment.Left, Size.X, 16, Color.FromHtml("#f2c14e"));
     }
 
@@ -76,6 +77,8 @@ public partial class MissionCard : Control
         if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }) Clicked?.Invoke();
     }
 
+    static string Goal(Objective o) => o switch { Objective.Survive => "clock", Objective.Hunt => "hit", Objective.Capture => "chain", _ => "fist" };
+
     public override void _Draw()
     {
         var m = Board.Missions[Index];
@@ -100,11 +103,24 @@ public partial class MissionCard : Control
         var dim = Color.FromHtml("#9a91b4");
         var gold = Color.FromHtml("#f2c14e");
         float x = 290, w = Size.X - x - 12;
-        DrawString(font, new Vector2(x, 32), m.Title, HorizontalAlignment.Left, w, 20, ink);
-        DrawString(font, new Vector2(x, 58), $"{new string('*', m.Stars)}{new string('.', 5 - m.Stars)}   pack of {m.Pack}   reward {m.Reward} chem", HorizontalAlignment.Left, w, 16, gold);
-        DrawString(font, new Vector2(x, 84), m.Brief(), HorizontalAlignment.Left, w, 15, ink);
-        DrawString(font, new Vector2(x, 108), BattleMap.ByName(m.MapName).Blurb, HorizontalAlignment.Left, w, 14, dim);
+        // Title behind the objective's glyph; then difficulty stars, pack size and reward as glyphs and numbers.
+        DrawTexture(Glyphs.Get(Goal(m.Goal), 2), new Vector2(x - 4, 8));
+        DrawString(font, new Vector2(x + 26, 32), m.Title, HorizontalAlignment.Left, w - 26, 20, ink);
+        DrawTexture(SkillIcons.Stars(m.Stars > 3 ? 3 : m.Stars, 2), new Vector2(x, 44));
+        if (m.Stars > 3) DrawTexture(SkillIcons.Stars(m.Stars - 3, 2), new Vector2(x + 38, 44));
+        float cx = x + (m.Stars > 3 ? 84 : 48);
+        foreach (var (glyph, text) in new[] { ("paw", m.Pack.ToString()), ("flask", m.Reward.ToString()) })
+        {
+            DrawTexture(Glyphs.Get(glyph, 2), new Vector2(cx, 40));
+            DrawString(font, new Vector2(cx + 28, 61), text, HorizontalAlignment.Left, 60, 17, gold);
+            cx += 72;
+        }
+        DrawString(font, new Vector2(x, 90), m.Brief(), HorizontalAlignment.Left, w, 15, ink);
+        DrawString(font, new Vector2(x, 114), BattleMap.ByName(m.MapName).Blurb, HorizontalAlignment.Left, w, 14, dim);
         if (m.Sighting != null)
-            DrawString(font, new Vector2(x, 140), $"Sighting: a creature with {m.Sighting} (not in your codex)", HorizontalAlignment.Left, w, 15, Color.FromHtml("#4ff0a0"));
+        {
+            DrawTexture(Glyphs.Get("eye", 2), new Vector2(x - 4, 128));
+            DrawString(font, new Vector2(x + 26, 150), $"{m.Sighting}  ·  new to your codex", HorizontalAlignment.Left, w - 26, 15, Color.FromHtml("#4ff0a0"));
+        }
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using CreatureTactics.Creatures;
+using CreatureTactics.UI;
 using Godot;
 
 namespace CreatureTactics.Ranching;
@@ -63,7 +64,9 @@ public partial class LabPanel : Control
         var dim = Color.FromHtml("#9a91b4");
         var gold = Color.FromHtml("#f2c14e");
 
-        _rows.AddChild(Text($"FLESH GRAFTS - parts from your codex ({Ranch.Codex.Count} known). Not inherited.", 700, gold));
+        // Every cost is the flask glyph and a number; the buttons say what they fit.
+        var flask = Glyphs.Get("flask", 1);
+        _rows.AddChild(Text($"FLESH GRAFTS · {Ranch.Codex.Count} parts in your codex · not inherited", 700, gold));
         foreach (var slot in Lab.SlotsFor(plan))
         {
             int current = Lab.Get(rec.Parts, slot.Name), pick = _candidate[slot.Name];
@@ -78,30 +81,36 @@ public partial class LabPanel : Control
             row.AddChild(Btn(">", options.Count > 1, () => Cycle(slot.Name, options, 1), 34));
             int id = _id.Value;
             string name = slot.Name;
-            row.AddChild(Btn($"Graft ({slot.Cost})", pick != current && Ranch.Chem >= slot.Cost, () => Finish(Lab.GraftPart(Ranch, id, name, _candidate[name])), 120));
+            var graftButton = Btn($"Graft  {slot.Cost}", pick != current && Ranch.Chem >= slot.Cost, () => Finish(Lab.GraftPart(Ranch, id, name, _candidate[name])), 120);
+            graftButton.Icon = flask;
+            row.AddChild(graftButton);
             _rows.AddChild(row);
         }
 
-        _rows.AddChild(Text("MACHINE GRAFTS - Piltover brass. Not inherited.", 700, gold));
+        _rows.AddChild(Text("MACHINE GRAFTS · Piltover brass · not inherited", 700, gold));
         var machines = new HBoxContainer();
         machines.AddThemeConstantOverride("separation", 6);
         foreach (var (graft, name, cost) in Lab.Machines)
         {
             bool has = rec.Species.Grafts.HasFlag(graft);
             int id = _id.Value;
-            machines.AddChild(Btn(has ? $"{name} (fitted)" : $"{name} ({cost})", !has && Ranch.Chem >= cost, () => Finish(Lab.AddMachine(Ranch, id, graft))));
+            var b = Btn(has ? name : $"{name}  {cost}", !has && Ranch.Chem >= cost, () => Finish(Lab.AddMachine(Ranch, id, graft)));
+            b.Icon = has ? Glyphs.Get("check", 1) : flask;
+            machines.AddChild(b);
         }
         _rows.AddChild(machines);
 
         if (rec.Species.Strain == Strain.Natural)
         {
-            _rows.AddChild(Text("INFUSIONS - new blood for a natural creature. Inherited by its line.", 700, gold));
+            _rows.AddChild(Text("INFUSIONS · new blood · inherited by its line", 700, gold));
             var infusions = new HBoxContainer();
             infusions.AddThemeConstantOverride("separation", 6);
             foreach (var (strain, _, cost) in Lab.Infusions)
             {
                 int id = _id.Value;
-                infusions.AddChild(Btn($"{strain} ({cost})", Ranch.Chem >= cost, () => Finish(Lab.Infuse(Ranch, id, strain))));
+                var b = Btn($"{strain}  {cost}", Ranch.Chem >= cost, () => Finish(Lab.Infuse(Ranch, id, strain)));
+                b.Icon = flask;
+                infusions.AddChild(b);
             }
             _rows.AddChild(infusions);
         }

@@ -20,7 +20,8 @@ namespace CreatureTactics;
 ///   --newranch        start a fresh ranch (overwrites the save once anything is saved)
 ///   --style=ID        art style: neon (default), ffta, painted, noir, grim (V cycles them in the Sprite Lab)
 ///   --lab             open the Sprite Lab (Tab switches)
-///   --battle=N        a one-off battle with the default squad; --autoplay lets the AI play your side
+///   --battle=N        a one-off battle with the default squad; --autoplay lets the AI play your side,
+///                     --aim aims the first skill at the busiest tile (for screenshots of the skill panel)
 ///   --autobattle=N    run a battle AI-vs-AI headless and print the log
 ///   --shot=N          save frame N to .shots/shot.png and quit
 ///   --export=FILE     write the sheet (or species) as a PNG and quit; works with --headless
@@ -293,6 +294,25 @@ public partial class GameRoot : Node
             return;
         }
 
+        if (args.ContainsKey("icons"))
+        {
+            // Every skill icon, then every glyph, at x4: the readability check.
+            string ipath = ProjectSettings.GlobalizePath("res://.shots/icons.png");
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(ipath)!);
+            var sheetImg = UI.SkillIcons.Sheet();
+            var glyphs = UI.Glyphs.Names.ToList();
+            int gw = 15, grows = (glyphs.Count + gw - 1) / gw;
+            var all = Image.CreateEmpty(sheetImg.GetWidth(), sheetImg.GetHeight() + grows * 16 + 4, false, Image.Format.Rgba8);
+            all.Fill(Color.FromHtml("#16121f"));
+            all.BlitRect(sheetImg, new Rect2I(0, 0, sheetImg.GetWidth(), sheetImg.GetHeight()), Vector2I.Zero);
+            for (int i = 0; i < glyphs.Count; i++) UI.Glyphs.Draw(all, glyphs[i], 6 + i % gw * 24, sheetImg.GetHeight() + 2 + i / gw * 16);
+            all.Resize(all.GetWidth() * 4, all.GetHeight() * 4, Image.Interpolation.Nearest);
+            all.SavePng(ipath);
+            GD.Print($"wrote {ipath}: {Classes.ClassBook.Skills.Length} skill icons, {glyphs.Count} glyphs");
+            GetTree().Quit();
+            return;
+        }
+
         if (args.TryGetValue("export", out var file))
         {
             int Int(string key, int fallback) => args.TryGetValue(key, out var v) && int.TryParse(v, out var x) ? x : fallback;
@@ -315,7 +335,7 @@ public partial class GameRoot : Node
         {
             // A one-off battle with the default squad, no ranch involved.
             ulong seed = ulong.TryParse(oneOff, out var bs) ? bs : 1;
-            _home = () => new Tactics.BattleScreen { Seed = seed, AutoPlay = _autoPlay, MapName = args.TryGetValue("map", out var mapName) ? mapName : "Undercity Foundry" };
+            _home = () => new Tactics.BattleScreen { Seed = seed, AutoPlay = _autoPlay, DemoAim = args.ContainsKey("aim"), MapName = args.TryGetValue("map", out var mapName) ? mapName : "Undercity Foundry" };
             Show(_home());
             return;
         }

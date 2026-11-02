@@ -19,6 +19,14 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   reference, but don't switch the default.
 - **Perspective: FFTA's.** The camera is above and behind; creatures face the four screen diagonals
   (the four grid directions), with front and back views. See `docs/classes-design.md` for jobs.
+- **Mystical, fantastical, varied, themed; not plump** (2026-11-02). Lean, distinct silhouettes
+  over round bodies; each creature should read as a kind of fantasy beast, not a palette swap.
+- **Readability (2026-11-01):** icons and shorthand over sentences, after WizardSurvivors'
+  stat glyphs. `scripts/UI/`: `Glyphs` (12x12 art, outlined, drawn at 2x+), `SkillIcons` (every
+  skill gets a framed glyph: frame colour = attack/heal/boost/control/move, corner marks = shape and
+  stat up/down), `Ui.Chips` (glyph + number). A glyph before every stat; full text only in
+  tooltips; colour only as a second cue. New skills need an entry in `SkillIcons.SkillGlyph`;
+  check `--icons` (writes `.shots/icons.png`).
 
 ## Status
 
@@ -65,7 +73,8 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   that saves, so the user's `user://ranch.json` is never touched.
 - **Sprites:** `"$GODOT_BIN" --headless --path . -- --export=.shots/x.png --sheet=1`, then look at
   the PNG (`--scale=4 --columns=4 --count=12` for close-ups).
-- **Screens:** `"$GODOT_BIN" --path . -- --shot=40` (add `--autoplay` for mid-battle, `--lab` for
+- **Screens:** `"$GODOT_BIN" --path . -- --shot=40` (add `--autoplay` for mid-battle, `--battle=3 --aim --shot=900`
+  for the aimed-skill panel, `--lab` for
   the Lab) writes `.shots/shot.png`. It opens a window briefly.
 - `$GODOT_BIN` is in `.claude/settings.json`. If it is unset, say so rather than guessing.
   `.shots/` is ignored by git.

@@ -630,24 +630,34 @@ public sealed class Battle
     int HitOn(Unit u, SkillDef s, Unit t) => Math.Clamp(Preview(u, t).hit + s.HitBonus, 5, 99);
 
     /// <summary>A one-line preview of a skill on a target tile (the notes ask for clear previews).</summary>
-    public string SkillPreview(Unit u, SkillDef s, Vector2I tile)
+    /// <summary>What a skill aimed at a tile would do to each creature it reaches: damage, chance to hit, healing.</summary>
+    public List<(Unit t, int? dmg, int? hit, int? heal)> SkillOutlook(Unit u, SkillDef s, Vector2I tile)
     {
-        if (s.Target == TargetKind.Tile) return s.Name + ": move to this tile";
-        var targets = SkillTargets(u, s, tile);
-        if (targets.Count == 0) return s.Name + ": nothing there";
-        var parts = new List<string>();
-        foreach (var t in targets.Take(4))
+        var rows = new List<(Unit, int?, int?, int?)>();
+        if (s.Target == TargetKind.Tile) return rows;
+        foreach (var t in SkillTargets(u, s, tile))
         {
             if (t.Side != u.Side && Rolls(s))
             {
-                var (dmg, _) = Preview(u, t);
-                string dmgText = s.Power > 0 ? "~" + Math.Max(1, Mathf.RoundToInt(dmg * PowerOn(u, s, t))) + " dmg, " : "";
-                parts.Add(t.Name + " " + dmgText + HitOn(u, s, t) + "%");
+                int? dmg = s.Power > 0 ? Math.Max(1, Mathf.RoundToInt(Preview(u, t).dmg * PowerOn(u, s, t))) : null;
+                rows.Add((t, dmg, HitOn(u, s, t), null));
             }
-            else if (s.Heal > 0) parts.Add(t.Name + " +" + Math.Min(t.MaxHp - t.Hp, Mathf.RoundToInt(t.MaxHp * s.Heal)) + " HP");
-            else parts.Add(t.Name);
+            else if (s.Heal > 0) rows.Add((t, null, null, Math.Min(t.MaxHp - t.Hp, Mathf.RoundToInt(t.MaxHp * s.Heal))));
+            else rows.Add((t, null, null, null));
         }
-        string more = targets.Count > 4 ? " and " + (targets.Count - 4) + " more" : "";
+        return rows;
+    }
+
+    public string SkillPreview(Unit u, SkillDef s, Vector2I tile)
+    {
+        if (s.Target == TargetKind.Tile) return s.Name + ": move to this tile";
+        var rows = SkillOutlook(u, s, tile);
+        if (rows.Count == 0) return s.Name + ": nothing there";
+        var parts = rows.Take(4).Select(r =>
+            r.hit != null ? r.t.Name + " " + (r.dmg != null ? "~" + r.dmg + " dmg, " : "") + r.hit + "%"
+            : r.heal != null ? r.t.Name + " +" + r.heal + " HP"
+            : r.t.Name);
+        string more = rows.Count > 4 ? " and " + (rows.Count - 4) + " more" : "";
         return s.Name + ": " + string.Join("; ", parts) + more;
     }
 

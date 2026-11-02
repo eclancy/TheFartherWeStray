@@ -5,6 +5,7 @@ using CreatureTactics.Classes;
 using CreatureTactics.Creatures;
 using CreatureTactics.SpriteLab;
 using CreatureTactics.Tactics;
+using CreatureTactics.UI;
 using Godot;
 
 namespace CreatureTactics.Ranching;
@@ -29,7 +30,9 @@ public partial class RanchScreen : Control
     static readonly Color Ink = Color.FromHtml("#e8e2f4"), Dim = Color.FromHtml("#9a91b4");
 
     GridContainer _grid;
-    Label _header, _status, _notes, _detail, _training;
+    Label _header, _status, _notes;
+    VBoxContainer _detail, _training;
+    Control _headerChips;
     VatPanel _vats;
     Button _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _labButton, _boardButton, _jobsButton;
     HBoxContainer _buttonsRow;
@@ -73,10 +76,16 @@ public partial class RanchScreen : Control
         AddChild(_vats);
         _notes = Text(15, Ink, new Vector2(1170, 432), new Vector2(720, 96));
         _notes.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _detail = Text(15, Dim, new Vector2(1170, 532), new Vector2(720, 230));
-        _detail.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _training = Text(15, Ink, new Vector2(1170, 760), new Vector2(720, 200));
-        _training.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        // Hover detail and the selected creature's training, stacked in one column.
+        var column = new VBoxContainer { Position = new Vector2(1170, 532), Size = new Vector2(720, 430) };
+        column.AddThemeConstantOverride("separation", 14);
+        AddChild(column);
+        _detail = new VBoxContainer();
+        _detail.AddThemeConstantOverride("separation", 6);
+        column.AddChild(_detail);
+        _training = new VBoxContainer();
+        _training.AddThemeConstantOverride("separation", 6);
+        column.AddChild(_training);
 
         var buttons = _buttonsRow = new HBoxContainer { Position = new Vector2(1170, 970) };
         buttons.AddThemeConstantOverride("separation", 8);
@@ -158,7 +167,18 @@ public partial class RanchScreen : Control
             card.Hovered += () => ShowDetail(id);
             _grid.AddChild(card);
         }
-        _header.Text = $"THE RANCH      {Ranch.Creatures.Count} creatures      squad {Ranch.Squad.Count}/{Ranch.SquadSize}      chem {Ranch.Chem}      next: encounter {Ranch.Encounter}";
+        _header.Text = "THE RANCH";
+        _headerChips?.QueueFree();
+        _headerChips = Ui.Chips(new[]
+        {
+            new Chip("paw", Ranch.Creatures.Count.ToString(), Ink, "creatures"),
+            new Chip("fist", $"{Ranch.Squad.Count}/{Ranch.SquadSize}", Ranch.Squad.Count == 0 ? Ui.Bad : Ink, "squad"),
+            new Chip("flask", Ranch.Chem.ToString(), Gold, "chem, for the lab"),
+            new Chip("mountain", "#" + Ranch.Encounter, Ink, "next encounter"),
+        }, 22, 2, 22);
+        _headerChips.Position = new Vector2(230, 20);
+        _headerChips.Size = new Vector2(1100, 40);
+        AddChild(_headerChips);
         _vats.QueueRedraw();
         RefreshSelected();
     }
@@ -180,40 +200,73 @@ public partial class RanchScreen : Control
         RefreshSelected();
     }
 
-    /// <summary>The selected creature's training panel and buttons.</summary>
+    /// <summary>The selected creature's training: class, stars and JP, skill icons, slots, and the job tree in brief.</summary>
     void RefreshSelected()
     {
         bool any = _selected != null && Ranch.Creatures.Any(r => r.Id == _selected);
         foreach (var b in new[] { _squadButton, _classButton, _secondButton, _vatButton, _releaseButton }) b.Disabled = !any;
-        if (!any) { _training.Text = ""; return; }
+        Clear(_training);
+        if (!any) return;
         int id = _selected.Value;
         var c = Ranch.Get(id);
         var t = Ranch.Record(id).Training;
         _squadButton.Text = InSquad(id) ? "Leave squad" : "Join squad";
-        _classButton.Text = $"Class: {t.Class}  >";
-        _secondButton.Text = $"Secondary: {t.Secondary ?? "none"}  >";
+        _classButton.Text = $"{t.Class}  >";
+        _classButton.Icon = Glyphs.Get(SkillIcons.ClassEmblem(t.Class), 1);
+        _classButton.TooltipText = "Cycle the main class";
+        _secondButton.Text = $"2nd: {t.Secondary ?? "none"}  >";
+        _secondButton.Icon = t.Secondary != null ? Glyphs.Get(SkillIcons.ClassEmblem(t.Secondary), 1) : null;
+        _secondButton.TooltipText = "Cycle the secondary skill set";
         _vatButton.Text = PenSlot(id) >= 0 ? "Out of vat" : "Into vat";
 
         var cls = ClassBook.Class(t.Class);
-        var lines = new List<string> { $"{c.Species.Name} trains as a {cls.Name}: {cls.Blurb}  JP {t.JpIn(cls.Id)}" };
+        var head = Row(Ui.Picture(SkillIcons.Class(cls.Id, ClassBook.Standing.Open, 2), cls.Blurb), Ui.Text(cls.Name, 18, Gold),
+            Ui.Picture(SkillIcons.Stars(t.Stars(cls.Id), 2), "mastery stars"));
+        // Its skills in order, dimmed until learned, then how much JP the next one needs.
         int spent = 0;
+        int? next = null;
         foreach (var sid in cls.Skills)
         {
             var s = ClassBook.Skill(sid);
             spent += s.Cost;
             bool known = t.Skills.Contains(sid);
-            lines.Add(known ? $"   [learned] {s.Name}: {s.Text}" : $"   [{spent - t.JpIn(cls.Id)} JP to go] {s.Name}: {s.Text}");
+            var icon = Ui.Picture(SkillIcons.Skill(s, 2), $"{s.Name}\n{s.Text}" + (known ? "" : $"\n{spent - t.JpIn(cls.Id)} JP to go"));
+            if (!known) { icon.Modulate = new Color(1, 1, 1, 0.4f); next ??= spent - t.JpIn(cls.Id); }
+            head.AddChild(icon);
         }
-        if (t.Secondary != null)
-            lines.Add($"Secondary {t.Secondary}: {string.Join(", ", t.Skills.Where(s => ClassBook.Skill(s).Class == t.Secondary).Select(s => ClassBook.Skill(s).Name))}");
-        if (t.Innate != null) lines.Add($"Innate: {ClassBook.Skill(t.Innate).Name} ({ClassBook.Skill(t.Innate).Text})");
-        if (ClassBook.Passive(t.Passive) is { } eq) lines.Add($"Passive: {eq.Name} ({eq.Text})");
-        if (ClassBook.Passive(t.Reaction) is { } rx) lines.Add($"Reaction: {rx.Name} ({rx.Text})");
-        var standings = ClassBook.Classes.Select(k => ClassBook.StandingOf(k, c, t)).ToList();
-        lines.Add($"Job tree: {standings.Count(s => s == ClassBook.Standing.Open)} open, {standings.Count(s => s == ClassBook.Standing.Locked)} locked, {standings.Count(s => s == ClassBook.Standing.Never)} never.  J opens it.");
-        _training.Text = string.Join("\n", lines);
-    }
+        head.AddChild(Ui.Chips(new[] { new Chip("star", $"{t.JpIn(cls.Id)} JP", Ink, "JP earned in this class") }
+            .Concat(next != null ? new[] { new Chip("lock", $"{next}", Dim, "JP to the next skill") } : Array.Empty<Chip>()), 15));
+        _training.AddChild(head);
 
+        // Everything else it brings: secondary skills, an inherited skill, the two passives.
+        var extras = Row();
+        if (t.Secondary != null)
+        {
+            extras.AddChild(Ui.ChipView(new Chip(SkillIcons.ClassEmblem(t.Secondary), t.Secondary, Ink, "secondary skill set"), 15));
+            foreach (var s in t.Skills.Select(ClassBook.Skill).Where(s => s.Class == t.Secondary))
+                extras.AddChild(Ui.Picture(SkillIcons.Skill(s, 2), $"{s.Name} ({s.Class})\n{s.Text}"));
+        }
+        if (t.Innate != null)
+        {
+            var s = ClassBook.Skill(t.Innate);
+            extras.AddChild(Ui.Picture(SkillIcons.Skill(s, 2), $"Innate, from a parent: {s.Name}\n{s.Text}"));
+        }
+        foreach (var p in new[] { ClassBook.Passive(t.Passive), ClassBook.Passive(t.Reaction) }.Where(p => p != null))
+        {
+            extras.AddChild(Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p.Kind == PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"));
+            extras.AddChild(Ui.Text(p.Name, 14, p.Kind == PassiveKind.Reaction ? Ui.Pink : Ui.Good, 4));
+        }
+        if (extras.GetChildCount() > 0) _training.AddChild(extras);
+
+        var standings = ClassBook.Classes.Select(k => ClassBook.StandingOf(k, c, t)).ToList();
+        _training.AddChild(Ui.Chips(new[]
+        {
+            new Chip("check", $"{standings.Count(s => s == ClassBook.Standing.Open)} open", Ui.Good, "classes it can train now"),
+            new Chip("lock", $"{standings.Count(s => s == ClassBook.Standing.Locked)} locked", Dim, "classes it could unlock"),
+            new Chip("x", $"{standings.Count(s => s == ClassBook.Standing.Never)} never", Ui.Bad, "classes its body can never take"),
+            new Chip("dot", "J: job tree", Dim),
+        }, 15));
+    }
     /// <summary>Swaps the right-hand side between breeding and training, and the lab.</summary>
     void SetPanel(Panel p)
     {
@@ -325,16 +378,66 @@ public partial class RanchScreen : Control
         Rebuild();
     }
 
-    void ShowDetail(int id)
+    static void Clear(Control box)
     {
-        var c = Ranch.Get(id);
-        var u = Unit.From(c, Tactics.Side.Player, Ranch.Record(id).Training);
-        string lineage = c.Generation > 0 ? $"\nBred: generation {c.Generation}, of {c.ParentA} and {c.ParentB}" : "";
-        _detail.Text = CreatureSheet.Describe(c) + lineage
-            + $"\nHP {u.MaxHp}   ATK {u.Atk}   DEF {u.Def}   SPD {u.Spd}   MOVE {u.Move}   (as a {u.ClassName})"
-            + (Ranch.Record(id).Rested ? "" : "\nResting: can breed again after the next battle.");
+        foreach (var child in box.GetChildren()) { box.RemoveChild(child); child.QueueFree(); }
     }
 
+    static HBoxContainer Row(params Control[] items)
+    {
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 8);
+        foreach (var i in items) row.AddChild(i);
+        return row;
+    }
+
+    /// <summary>The hovered creature: what it is, its stats in glyphs, its gear, its parts, its lineage.</summary>
+    void ShowDetail(int id)
+    {
+        Clear(_detail);
+        var c = Ranch.Get(id);
+        var rec = Ranch.Record(id);
+        var u = Unit.From(c, Tactics.Side.Player, rec.Training);
+        var s = c.Species;
+        string what = $"{c.Size.ToString().ToLowerInvariant()} {s.Plan.ToString().ToLowerInvariant()}"
+            + (s.Strain != Strain.Natural ? $" · {s.Strain.ToString().ToLowerInvariant()}" : "")
+            + (s.Origin != null ? $" · from {s.Origin}" : "");
+        var head = Row(Ui.Text(s.Name, 22, Ink), Ui.Text(what, 15, Dim, 4));
+        if (c.Shiny) head.AddChild(Ui.ChipView(new Chip("sparkle", "shiny", Gold), 15));
+        if (c.Mutation != null) head.AddChild(Ui.ChipView(new Chip("swirl", c.Mutation.ToString().ToLowerInvariant(), Ui.Pink, "mutation"), 15));
+        _detail.AddChild(head);
+
+        _detail.AddChild(Ui.Chips(new[]
+        {
+            new Chip("hp", u.MaxHp.ToString(), Ink, "max HP"), new Chip("atk", u.Atk.ToString(), Ink, "ATK"), new Chip("def", u.Def.ToString(), Ink, "DEF"),
+            new Chip("spd", u.Spd.ToString(), Ink, "SPD"), new Chip("move", u.Move.ToString(), Ink, "MOVE"),
+            new Chip(SkillIcons.ClassEmblem(u.ClassName), "as " + u.ClassName, Gold, "stats as its current class"),
+        }, 18));
+
+        var (weapon, armor, move) = c.Loadout();
+        _detail.AddChild(Ui.Chips(new[]
+        {
+            new Chip(SkillIcons.WeaponGlyph(c.Weapon), c.Weapon.ToString().ToLowerInvariant(), Ink, "weapon: " + weapon),
+            new Chip(SkillIcons.ArmorGlyph(c.Armor), c.Armor.ToString().ToLowerInvariant(), Ink, "armour: " + armor),
+            new Chip(SkillIcons.MoveGlyph(c.MoveType), c.MoveType.ToString().ToLowerInvariant(), Ink, "moves: " + move),
+            new Chip(SkillIcons.AttitudeGlyph(c.Attitude), c.Attitude.ToString().ToLowerInvariant(), Ink,
+                $"reacts: {AttitudeInfo.Reaction(c.Attitude)}\nrecruit: {AttitudeInfo.Recruit(c.Attitude)}"),
+        }, 16));
+
+        // Parts, for grafting: only the ones it has.
+        var p = c.Parts;
+        var parts = new (string slot, Enum part)[] { ("head", p.Head), ("ears", p.Ears), ("eyes", p.Eyes), ("horns", p.Horns), ("back", p.Back), ("limbs", p.Limbs), ("tail", p.Tail), ("wings", p.Wings), ("pattern", p.Pattern) }
+            .Select(x => (x.slot, word: Creature.Words(x.part))).Where(x => x.word != "none").Select(x => $"{x.slot} {x.word}");
+        string grafts = s.Strain != Strain.Natural && s.Grafts != Graft.None ? "   ·   grafts: " + s.Grafts.ToString().ToLowerInvariant() : "";
+        var partsLine = Ui.Text(string.Join(" · ", parts) + grafts, 13, Dim, 3);
+        partsLine.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _detail.AddChild(partsLine);
+
+        var tags = new List<Chip>();
+        if (c.Generation > 0) tags.Add(new Chip("paw", $"gen {c.Generation}: {c.ParentA} + {c.ParentB}", Dim, "bred in the vats"));
+        if (!rec.Rested) tags.Add(new Chip("clock", "resting", Gold, "can breed again after the next battle"));
+        if (tags.Count > 0) _detail.AddChild(Ui.Chips(tags, 14));
+    }
     public override void _Process(double delta)
     {
         if (_releaseArmed == null) return;

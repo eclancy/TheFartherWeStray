@@ -75,7 +75,7 @@ public sealed class Unit
     public string ClassName => Training?.Class;
 
     public Attitude Attitude => Creature.Attitude;
-    public string Name => Creature.Species.Name;
+    public string Name => Creature.Name;
     public int Range => Weapon == Weapon.Whip || Passive is { LongReach: true } ? 2 : 1;
     public bool Knockback => Weapon is Weapon.Horns or Weapon.Hooves;
     public int Thorns => (Armor == Armor.Spines ? 3 : 0) + (Passive?.Thorns ?? 0) + (Boost?.Thorns ?? 0) + Mod(StatKind.Thorns);

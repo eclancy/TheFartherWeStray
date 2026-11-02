@@ -200,6 +200,7 @@ public partial class BattleScreen : Control
         {
             _banner.Text = $"{rival.Name.ToUpperInvariant()}\nchallenges you";
             _banner.Visible = true;
+            Audio.Sound.Play("gong");
             AddLog($"{rival.Name} sends out {_battle.Units.Count(u => u.Side == Side.Wild)} creatures (a tamer's can't be recruited). {rival.Specialty}: {rival.Text}");
             await Wait(1.6f);
             _banner.Visible = false;
@@ -212,6 +213,7 @@ public partial class BattleScreen : Control
             await ToSignal(pan, Tween.SignalName.Finished);
             AddLog($"A shiny {u.Name} appears! {u.ShinyPassive?.Name}: {u.ShinyPassive?.Text}");
             Popup(v, "shiny!", Gold, -12, UI.Glyphs.Mini("star", 2));
+            Audio.Sound.Play("shiny");
             await v.Glint();
             await Wait(0.3f);
         }
@@ -470,6 +472,7 @@ public partial class BattleScreen : Control
     void ShowEnd()
     {
         _mode = Mode.Over;
+        Audio.Sound.Play(_battle.Winner == Side.Player ? "victory" : "defeat");
         _overlay.QueueRedraw();
         int n = _battle.Recruited.Count;
         _banner.Text = _battle.Winner != Side.Player ? "DEFEAT"
@@ -491,7 +494,9 @@ public partial class BattleScreen : Control
         _timer.Visible = timing;
         if (timing)
         {
+            int before = Mathf.CeilToInt((float)_turnLeft);
             _turnLeft -= delta;
+            if (_turnLeft <= 5 && Mathf.CeilToInt((float)_turnLeft) < before) Audio.Sound.Play("tick");
             _timerText.Text = $"{Mathf.CeilToInt((float)Mathf.Max(0, _turnLeft))}";
             _timerText.AddThemeColorOverride("font_color", _turnLeft <= 5 ? Ui.Bad : Ink);
             if (_turnLeft <= 0) { _timer.Visible = false; EndPlayerTurn(); }
@@ -644,8 +649,8 @@ public partial class BattleScreen : Control
         {
             // What the coloured tiles mean, once, instead of instructions.
             var legend = new List<UI.Chip>();
-            if (!_active.Moved) legend.Add(new(SkillIcons.MoveGlyph(_active.MoveType), "move", Cyan, "click a blue tile"));
-            if (!_active.Acted) legend.Add(new(SkillIcons.WeaponGlyph(_active.Weapon), "attack", Magenta, "click a red-marked foe"));
+            if (!_active.Moved) legend.Add(new(SkillIcons.MoveGlyph(_active.MoveType), "Move", Cyan, "click a blue tile"));
+            if (!_active.Acted) legend.Add(new(SkillIcons.WeaponGlyph(_active.Weapon), "Attack", Magenta, "click a red-marked foe"));
             _info.AddChild(new HSeparator());
             _info.AddChild(UI.Ui.Chips(legend, 16));
         }
@@ -713,10 +718,10 @@ public partial class BattleScreen : Control
         _info.AddChild(UI.Ui.Chips(kit, 17));
         var gear = new List<UI.Chip>
         {
-            new(SkillIcons.WeaponGlyph(u.Weapon), u.Weapon.ToString().ToLowerInvariant(), Ink, "weapon: " + weapon),
-            new(SkillIcons.ArmorGlyph(u.Armor), u.Armor.ToString().ToLowerInvariant(), Ink, "armour: " + armor),
-            new(SkillIcons.MoveGlyph(u.MoveType), u.MoveType.ToString().ToLowerInvariant(), Ink, "moves: " + move),
-            new(SkillIcons.AttitudeGlyph(u.Attitude), u.Attitude.ToString().ToLowerInvariant(), Ink, $"{u.Attitude}: {AttitudeInfo.Reaction(u.Attitude)}"),
+            new(SkillIcons.WeaponGlyph(u.Weapon), u.Weapon.ToString(), Ink, "weapon: " + weapon),
+            new(SkillIcons.ArmorGlyph(u.Armor), u.Armor.ToString(), Ink, "armour: " + armor),
+            new(SkillIcons.MoveGlyph(u.MoveType), u.MoveType.ToString(), Ink, "moves: " + move),
+            new(SkillIcons.AttitudeGlyph(u.Attitude), u.Attitude.ToString(), Ink, $"{u.Attitude}: {AttitudeInfo.Reaction(u.Attitude)}"),
         };
         _info.AddChild(UI.Ui.Chips(gear, 16));
 
@@ -847,6 +852,7 @@ public partial class BattleScreen : Control
             {
                 case TurnEvent t:
                     _active = t.U;
+                    if (t.U.Side == Side.Player && !AutoPlay) Audio.Sound.Play("turn");
                     RefreshObjective();
                     RefreshStrip();
                     foreach (var v in _views.Values) v.QueueRedraw();
@@ -855,22 +861,28 @@ public partial class BattleScreen : Control
                     await _views[m.U].Walk(m.Path);
                     break;
                 case StrikeEvent s:
+                    Audio.Sound.Play("swing", UnitView.Heft(s.A));
                     await _views[s.A].Lunge(_views[s.T]);
                     break;
                 case DamageEvent d:
                     _fx.Hit(Body(_views[d.U]), d.Amount, d.Miss);
+                    // A heavy blow (a quarter of its HP or more) lands lower.
+                    if (d.Miss) Audio.Sound.Play("miss"); else Audio.Sound.Play("hit", d.Amount * 4 >= d.U.MaxHp ? 0.8f : 1f);
                     _views[d.U].Hurt(d.Amount, d.Miss);
                     Popup(_views[d.U], d.Miss ? "miss" : d.Amount.ToString(), d.Miss ? Dim : Ink);
                     await Wait(0.22f);
                     break;
                 case PushEvent p:
+                    Audio.Sound.Play("knock");
                     await _views[p.U].Slide(p.To);
                     break;
                 case FaintEvent f:
+                    Audio.Sound.Play("faint", UnitView.Heft(f.U));
                     await _views[f.U].Vanish();
                     break;
                 case RecruitEvent r:
                     _views[r.U].Recruited();
+                    Audio.Sound.Play("recruit");
                     _fx.Burst(Body(_views[r.U]), _views[r.U].Position, FxTheme.Holy);
                     Popup(_views[r.U], "joins!", Cyan);
                     AddLog($"{r.U.Name} joins you: {r.Why}.");
@@ -878,12 +890,14 @@ public partial class BattleScreen : Control
                     break;
                 case HealEvent h:
                     _views[h.U].Heal(h.Amount);
+                    Audio.Sound.Play("heal");
                     _fx.Rise(Body(_views[h.U]), _views[h.U].Position, FxTheme.Leaf);
                     Popup(_views[h.U], $"+{h.Amount}", new Color(0.5f, 1f, 0.6f));
                     await Wait(0.2f);
                     break;
                 case BerryEvent b:
                     if (b.Placed) _berries.Add(b.Tile); else _berries.Remove(b.Tile);
+                    Audio.Sound.Play("berry", b.Placed ? 1f : 1.3f);
                     _overlay.QueueRedraw();
                     break;
                 case LogEvent l:
@@ -905,6 +919,7 @@ public partial class BattleScreen : Control
                     break;
                 }
                 case StatusEvent st:
+                    Audio.Sound.Play(StatusSound(st.Text));
                     _fx.Status(Body(_views[st.U], 0.9f), _views[st.U].Position, st.Text);
                     Popup(_views[st.U], st.Text, Color.FromHtml("#c79bff"), 8);
                     _views[st.U].QueueRedraw();
@@ -920,6 +935,13 @@ public partial class BattleScreen : Control
     /// user to its target and bursts over the area; skills around the user ripple out from it;
     /// heals and boosts shine on whoever they reach.
     /// </summary>
+    /// <summary>The sound for a status mark, by its words.</summary>
+    static string StatusSound(string text)
+    {
+        string t = text.ToLowerInvariant();
+        return t.Contains("stun") ? "stun" : t.Contains("poison") ? "fx_venom" : t.Contains('+') ? "boost" : t.Contains('-') ? "debuff" : "status";
+    }
+
     async Task SkillEffect(SkillEvent sk, UnitView view, UnitView target, bool melee)
     {
         var theme = SkillFx.ThemeOf(sk.Skill, sk.U);
@@ -928,17 +950,21 @@ public partial class BattleScreen : Control
         var reached = _views.Values.Where(v => !v.Unit.Gone && v.Unit.Tiles.Any(sk.Area.Contains)).ToList();
         if (melee && target != null)
         {
+            Audio.Sound.Play("swing", UnitView.Heft(sk.U));
             var lunge = view.Lunge(target);
             await Wait(0.19f);
+            Audio.Sound.Fx(theme);
             _fx.Burst(Body(target), target.Position, theme, element);
             foreach (var v in reached.Where(v => v != target && v != view)) _fx.Burst(Body(v), v.Position, theme, element, 0.6f);
             await lunge;
             return;
         }
         var cast = view.Cast();
+        Audio.Sound.Play("cast");
         await Wait(0.18f);
         if (kind is SkillIcons.Kind.Heal or SkillIcons.Kind.Boost)
         {
+            if (kind == SkillIcons.Kind.Boost) Audio.Sound.Fx(theme == FxTheme.Strike ? FxTheme.Boost : theme);
             if (sk.Skill.AroundSelf) _fx.Wave(view.Position, (sk.Skill.Radius + 0.6f) * IsoArt.TW / 2f, theme, element);
             foreach (var v in reached.Where(v => v.Unit.Side == sk.U.Side))
             {
@@ -947,9 +973,13 @@ public partial class BattleScreen : Control
             }
         }
         else if (kind == SkillIcons.Kind.Move)
+        {
+            Audio.Sound.Fx(FxTheme.Wind);
             _fx.Burst(Body(view, 0.25f), view.Position, FxTheme.Wind, element, 0.6f);
+        }
         else if (sk.Skill.AroundSelf)
         {
+            Audio.Sound.Fx(theme);
             _fx.Wave(view.Position, (sk.Skill.Radius + 0.6f) * IsoArt.TW / 2f, theme, element);
             await Wait(0.12f);
             foreach (var v in reached.Where(v => v != view)) _fx.Burst(Body(v), v.Position, theme, element, 0.8f);
@@ -958,6 +988,7 @@ public partial class BattleScreen : Control
         {
             var to = target != null ? Body(target) : TileMid(sk.Center) + new Vector2(0, -6);
             await _fx.Projectile(Body(view, 0.6f), to, theme, element);
+            Audio.Sound.Fx(theme);
             if (sk.Area.Count > 1)
             {
                 // A blast: one wave over the whole area, debris on every tile, the full hit on whoever's caught.
@@ -1263,6 +1294,12 @@ public partial class UnitView : Node2D
         }
     }
 
+    /// <summary>A sound's pitch for a creature's size: big ones lower and heavier.</summary>
+    public static float Heft(Unit u) => u.Creature.Size switch
+    {
+        SizeClass.Tiny => 1.35f, SizeClass.Small => 1.15f, SizeClass.Large => 0.85f, SizeClass.Huge => 0.7f, _ => 1f,
+    };
+
     public async Task Walk(List<Vector2I> path)
     {
         _walking = true;
@@ -1272,7 +1309,13 @@ public partial class UnitView : Node2D
             var to = _screen.FeetAt(Unit, path[i]);
             var from = _screen.FeetAt(Unit, path[i - 1]);
             int step = i;
-            tw.TweenCallback(Callable.From(() => { Face(to - from); ZIndex = BattleScreen.Depth(Unit, path[step]); }));
+            tw.TweenCallback(Callable.From(() =>
+            {
+                Face(to - from);
+                ZIndex = BattleScreen.Depth(Unit, path[step]);
+                if (Unit.MoveType != MoveType.Fly) Audio.Sound.Play("step", Heft(Unit), -4);
+                else if (step % 2 == 1) Audio.Sound.Play("flap", Heft(Unit), -2);
+            }));
             if (Mathf.Abs(to.Y - from.Y) > IsoArt.TH)
             {
                 // A hop up or down a ledge.

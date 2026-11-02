@@ -87,7 +87,7 @@ public partial class PartyPanel : Control
                 foreach (var cid in Ranch.Squad.Where(c => Ranch.LeaderOf(c)?.Id == w.Id).ToList())
                 {
                     var c = Ranch.Get(cid);
-                    var b = Btn(c.Species.Name, () => Remove(cid));
+                    var b = Btn(c.Name, () => Remove(cid));
                     b.Icon = Glyphs.Get(w.Boosts(c) ? "up" : "dot", 1);
                     b.TooltipText = w.Boosts(c) ? $"Boosted: {w.Text}\nClick to send back to the ranch." : $"Not boosted: {w.Name} leads {w.LeadsHint}.\nClick to send back to the ranch.";
                     slots.AddChild(b);
@@ -97,7 +97,7 @@ public partial class PartyPanel : Control
                 var wid = w.Id;
                 var sel = Selected?.Invoke();
                 if (room > 0 && sel is { } sid && Ranch.LeaderOf(sid)?.Id != w.Id)
-                    slots.AddChild(Btn($"+ {Ranch.Get(sid).Species.Name}", () => Add(sid, wid)));
+                    slots.AddChild(Btn($"+ {Ranch.Get(sid).Name}", () => Add(sid, wid)));
                 rows.AddChild(slots);
             }
             _box.AddChild(card);
@@ -114,13 +114,13 @@ public partial class PartyPanel : Control
     void Remove(int id)
     {
         Ranch.RemoveFromSquad(id);
-        Done($"{Ranch.Get(id).Species.Name} returns to the ranch.");
+        Done($"{Ranch.Get(id).Name} returns to the ranch.");
     }
 
     void Add(int id, string tamer)
     {
         if (!Ranch.AddToSquad(id, tamer)) return;
-        Done($"{Ranch.Get(id).Species.Name} joins {TamerBook.Get(tamer).Name}'s squad.");
+        Done($"{Ranch.Get(id).Name} joins {TamerBook.Get(tamer).Name}'s squad.");
     }
 
     void Done(string message)

@@ -32,7 +32,7 @@ public partial class MissionBoardPanel : Control
         {
             int index = i;
             var card = new MissionCard { Board = this, Index = i, CustomMinimumSize = new Vector2(Size.X, 190) };
-            card.Clicked += () => { Selected = index; foreach (var c in list.GetChildren().OfType<MissionCard>()) c.QueueRedraw(); };
+            card.Clicked += () => { Selected = index; Audio.Sound.Play("click"); foreach (var c in list.GetChildren().OfType<MissionCard>()) c.QueueRedraw(); };
             list.AddChild(card);
         }
         var depart = new Button { Text = "Depart  (F)", FocusMode = FocusModeEnum.None, Position = new Vector2(Size.X - 200, Size.Y - 56), CustomMinimumSize = new Vector2(200, 48) };

@@ -93,7 +93,7 @@ public static class Lab
         rec.BirthParts ??= rec.Parts;
         rec.Parts = Set(rec.Parts, slot, value);
         ranch.Refresh(id);
-        return $"{rec.Species.Name}: {slot.ToLowerInvariant()} grafted to {Words(slot, value)} (-{cost} chem).";
+        return $"{rec.Name}: {slot.ToLowerInvariant()} grafted to {Words(slot, value)} (-{cost} chem).";
     }
 
     public static string AddMachine(Ranch ranch, int id, Graft graft)
@@ -106,7 +106,7 @@ public static class Lab
         rec.Species = rec.Species.Clone(); // species objects can be shared (the DrawPets cast), so graft a copy
         rec.Species.Grafts |= graft;
         ranch.Refresh(id);
-        return $"{rec.Species.Name}: {name.ToLowerInvariant()} fitted (-{cost} chem).";
+        return $"{rec.Name}: {name.ToLowerInvariant()} fitted (-{cost} chem).";
     }
 
     public static string Infuse(Ranch ranch, int id, Strain strain)
@@ -121,6 +121,6 @@ public static class Lab
         rec.Species.Grafts |= grafts;
         if (strain == Strain.Abyssal) rec.Spec = rec.Spec.Abyssal(new SeededRng(rec.Seed ^ 0xAB15));
         ranch.Refresh(id);
-        return $"{rec.Species.Name} takes the {strain.ToString().ToLowerInvariant()} infusion (-{cost} chem). Its line will carry it.";
+        return $"{rec.Name} takes the {strain.ToString().ToLowerInvariant()} infusion (-{cost} chem). Its line will carry it.";
     }
 }

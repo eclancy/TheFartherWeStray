@@ -36,6 +36,66 @@ fields up to two and fills their three slots each; battles apply the boosts befo
 - [ ] Do tamers grow (levels, more boosts, a tree of their own)?
 - [ ] Who each party member is, and how they join (the story).
 
+## The world, missions and the shop (the user's direction, 2026-11-02; not built yet)
+
+**Decided by the user:**
+- **Many kinds of missions:** funny, pun-filled **dispatch** missions (send creatures off; they
+  come back later with a result, as in FFTA), **repeatable** missions, and missions in **very
+  different locations** whose terrain all looks very different.
+- **A country map** that slowly unlocks as main story missions are completed. **Main story
+  missions** become available as the player hits other milestones, so the story can't be rushed.
+- **Coliseum missions,** like FFTA's tournament.
+- **Wild encounters that wander the map,** like FFTA's: packs roaming between locations, met by
+  travelling into them.
+- **A shop:** equipment for your team, and items that help lure and catch wild creatures.
+- **Sound** (begun 2026-11-02, see below).
+
+**Suggested order** (each builds on the one before):
+1. **The country map:** locations (each a map and a region), roads between them, travel taking a
+   day, unlocking by story flags. The ranch becomes one location; the mission board moves onto
+   the map (missions sit at locations).
+2. **Story milestones and flags:** a data-driven list of story missions, each with conditions
+   (milestones met, flags, standing with the city or undercity) and outcomes (flags, unlocked
+   locations, narrative-only creatures). Cutscenes come after.
+3. **Mission variety:** dispatch missions (data: a pun title, the ask, which creatures suit it,
+   days away, rewards), repeatable contracts at locations, new regions with new tile sets
+   (snow, desert, forest, coast, volcanic...), and a coliseum with ranked brackets of rival
+   squads.
+4. **Wandering encounters:** wild packs moving along roads each day; walking into one starts a
+   battle on that location's map.
+5. **The shop:** a currency (chem, or coin earned alongside it), equipment (a new slot on each
+   creature, on top of parts as gear), and catching items (lures for each temper, nets, calming
+   incense), all as data.
+
+**Open:**
+- [ ] Equipment: one accessory slot per creature, or more? Does it show on the sprite?
+- [ ] Shop currency: chem (already earned), or a separate coin?
+- [ ] Dispatch: can a dispatched creature be lost, or only come back empty-handed?
+- [ ] Coliseum: your own squad only, or loaner squads; prizes?
+
+## Traits, augments and names (the user's direction, 2026-11-02; not built yet)
+
+**Decided by the user:**
+- **Players can name their creatures.**
+- **More mech and steampunk aspects for creatures** (more brass, gears, pistons and machine parts
+  in the sculptor).
+- **Breedable traits:** sensible, biological traits passed on by breeding, coloured as such
+  (natural tones). They lean toward the city-above side of the campaign.
+- **Augments:** mechanical and chemical, bought from certain shops and unlocked by certain missions,
+  neon and metal in colour, bringing more chemical and weapon-like attacks. They lean toward the
+  undercity side.
+
+**How it maps onto what exists:** the lab already has flesh grafts (parts from the codex), machine
+grafts (brass, not inherited) and infusions (blood strains, inherited). Machine grafts and
+chem infusions become the first **augments** (moved to undercity shops, gated by missions, with
+skills of their own); breedable **traits** are a new inherited layer (a few per creature, from
+its parents, e.g. thick hide, keen nose, venom glands), each with a small stat or a passive.
+
+**Open:**
+- [ ] Do augments take a slot each (how many), and can they be removed?
+- [ ] Do traits mutate when bred, or only pass on?
+- [ ] Does using augments shift your standing with the two sides?
+
 ## Rival tamers (the user's pick, 2026-11-02)
 
 **Decided by the user:** build rival tamers next (2026-11-02). The rest was defaulted to build a

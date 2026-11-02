@@ -76,8 +76,10 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   infusions (blood strains for natural creatures). Flesh and machine grafts are **not inherited**:
   breeding reads `BirthParts`. Infusions are.
 - **Story (planned, not started):** the user wants FFTA-depth story, cutscenes and sprite
-  animation, and will set the themes first. `docs/story-notes.md` holds the goal, the open
-  questions and a suggested first iteration. Don't invent the story's themes; ask.
+  animation. The user set the themes on 2026-11-02 (lighthearted to start; a glorious city and a
+  nefarious undercity that hate each other; branching by alignment, solutions and dialogue;
+  three endings: justice for the undercity, chaos for the city, or peace). `docs/story-notes.md`
+  holds them and the open questions. Don't invent beyond them; ask.
 - Missions (`Tactics/Mission.cs`): a board of four contracts per encounter (Rout, Capture, Hunt,
   Hold out) on seven handmade maps (`BattleMap.cs`, about 16x13 since 2026-11-02 when the user
   asked for larger maps), each with a look (`Look` in `IsoArt.cs`) and fauna odds. Maps have three
@@ -125,14 +127,27 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   --boardmode --shot=40` shows a board with a duel card (`--encounter` jumps a ranch ahead).
 - `Battle.Place` only puts a unit where it can walk toward the far side (`Roams`): a huge creature
   used to spawn shut in a pit on the Undercity Foundry.
+- **Sound (begun 2026-11-02):** `scripts/Audio/`. Every sound is made in code like the sprites:
+  `SfxSynth` sums voices (square, triangle, saw, sine, noise; pitch slides, envelopes, low-pass,
+  vibrato, tremolo) into 22 kHz mono, and `SoundBook` holds the 40 sounds as data (menus, steps,
+  hits, faints, recruits, jingles, the duel gong, the shiny chime, one per skill theme:
+  `Sound.Fx(theme)`). `Sound.Play(name, pitch)` plays one; `UnitView.Heft` lowers big creatures.
+  Every button clicks (hooked in `GameRoot`); N mutes, `--mute` starts muted. `--sfx` writes each
+  sound and `reel.wav` to `.shots/sfx/` with peak and RMS levels. Sound never touches the rules.
+  No music yet.
+- **Names:** players can name creatures (Name on the ranch); `Creature.Nickname`, saved on the
+  record. Show `Creature.Name` (nickname or species) on screen, never `Species.Name`, which
+  breeding still uses for species.
 - **Online PvP is a goal** (2026-11-02, groundwork built): see `docs/design-notes.md`. Every
   action, the player's, the AI's or a replay's, goes through `Battle.Order(Command)`
   (`Tactics/Commands.cs`): small records a network can send. `Battle.StateHash` fingerprints the
   state after each turn. Never change battle state from a screen except through `Order`, or a
   match can't be replayed from its commands. `BattleScreen.TurnSeconds` is the turn timer
   (`--timer=N`).
-- Not built yet: story and cutscenes, the network side of PvP (basic matchmaking is planned in
-  `docs/design-notes.md`).
+- Not built yet: story and cutscenes (themes and three endings set by the user, in
+  `docs/story-notes.md`), the country map, story milestones, dispatch and coliseum missions,
+  wandering encounters, the shop, traits and augments, music, and the network side of PvP. The
+  user's direction and a suggested build order are in `docs/design-notes.md`.
 
 ## Build and check
 

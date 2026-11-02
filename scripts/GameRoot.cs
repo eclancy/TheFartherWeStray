@@ -40,6 +40,31 @@ public partial class GameRoot : Node
     void Start()
     {
         var args = ParseArgs(OS.GetCmdlineUserArgs());
+        // Sound: every button clicks; N mutes, --mute starts muted.
+        AddChild(new Audio.Sound());
+        Audio.Sound.Muted = args.ContainsKey("mute");
+        GetTree().NodeAdded += node => { if (node is BaseButton button) button.Pressed += () => Audio.Sound.Play("click"); };
+
+        if (args.ContainsKey("sfx"))
+        {
+            // Every sound as a .wav in .shots/sfx/, and all of them in a row in reel.wav, with levels.
+            string dir = ProjectSettings.GlobalizePath("res://.shots/sfx");
+            System.IO.Directory.CreateDirectory(dir);
+            var reel = new List<float>();
+            foreach (var name in Audio.SoundBook.All.Keys)
+            {
+                var samples = Audio.SoundBook.Render(name);
+                Audio.SfxSynth.ToStream(samples).SaveToWav($"{dir}/{name}.wav");
+                reel.AddRange(samples);
+                reel.AddRange(new float[Audio.SfxSynth.Rate * 2 / 5]);
+                float peak = samples.Max(System.Math.Abs), rms = (float)System.Math.Sqrt(samples.Average(x => x * x));
+                GD.Print($"{name,-10} {samples.Length / (float)Audio.SfxSynth.Rate:0.00}s  peak {peak:0.00}  rms {rms:0.000}");
+            }
+            Audio.SfxSynth.ToStream(reel.ToArray()).SaveToWav($"{dir}/reel.wav");
+            GD.Print($"wrote {Audio.SoundBook.All.Count} sounds and reel.wav ({reel.Count / (float)Audio.SfxSynth.Rate:0.0}s) to {dir}");
+            GetTree().Quit();
+            return;
+        }
         if (args.TryGetValue("style", out var styleId)) ArtStyle.Current = ArtStyle.ById(styleId);
         ulong sheet = args.TryGetValue("sheet", out var s) && ulong.TryParse(s, out var n) ? n : 1;
         bool four = args.ContainsKey("four"), drawPets = args.ContainsKey("drawpets");
@@ -373,6 +398,7 @@ public partial class GameRoot : Node
             ranch.AfterBattle(duelBattle, duel);
             GD.Print($"duel: {duel.Title} -> {duelBattle.Winner}; {string.Join(" ", ranch.Report.Where(l => l.Contains(duel.Rival.Name) || l.Contains("codex")))}");
             ranch.Rivals["huntress"] = 2;
+            GD.Print("  " + ranch.Rename(tank, "  Gearjaw the Unbelievably Long  "));
 
             ranch.Save();
             var loaded = Ranching.Ranch.Load();
@@ -387,6 +413,7 @@ public partial class GameRoot : Node
             int trained = ranch.Creatures.Count(r => { var l = loaded.Record(r.Id).Training; return l.Class == r.Training.Class && l.Secondary == r.Training.Secondary && l.Passive == r.Training.Passive && l.Reaction == r.Training.Reaction && l.Masteries.SequenceEqual(r.Training.Masteries) && l.Passives.SequenceEqual(r.Training.Passives) && l.Innate == r.Training.Innate && l.Skills.SequenceEqual(r.Training.Skills) && l.JpIn(l.Class) == r.Training.JpIn(r.Training.Class); });
             GD.Print($"training: {trained}/{ranch.Creatures.Count} identical after save and load; " + string.Join("; ", ranch.Creatures.Select(r => $"{ranch.Get(r.Id).Species.Name} {r.Training.Class} [{string.Join(",", r.Training.Skills)}]{(r.Training.Innate != null ? " innate " + r.Training.Innate : "")}")));
             GD.Print($"roundtrip: {same}/{ranch.Creatures.Count} creatures identical after save and load; squad {string.Join(",", loaded.Squad)}; next encounter {loaded.Encounter}");
+            GD.Print($"names: {(loaded.Get(tank).Name == ranch.Get(tank).Name && loaded.Get(tank).Nickname != null ? "kept" : "LOST")} after save and load ({loaded.Get(tank).Name}, a {loaded.Get(tank).Species.Name})");
             bool rivalsKept = ranch.Rivals.Count == loaded.Rivals.Count && ranch.Rivals.All(kv => loaded.Rivals.GetValueOrDefault(kv.Key) == kv.Value);
             GD.Print($"rivals: {(rivalsKept ? "identical" : "DIFFERENT")} after save and load; {string.Join(", ", loaded.Rivals.Select(kv => $"{kv.Key} beaten {kv.Value}x"))}");
             bool party = ranch.Fielded.SequenceEqual(loaded.Fielded) && ranch.Squad.All(id => ranch.LeaderOf(id)?.Id == loaded.LeaderOf(id)?.Id);
@@ -643,6 +670,12 @@ public partial class GameRoot : Node
 
     public override void _UnhandledInput(InputEvent e)
     {
+        if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.N })
+        {
+            Audio.Sound.Muted = !Audio.Sound.Muted;
+            Audio.Sound.Play("click");
+            return;
+        }
         // Tab swaps between the Sprite Lab and home (the ranch, or a one-off battle), never mid-fight.
         if (e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Tab }) return;
         if (_screen is SpriteLabScreen) Show(_home());

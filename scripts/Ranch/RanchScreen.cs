@@ -37,6 +37,9 @@ public partial class RanchScreen : Control
     VatPanel _vats;
     Button _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _labButton, _boardButton, _jobsButton;
     HBoxContainer _buttonsRow;
+    Button _nameButton;
+    LineEdit _nameBox;
+    int _naming;
     LabPanel _lab;
     enum Panel { Vats, Lab, Board, Jobs, Party }
     Panel _panel = Panel.Vats;
@@ -73,7 +76,7 @@ public partial class RanchScreen : Control
         _grid.AddThemeConstantOverride("v_separation", 8);
         scroll.AddChild(_grid);
         Text(16, Dim, new Vector2(32, 1036), new Vector2(1120, 30)).Text =
-            "Click: select    Right-click: vat    Enter: breed    J: jobs    L: lab    M or F: missions    S: squad    Delete twice: release    Tab: Sprite Lab";
+            "Click: select    Right-click: vat    Enter: breed    J: jobs    L: lab    M or F: missions    S: squad    Delete twice: release    N: sound    Tab: Sprite Lab";
 
         _vats = new VatPanel { Position = new Vector2(1170, 96), Size = new Vector2(720, 320), Screen = this, MouseFilter = MouseFilterEnum.Ignore };
         AddChild(_vats);
@@ -106,6 +109,12 @@ public partial class RanchScreen : Control
         _secondButton = Make("Secondary", () => { if (_selected is { } id) CycleSecondary(id); });
         _vatButton = Make("Vat", () => { if (_selected is { } id) TogglePen(id); });
         _releaseButton = Make("Release", () => { if (_selected is { } id) Release(id); });
+        _nameButton = Make("Name", () => { if (_selected is { } id) StartNaming(id); });
+        _nameBox = new LineEdit { PlaceholderText = "A name (Enter keeps, Esc cancels)", MaxLength = 14, Visible = false, Position = new Vector2(1170, 916), CustomMinimumSize = new Vector2(420, 44) };
+        _nameBox.AddThemeFontSizeOverride("font_size", 18);
+        _nameBox.TextSubmitted += text => FinishNaming(text);
+        _nameBox.GuiInput += e => { if (e is InputEventKey { Pressed: true, Keycode: Key.Escape }) { _nameBox.Visible = false; _nameBox.AcceptEvent(); } };
+        AddChild(_nameBox);
 
         _lab = new LabPanel { Ranch = Ranch, Position = new Vector2(1170, 96), Size = new Vector2(720, 930), Visible = false };
         _lab.Done = msg => { Flash(msg); Rebuild(); if (_selected is { } sid) ShowDetail(sid); };
@@ -139,7 +148,7 @@ public partial class RanchScreen : Control
             if (newest != null) ChildShown = Ranch.Get(newest.Id);
         }
         if (JustJoined.Count > 0)
-            Flash($"{string.Join(", ", JustJoined.Select(id => Ranch.Get(id).Species.Name))} joined the ranch.");
+            Flash($"{string.Join(", ", JustJoined.Select(id => Ranch.Get(id).Name))} joined the ranch.");
         if (Ranch.Report.Count > 0) _notes.Text = string.Join("\n", Ranch.Report);
         Select(Ranch.Squad.FirstOrDefault(Ranch.Creatures[0].Id));
         Rebuild();
@@ -163,6 +172,24 @@ public partial class RanchScreen : Control
     }
 
     void Flash(string text) => _status.Text = text;
+
+    void StartNaming(int id)
+    {
+        _naming = id;
+        _nameBox.Text = Ranch.Record(id).Nickname ?? "";
+        _nameBox.Visible = true;
+        _nameBox.GrabFocus();
+        _nameBox.SelectAll();
+    }
+
+    void FinishNaming(string text)
+    {
+        _nameBox.Visible = false;
+        Flash(Ranch.Rename(_naming, text));
+        Ranch.Save();
+        Rebuild();
+        if (_selected is { } sid) { ShowDetail(sid); RefreshSelected(); }
+    }
 
     void Rebuild()
     {
@@ -213,7 +240,7 @@ public partial class RanchScreen : Control
     void RefreshSelected()
     {
         bool any = _selected != null && Ranch.Creatures.Any(r => r.Id == _selected);
-        foreach (var b in new[] { _squadButton, _classButton, _secondButton, _vatButton, _releaseButton }) b.Disabled = !any;
+        foreach (var b in new[] { _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _nameButton }) b.Disabled = !any;
         Clear(_training);
         if (!any) return;
         int id = _selected.Value;
@@ -337,7 +364,7 @@ public partial class RanchScreen : Control
     void ToggleSquad(int id)
     {
         if (InSquad(id)) Ranch.RemoveFromSquad(id);
-        else if (Ranch.AddToSquad(id)) Flash($"{Ranch.Get(id).Species.Name} joins {Ranch.LeaderOf(id).Name}'s squad.");
+        else if (Ranch.AddToSquad(id)) Flash($"{Ranch.Get(id).Name} joins {Ranch.LeaderOf(id).Name}'s squad.");
         else { Flash("Every tamer leads three already: take someone out first, or field another tamer (P)."); return; }
         Ranch.Save();
         Rebuild();
@@ -350,7 +377,7 @@ public partial class RanchScreen : Control
     void TogglePen(int id)
     {
         if (_pen.Contains(id)) _pen.Remove(id);
-        else if (!Ranch.Record(id).Rested) { Flash($"{Ranch.Get(id).Species.Name} is resting. Fight a battle and everyone can breed again."); return; }
+        else if (!Ranch.Record(id).Rested) { Flash($"{Ranch.Get(id).Name} is resting. Fight a battle and everyone can breed again."); return; }
         else if (_pen.Count >= 2) { Flash("Both vats are full: take one out first."); return; }
         else _pen.Add(id);
         ChildShown = null;
@@ -364,15 +391,16 @@ public partial class RanchScreen : Control
         var a = Ranch.Get(_pen[0]);
         var b = Ranch.Get(_pen[1]);
         var (id, result) = Ranch.Breed(_pen[0], _pen[1]);
+        Audio.Sound.Play("hatch");
         _pen.Clear();
         ChildShown = Ranch.Get(id);
         Ranch.Save();
-        var lines = new List<string> { $"{ChildShown.Species.Name} is born (generation {ChildShown.Generation})." };
-        if (result.FromA.Count > 0) lines.Add($"From {a.Species.Name}: {string.Join(", ", result.FromA)}");
-        if (result.FromB.Count > 0) lines.Add($"From {b.Species.Name}: {string.Join(", ", result.FromB)}");
+        var lines = new List<string> { $"{ChildShown.Name} is born (generation {ChildShown.Generation})." };
+        if (result.FromA.Count > 0) lines.Add($"From {a.Name}: {string.Join(", ", result.FromA)}");
+        if (result.FromB.Count > 0) lines.Add($"From {b.Name}: {string.Join(", ", result.FromB)}");
         if (result.Notes.Count > 0) lines.Add(string.Join("; ", result.Notes));
         _notes.Text = string.Join("\n", lines);
-        Flash($"{a.Species.Name} and {b.Species.Name} rest until the next battle.");
+        Flash($"{a.Name} and {b.Name} rest until the next battle.");
         Select(id);
         Rebuild();
     }
@@ -384,10 +412,10 @@ public partial class RanchScreen : Control
         {
             _releaseArmed = id;
             _releaseTimer = 3;
-            Flash($"Release {Ranch.Get(id).Species.Name} back to the wild? Press Release (or Delete) again.");
+            Flash($"Release {Ranch.Get(id).Name} back to the wild? Press Release (or Delete) again.");
             return;
         }
-        Flash($"{Ranch.Get(id).Species.Name} returns to the wild.");
+        Flash($"{Ranch.Get(id).Name} returns to the wild.");
         _releaseArmed = null;
         _pen.Remove(id);
         Ranch.Release(id);
@@ -417,10 +445,10 @@ public partial class RanchScreen : Control
         var rec = Ranch.Record(id);
         var u = Unit.From(c, Tactics.Side.Player, rec.Training);
         var s = c.Species;
-        string what = $"{c.Size.ToString().ToLowerInvariant()} {s.Plan.ToString().ToLowerInvariant()}"
+        string what = (c.Nickname != null ? $"{s.Name} · " : "") + $"{c.Size.ToString().ToLowerInvariant()} {s.Plan.ToString().ToLowerInvariant()}"
             + (s.Strain != Strain.Natural ? $" · {s.Strain.ToString().ToLowerInvariant()}" : "")
             + (s.Origin != null ? $" · from {s.Origin}" : "");
-        var head = Row(Ui.Text(s.Name, 22, Ink), Ui.Text(what, 15, Dim, 4));
+        var head = Row(Ui.Text(c.Name, 22, Ink), Ui.Text(what, 15, Dim, 4));
         if (c.Shiny) head.AddChild(Ui.ChipView(new Chip("sparkle", "shiny", Gold), 15));
         if (c.Mutation != null) head.AddChild(Ui.ChipView(new Chip("swirl", c.Mutation.ToString().ToLowerInvariant(), Ui.Pink, "mutation"), 15));
         _detail.AddChild(head);
@@ -435,10 +463,10 @@ public partial class RanchScreen : Control
         var (weapon, armor, move) = c.Loadout();
         _detail.AddChild(Ui.Chips(new[]
         {
-            new Chip(SkillIcons.WeaponGlyph(c.Weapon), c.Weapon.ToString().ToLowerInvariant(), Ink, "weapon: " + weapon),
-            new Chip(SkillIcons.ArmorGlyph(c.Armor), c.Armor.ToString().ToLowerInvariant(), Ink, "armour: " + armor),
-            new Chip(SkillIcons.MoveGlyph(c.MoveType), c.MoveType.ToString().ToLowerInvariant(), Ink, "moves: " + move),
-            new Chip(SkillIcons.AttitudeGlyph(c.Attitude), c.Attitude.ToString().ToLowerInvariant(), Ink,
+            new Chip(SkillIcons.WeaponGlyph(c.Weapon), c.Weapon.ToString(), Ink, "weapon: " + weapon),
+            new Chip(SkillIcons.ArmorGlyph(c.Armor), c.Armor.ToString(), Ink, "armour: " + armor),
+            new Chip(SkillIcons.MoveGlyph(c.MoveType), c.MoveType.ToString(), Ink, "moves: " + move),
+            new Chip(SkillIcons.AttitudeGlyph(c.Attitude), c.Attitude.ToString(), Ink,
                 $"reacts: {AttitudeInfo.Reaction(c.Attitude)}\nrecruit: {AttitudeInfo.Recruit(c.Attitude)}"),
         }, 16));
 
@@ -553,7 +581,7 @@ public partial class RanchCard : Control
         DrawTextureRect(_tex, new Rect2(new Vector2(Mathf.Round(Size.X / 2 - ts.X / 2), ground - ts.Y), ts), false, modulate);
 
         var font = GetThemeDefaultFont();
-        DrawString(font, new Vector2(0, ground + 24), c.Species.Name, HorizontalAlignment.Center, Size.X, 17, Color.FromHtml("#e8e2f4"));
+        DrawString(font, new Vector2(0, ground + 24), c.Name, HorizontalAlignment.Center, Size.X, 17, Color.FromHtml("#e8e2f4"));
         DrawString(font, new Vector2(0, ground + 44), $"{c.Size} {c.Species.Plan}", HorizontalAlignment.Center, Size.X, 13, Color.FromHtml("#9a91b4"));
 
         // Marks in the top corners.
@@ -617,7 +645,7 @@ public partial class VatPanel : Control
         var ts = tex.GetSize() * z;
         var pos = new Vector2(glass.Position.X + glass.Size.X / 2 - ts.X / 2, glass.End.Y - 20 - ts.Y);
         DrawTextureRect(tex, new Rect2(pos.Round(), ts), false);
-        DrawString(font, new Vector2(r.Position.X, r.End.Y + 20), c.Species.Name, HorizontalAlignment.Center, r.Size.X, 17, Color.FromHtml("#e8e2f4"));
+        DrawString(font, new Vector2(r.Position.X, r.End.Y + 20), c.Name, HorizontalAlignment.Center, r.Size.X, 17, Color.FromHtml("#e8e2f4"));
     }
 
     public override void _Process(double delta) => QueueRedraw();

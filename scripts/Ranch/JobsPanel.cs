@@ -103,7 +103,7 @@ public partial class JobsPanel : Control
         var t = Ranch.Record(_id.Value).Training;
         var aff = ClassBook.Affinity[c.Species.Plan];
 
-        _box.AddChild(Ui.Text($"JOB TREE · {c.Species.Name}", 18, Gold));
+        _box.AddChild(Ui.Text($"JOB TREE · {c.Name}", 18, Gold));
         // Which classes this body takes to (+50% JP) and which it never can.
         var leanings = aff.favoured.Select(f => new Chip(SkillIcons.ClassEmblem(f), f, Green, "favoured: +50% JP"))
             .Concat(aff.barred.Select(f => new Chip("x", f, Red, "barred: never, for this body"))).ToList();
@@ -229,20 +229,20 @@ public partial class JobsPanel : Control
         var t = Ranch.Record(_id.Value).Training;
         t.Class = cls;
         if (t.Secondary == cls) t.Secondary = null;
-        Done($"{Ranch.Get(_id.Value).Species.Name} now trains as a {cls}.");
+        Done($"{Ranch.Get(_id.Value).Name} now trains as a {cls}.");
     }
 
     void SetSecondary(string cls)
     {
         Ranch.Record(_id.Value).Training.Secondary = cls;
-        Done(cls == null ? "No secondary skill set." : $"{Ranch.Get(_id.Value).Species.Name} can use its {cls} skills too.");
+        Done(cls == null ? "No secondary skill set." : $"{Ranch.Get(_id.Value).Name} can use its {cls} skills too.");
     }
 
     void Equip(PassiveDef p)
     {
         var t = Ranch.Record(_id.Value).Training;
         if (p.Kind == PassiveKind.Reaction) t.Reaction = p.Id; else t.Passive = p.Id;
-        Done($"{Ranch.Get(_id.Value).Species.Name} equips {p.Name}.");
+        Done($"{Ranch.Get(_id.Value).Name} equips {p.Name}.");
     }
 
     void Done(string message)

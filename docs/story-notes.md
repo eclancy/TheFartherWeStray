@@ -1,7 +1,29 @@
 # Story: notes to start iterating on
 
-_Status: **not started**. Opened 2026-11-01 at the user's request. The user sets the themes;
-nothing beyond what's marked as the user's direction is decided._
+_Status: **not started**, but the user has set the themes (2026-11-02, below). Opened 2026-11-01
+at the user's request. Nothing beyond what's marked as the user's direction is decided._
+
+## The user's themes (2026-11-02)
+
+- **Lighthearted to start.** Problems are going on all over the map, and tamers step in: some to
+  help the public, some for nefarious purposes.
+- **A glorious city and a nefarious undercity that hate each other**, like Arcane's Piltover and
+  Zaun.
+- **Branching plotlines.** Which plotlines advance depends on who the player aligns with, how they
+  solve story missions, and the decisions they make in dialogue.
+- **Narrative-gated creatures.** Some monsters can only be found and caught by taking certain
+  narrative paths.
+- **Story pacing by milestones.** Main story missions become available as the player hits other
+  milestones (contracts done, creatures caught, rivals beaten...), so the story can't be blazed
+  through while skipping the rest of the game.
+- **A country map** that slowly unlocks as main story missions are completed (see
+  `design-notes.md`, World map).
+- **Three endings** (2026-11-02): **bringing justice to the undercity**, **bringing chaos to the
+  main city**, or **finding peace between them**. Alignment, how story missions are solved and
+  dialogue choices steer toward one.
+- **The two sides in the creatures** (2026-11-02): biological, breedable traits belong with the
+  city above; mechanical and chemical augments (neon and metal, chemical and weapon-like attacks)
+  belong with the undercity. See `design-notes.md`, Traits and augments.
 
 ## The goal
 
@@ -53,7 +75,8 @@ earlier "no human unit" assumption. See `design-notes.md` for the mechanics as t
 - [ ] Who opposes them? Rival ranches or tamers (five placeholder rival tamers are built, in
       `Rivals.cs`), a guild, the people behind the chem, something abyssal?
 - [ ] Do the creatures have voices or personalities in cutscenes beyond their attitude?
-- [ ] Linear campaign, mission board with story missions, or a mix? (Section 2 asks this too.)
+- [x] Linear campaign, mission board with story missions, or a mix? **A mix:** story missions
+      appear on the map as milestones are met, among contracts, dispatches, duels and more.
 - [ ] Does the story explain the procedural species, as the "frontier" and "mutating world"
       seeds both do?
 
@@ -67,7 +90,9 @@ earlier "no human unit" assumption. See `design-notes.md` for the mechanics as t
 - **Dialogue box and portraits:** generated creatures can use a crop of their own sprite.
 - **Mission board:** a list of contracts, each a map plus a pack plus an objective, with an
   optional scene before and after.
-- **Story state:** flags in the ranch save.
+- **Story state:** flags in the ranch save, plus standing with each side (city and undercity),
+  the choices made in dialogue and how each story mission was solved, all read by data-driven
+  conditions on missions, dialogue lines and where narrative-only creatures can appear.
 
 ## Suggested first iteration
 

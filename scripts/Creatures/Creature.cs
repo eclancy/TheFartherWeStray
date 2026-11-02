@@ -243,6 +243,9 @@ public sealed class Creature
     public CreaturePalette Palette;   // built from Spec
     public bool Shiny;
     public string Mutation; // null, or a short note like "mutant tail"
+    public string Nickname; // the name you gave it, if any
+    /// <summary>What to call it: the name you gave it, or its species' name.</summary>
+    public string Name => Nickname ?? Species.Name;
     public float BodyJitter, LegJitter, HeadJitter;
 
     // Lineage: 0 for wild-caught, parents' generation + 1 when bred at the ranch.

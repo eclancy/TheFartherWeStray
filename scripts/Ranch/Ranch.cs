@@ -24,6 +24,8 @@ public sealed class CreatureRecord
     public PaletteSpec Spec;
     public bool Shiny;
     public string Mutation;
+    public string Nickname;   // the name you gave it (null: its species' name)
+    [JsonIgnore] public string Name => Nickname ?? Species.Name;
     public float BodyJitter = 1, LegJitter = 1, HeadJitter = 1;
     public int Generation;
     public string ParentA, ParentB;
@@ -33,13 +35,13 @@ public sealed class CreatureRecord
     {
         Id = id, Species = c.Species, Seed = c.Seed, Size = c.Size, Attitude = c.Attitude, Parts = c.Parts, Spec = c.Spec, BirthParts = c.BirthParts,
         Shiny = c.Shiny, Mutation = c.Mutation, BodyJitter = c.BodyJitter, LegJitter = c.LegJitter, HeadJitter = c.HeadJitter,
-        Generation = c.Generation, ParentA = c.ParentA, ParentB = c.ParentB,
+        Generation = c.Generation, ParentA = c.ParentA, ParentB = c.ParentB, Nickname = c.Nickname,
     };
 
     public Creature ToCreature() => new()
     {
         Species = Species, Seed = Seed, Size = Size, Attitude = Attitude, Parts = Parts, Spec = Spec, BirthParts = BirthParts,
-        Palette = Creature.BuildPalette(Spec, Species), Shiny = Shiny, Mutation = Mutation,
+        Palette = Creature.BuildPalette(Spec, Species), Shiny = Shiny, Mutation = Mutation, Nickname = Nickname,
         BodyJitter = BodyJitter, LegJitter = LegJitter, HeadJitter = HeadJitter,
         Generation = Generation, ParentA = ParentA, ParentB = ParentB,
     };
@@ -199,6 +201,18 @@ public sealed class Ranch
     public void LeadUnits(Battle battle)
     {
         foreach (var id in Squad) battle.Lead(Get(id), LeaderOf(id));
+    }
+
+    /// <summary>Gives a creature a name (blank: back to its species' name), up to 14 letters.</summary>
+    public string Rename(int id, string name)
+    {
+        name = new string((name ?? "").Where(ch => !char.IsControl(ch)).ToArray()).Trim();
+        if (name.Length > 14) name = name[..14].TrimEnd();
+        var rec = Record(id);
+        string old = rec.Name;
+        rec.Nickname = name.Length == 0 || name == rec.Species.Name ? null : name;
+        Refresh(id);
+        return rec.Nickname == null ? $"{old} goes by {rec.Species.Name} again." : $"{old} is now called {rec.Nickname}.";
     }
 
     /// <summary>Rebuilds a creature after the lab changes its record.</summary>

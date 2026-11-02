@@ -144,7 +144,7 @@ public partial class LabPanel : Control
         var font = GetThemeDefaultFont();
         var glow = Color.FromHtml("#4ff0a0");
         var brass = Color.FromHtml("#b2873a");
-        DrawString(font, new Vector2(0, 18), $"GRAFT CHAMBER - {rec.Species.Name}", HorizontalAlignment.Center, Size.X, 17, glow);
+        DrawString(font, new Vector2(0, 18), $"GRAFT CHAMBER - {rec.Name}", HorizontalAlignment.Center, Size.X, 17, glow);
 
         // A wide tank of chem with brass bands, the creature suspended inside.
         var glass = new Rect2(40, 34, Size.X - 80, ChamberHeight - 54);

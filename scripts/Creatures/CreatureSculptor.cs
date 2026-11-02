@@ -550,14 +550,8 @@ public sealed partial class CreatureSculptor
                     var up = UpAt(t);
                     var c0 = pt - up * ph * (_upright ? 0.4f : 0.62f);
                     float floor = _upright ? 0 : c0.Z - ph * 0.15f;
-                    int plate = Part(Zone.Body);
-                    var pc = c0 + pa * u * (k - 1);
-                    // A dark rim under each plate, the plate, and a row of knobs down its crest.
-                    _c.Ellipsoid(pc - up * 0.5f * u, pa, len * 0.27f + 1.7f * u, pw * 1.2f, ph * 0.72f, Mat.Accent, plate, -0.3f, floor);
-                    _c.Ellipsoid(pc, pa, len * 0.24f + 1.4f * u, pw * 1.12f, ph * 0.74f, _shellMat, plate, 0.04f * k, floor);
-                    var crest = pc + up * ph * 0.74f;
-                    foreach (float s2 in new[] { -0.35f, 0.35f })
-                        _c.Tube(new[] { crest + pa * len * 0.12f * s2 - up * 0.3f * u, crest + pa * len * 0.12f * s2 + up * 1.6f * u - pa * 0.5f * u }, 0.9f * u, 0.15f * u, Mat.Accent, Part(Zone.Tip));
+                    // Smooth plates, no rims or knobs: the user preferred this to an armoured version.
+                    _c.Ellipsoid(c0 + pa * u * (k - 1), pa, len * 0.26f + 1.5f * u, pw * 1.28f, ph * 0.9f, _shellMat, Part(Zone.Body), 0.04f * k, floor);
                 }
                 break;
             }

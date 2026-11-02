@@ -29,7 +29,8 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   `Aura` (halo, floating shards, sigil, third eye, wisps). New forms go in `CreatureForms.cs`: build
   the body, set the anchors (head, spine, tail root, wing root); the shared parts do the rest.
   **The user approved this look as built ("the creatures all look great", 2026-11-02): refine
-  and extend it, don't replace it.**
+  and extend it, don't replace it.** Of the eight fixes on 2026-11-02 the user kept seven and
+  preferred the original shell: smooth overlapping plates, no dark rims or knobs.
 - **Idle animation** (2026-11-02): every frame is a re-render of the model with `PixelCanvas.Warp`
   moving shapes: a breath on planted feet (floaters bob), a head nod a beat behind, tails and
   serpent bodies swaying in a wave, wingbeats, floating auras, flickering flames, a blink every

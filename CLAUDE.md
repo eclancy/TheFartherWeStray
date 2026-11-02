@@ -87,9 +87,14 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   `--autoboard=6`: no mission may stall. Your side's AI plays the objective (`PlayerPlan` in
   `Battle.cs`): hunts focus the alpha, hold-outs keep together and out of reach, captures never
   land the knockout and play to the target's temper (a champion duels the proud, the squad rings
-  the skittish, a glowberry lures the curious). `--autoboard=12` on 2026-11-02: rout 12/14,
-  capture 5/11 (was 3), hunt 12/12, hold out 11/11 (was 9). Aggressive and loyal captures are the
-  weak spot. `--trace=TITLE` prints the full log of matching missions.
+  the skittish, a glowberry lures the curious, the sturdy stand up to the aggressive while anyone
+  its blow could fell keeps clear; for a loyal target, `Mark` first wins over its easiest
+  packmate). Creatures whose thorns or counters could fell the target keep out of its reach
+  (`Avoid`). `--capturetest=10` plays a capture with the target set to each temper: on
+  2026-11-02 proud 8/10, skittish 7, curious 9, aggressive 6, loyal 2, no stalls. Loyal stays low
+  because the target fights at full strength while you may not touch it (the rule is a
+  placeholder). `--trace=TITLE` prints the full log of matching missions (`--trace=8Loyal` in
+  `--capturetest`).
 - **Wardens and the party (the user's direction, 2026-11-02, built):** the player leads creatures
   as a warden (working name; the user wants something other than "general" and hasn't picked yet).
   Wardens stay off the field and give passive boosts; each leads three creatures; at most two

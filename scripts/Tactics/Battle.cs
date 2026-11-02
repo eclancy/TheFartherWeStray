@@ -999,17 +999,87 @@ public sealed partial class Battle
     Unit Quarry => Target is { Gone: false, Side: Side.Wild } t ? t : null;
 
     /// <summary>
-    /// Whether the player side may hurt this creature. Capturing means not knocking the target
-    /// out (it would flee), except for the one champion a proud target has to lose to.
+    /// The creature your side is winning over right now: the target, or, for a loyal target that
+    /// only follows once a packmate has joined you, first the easiest of its packmates.
     /// </summary>
-    bool MayHurt(Unit u, Unit t) =>
-        u.Side != Side.Player || Goal != Objective.Capture || t != Quarry || t.Attitude == Attitude.Proud && Champion() == u;
+    Unit Mark()
+    {
+        var q = Quarry;
+        if (q == null || q.Attitude != Attitude.Loyal || Recruited.Count > 0) return q;
+        return Alive.Where(o => o.Side == Side.Wild && o != q && o.Attitude != Attitude.Loyal)
+            .OrderBy(o => o.Attitude switch { Attitude.Curious when Berries > 0 => 0, Attitude.Aggressive => 1, Attitude.Proud => 2, Attitude.Skittish => 3, _ => 4 })
+            .ThenBy(o => Dist(o, o.Pos, q)).FirstOrDefault() ?? q;
+    }
 
-    /// <summary>The one creature a proud target may fight: whoever has hit it already, or your strongest.</summary>
-    Unit Champion() =>
-        Quarry == null ? null
-        : Quarry.HitBy.Count > 0 ? Quarry.HitBy.First()
-        : Alive.Where(o => o.Side == Side.Player).OrderByDescending(o => o.AtkNow).ThenBy(o => Dist(o, o.Pos, Quarry)).FirstOrDefault();
+    /// <summary>A loyal target nobody can win over any more: no packmate joined and none is left to win.</summary>
+    bool LoyalLost() => Quarry is { Attitude: Attitude.Loyal } q && Recruited.Count == 0 && Mark() == q;
+
+    /// <summary>
+    /// Whether the player side may hurt this creature. Capturing means not knocking the target
+    /// out (it would flee), except for the one champion a proud target has to lose to; the same
+    /// holds for the packmate being won over for a loyal target. A loyal target steps in to take
+    /// blows meant for its neighbours, so those wait while one could fell it.
+    /// </summary>
+    bool MayHurt(Unit u, Unit t)
+    {
+        if (u.Side != Side.Player || Goal != Objective.Capture || Quarry is not { } q) return true;
+        if (t == q && LoyalLost()) return true; // nothing left to win: end it
+        var mark = Mark();
+        if ((t == q || t == mark) && !(t.Attitude == Attitude.Proud && Champion() == u)) return false;
+        if (t != q && q.Attitude == Attitude.Loyal && !q.GuardUsed && Dist(q, q.Pos, t) == 1 && Preview(u, q).dmg >= q.Hp) return false;
+        return true;
+    }
+
+    /// <summary>The one creature a proud mark may fight: whoever has hit it already, or your strongest.</summary>
+    Unit Champion()
+    {
+        var m = Mark();
+        return m == null ? null
+            : m.HitBy.Count > 0 ? m.HitBy.First()
+            : Alive.Where(o => o.Side == Side.Player).OrderByDescending(o => o.AtkNow).ThenBy(o => Dist(o, o.Pos, m)).FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Who one of your creatures should keep out of reach of during a capture, if anyone. Thorns,
+    /// counters and tempers strike back by themselves: a proud target flees from a second pair of
+    /// hands, any other falls to the blow once it's weak enough (skittish ones don't come to blows).
+    /// And an aggressive one is only won if nobody falls to it, so whoever its blow could fell stays
+    /// away. A lost loyal capture is just fought out.
+    /// </summary>
+    Unit Avoid(Unit o)
+    {
+        var m = Mark();
+        if (m == null || LoyalLost() || m.Attitude == Attitude.Proud && Champion() == o) return null;
+        if (BitesBack(o))
+            foreach (var w in new[] { Quarry, m }.Distinct())
+                if (w.Attitude != Attitude.Skittish && (w.Attitude == Attitude.Proud || Preview(o, w).dmg * 1.2f + o.Thorns >= w.Hp))
+                    return w;
+        if (m.Attitude == Attitude.Aggressive && o.Hp <= Preview(m, o).dmg * 1.25f + 1) return m;
+        return null;
+    }
+
+    /// <summary>Whether a creature standing at this tile could be struck by this foe on its next turn.</summary>
+    bool InReachOf(Unit foe, Unit u, Vector2I p, HashSet<Vector2I> foeTiles)
+    {
+        int reach = Math.Max(foe.Range, foe.Skills.Where(s => s.Power > 0 && s.Target is TargetKind.Enemy or TargetKind.Area).Select(s => s.Range + s.Radius).DefaultIfEmpty(1).Max());
+        return foeTiles.Any(r => { var (dx, dy) = Gap(r, foe.Size, p, u.Size); return dx + dy <= reach; });
+    }
+
+    /// <summary>
+    /// A tile out of this foe's reach, if there is one: where it can strike something else, or else
+    /// on the way to whatever it may fight.
+    /// </summary>
+    Vector2I KeepClear(Unit u, Unit foe, List<Vector2I> tiles, Func<Vector2I, bool> canAttack)
+    {
+        var foeTiles = Reachable(foe).Keys.Append(foe.Pos).ToHashSet();
+        var safe = tiles.Where(p => !InReachOf(foe, u, p, foeTiles)).ToList();
+        if (safe.Count == 0) return tiles.OrderByDescending(p => Dist(u, p, foe)).First();
+        var others = Alive.Where(o => o.Side != u.Side && MayHurt(u, o)).ToList();
+        var field = others.Count > 0 ? ApproachField(u, others) : null;
+        return safe.OrderBy(p => canAttack(p) ? 0 : 1)
+            .ThenBy(p => field != null && field.TryGetValue(p, out int d) ? d : 1000)
+            .ThenBy(p => p == u.Pos ? 0 : 1).First();
+    }
 
     /// <summary>Whether hitting this creature hurts the hitter: thorns, a counter, a shock, a burst, or an aggressive temper.</summary>
     static bool BitesBack(Unit u) =>
@@ -1018,14 +1088,16 @@ public sealed partial class Battle
 
     /// <summary>For a curious target, the creature nearest it carries the glowberry, while one's left and none is down.</summary>
     bool BerryCarrier(Unit u) =>
-        u.Side == Side.Player && Goal == Objective.Capture && Quarry is { Attitude: Attitude.Curious } q && Berries > 0 && BerryTiles.Count == 0
+        u.Side == Side.Player && Goal == Objective.Capture && Mark() is { Attitude: Attitude.Curious } q && Berries > 0 && BerryTiles.Count == 0
         && Alive.Where(o => o.Side == Side.Player).OrderBy(o => Dist(o, o.Pos, q)).First() == u;
 
     /// <summary>
     /// Where your side's creature should stand for the objective, or null to fight as usual. Hunts
-    /// close on the marked alpha; captures play to the target's temper (a champion duels the proud,
-    /// the rest ring in the skittish, the berry carrier walks to within luring range); hold-outs
-    /// keep together and out of reach.
+    /// close on the marked alpha; captures play to the temper of the creature being won over (a
+    /// champion duels the proud while anything that bites back keeps clear, the rest ring in the
+    /// skittish, the berry carrier walks to within luring range, the sturdy stand up to the
+    /// aggressive while anyone a blow could fell keeps out of its reach); hold-outs keep together
+    /// and out of reach.
     /// </summary>
     Vector2I? PlayerPlan(Unit u, List<Vector2I> tiles, List<Unit> foes, Func<Vector2I, bool> canAttack)
     {
@@ -1042,11 +1114,18 @@ public sealed partial class Battle
         }
         if (Goal == Objective.Capture && q != null)
         {
+            q = Mark();
             if (q.Attitude == Attitude.Proud && Champion() == u)
             {
                 var at = tiles.Where(p => InRange(u, p, q)).ToList();
                 return at.Count > 0 ? at.OrderByDescending(p => FootHeight(u, p)).First() : Toward(q);
             }
+            // Keep clear while the rest of the pack is out there or someone else can do the job.
+            bool packLeft = Alive.Any(o => o.Side == Side.Wild && o != q && o != Quarry);
+            if (Avoid(u) is { } avoid && (packLeft || Alive.Any(o => o.Side == Side.Player && Avoid(o) == null)))
+                return KeepClear(u, avoid, tiles, canAttack);
+            // An aggressive one is won by enduring it: once the rest of the pack is dealt with, stand where it can come at you.
+            if (q.Attitude == Attitude.Aggressive && !packLeft) return Dist(u, u.Pos, q) == 1 ? u.Pos : Toward(q);
             if (q.Attitude == Attitude.Skittish)
             {
                 // Take a tile beside it; stay put if already there.
@@ -1135,7 +1214,8 @@ public sealed partial class Battle
         // The berry carrier sets one down where the curious target will come for it.
         if (BerryCarrier(u) && BerrySpots(u) is { Count: > 0 } spots)
         {
-            Order(CommandKind.Berry, u, spots.OrderBy(p => Math.Abs(p.X - Target.Pos.X) + Math.Abs(p.Y - Target.Pos.Y)).First());
+            var lure = Mark().Pos;
+            Order(CommandKind.Berry, u, spots.OrderBy(p => Math.Abs(p.X - lure.X) + Math.Abs(p.Y - lure.Y)).First());
             Order(CommandKind.EndTurn, u);
             return;
         }

@@ -90,6 +90,39 @@ public partial class GameRoot : Node
             return;
         }
 
+        if (args.TryGetValue("capturetest", out var captureBoards))
+        {
+            // Captures by temper: on boards 1..N, each board's first mission made a capture, played once
+            // with the target set to each temper. Your side's AI should win most of them.
+            int captureCount = int.TryParse(captureBoards, out var cb) ? cb : 8;
+            var tempers = new[] { Attitude.Proud, Attitude.Skittish, Attitude.Curious, Attitude.Aggressive, Attitude.Loyal };
+            var won = new Dictionary<Attitude, int>();
+            var rounds = new Dictionary<Attitude, int>();
+            int captureStalls = 0;
+            for (ulong enc = 1; enc <= (ulong)captureCount; enc++)
+            {
+                var m = Tactics.Mission.Board(enc, new HashSet<string>()).First(x => x.Pack >= 2);
+                m.Goal = Tactics.Objective.Capture;
+                foreach (var temper in tempers)
+                {
+                    var battle = m.CreateBattle(Tactics.Encounter.StarterSquad());
+                    battle.Target.Creature.Attitude = temper;
+                    while (battle.Winner == null && battle.Round <= 30) { var u = battle.NextTurn(); if (u == null) break; battle.AiTurn(u); }
+                    if (battle.Winner == null) captureStalls++;
+                    if (battle.Winner == Tactics.Side.Player) won[temper] = won.GetValueOrDefault(temper) + 1;
+                    rounds[temper] = rounds.GetValueOrDefault(temper) + battle.Round;
+                    string fate = battle.Winner == Tactics.Side.Player ? "recruited" : battle.Winner == null ? "STALLED" : battle.Target.Gone ? "got away" : "you lost";
+                    GD.Print($"board {enc} {m.MapName,-18} pack {m.Pack} {temper,-10} -> {fate} in {battle.Round} rounds, recruited {battle.Recruited.Count}");
+                    if (args.TryGetValue("trace", out var trace) && trace == $"{enc}{temper}")
+                        foreach (var e in battle.Events) GD.Print("    " + Tactics.Encounter.Describe(e));
+                }
+            }
+            foreach (var temper in tempers) GD.Print($"{temper,-10} {won.GetValueOrDefault(temper)}/{captureCount} captured, {rounds[temper] / (float)captureCount:0.0} rounds on average");
+            GD.Print($"stalled: {captureStalls}");
+            GetTree().Quit();
+            return;
+        }
+
         if (args.ContainsKey("skilltest"))
         {
             // Every skill in play: your side gets all of them and the AI fights 20 battles.

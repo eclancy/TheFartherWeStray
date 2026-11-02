@@ -72,8 +72,8 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   After changing skills or reactions, run `--skilltest`: every skill must fire and every reaction be proven. The AI uses only some of them;
   that's AI tuning, not a bug.
 - The lab (`scripts/Ranch/Lab.cs`, `LabPanel.cs`): chem from battles pays for flesh grafts
-  (swap a part for one in the codex, the parts met in battle), machine grafts (brass) and
-  infusions (blood strains for natural creatures). Flesh and machine grafts are **not inherited**:
+  (swap a part for one in the codex, the parts met in battle), augments from the bag (below) and
+  infusions (blood strains for natural creatures). Flesh grafts and augments are **not inherited**:
   breeding reads `BirthParts`. Infusions are.
 - **Story (planned, not started):** the user wants FFTA-depth story, cutscenes and sprite
   animation. The user set the themes on 2026-11-02 (lighthearted to start; a glorious city and a
@@ -163,6 +163,16 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   only past the three every battle brings). The AI never uses items. Shop button (S) on the map's
   place panel (it can travel you there); Gear button on the ranch. `--shoptest` checks it all;
   `--shopdemo` and `--battle=N --bag` are for screenshots.
+- **Traits and augments (2026-11-02, built; the user's city/undercity split):** traits
+  (`Classes/Traits.cs`) are biological, born with (`Creature.Traits`, rolled from the seed for
+  wild ones) and passed down (`TraitBook.Inherit` in `Breeding`), each a passive merged into
+  `Unit.Passive` (frame colour natural green). Augments (`Classes/Augments.cs`) are mechanical or
+  chemical, bought at undercity shops and fitted at the lab (`Ranch.Install`, two slots,
+  `CreatureRecord.Augments`): each adds its graft when the record becomes a creature
+  (`ToCreature`, a species copy) and teaches its attack (`Unit.From`). `Ranch.Breed` reads the
+  parents with `ToCreature(augmented: false)`, so augments never pass down. Old saves get their
+  traits rolled in `Tidy`. `--traits` checks the odds, the inheritance and the save;
+  `--select=NAME` opens the ranch on a creature.
 - **Sound (begun 2026-11-02):** `scripts/Audio/`. Every sound is made in code like the sprites:
   `SfxSynth` sums voices (square, triangle, saw, sine, noise; pitch slides, envelopes, low-pass,
   vibrato, tremolo) into 22 kHz mono, and `SoundBook` holds the 40 sounds as data (menus, steps,
@@ -181,8 +191,8 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   match can't be replayed from its commands. `BattleScreen.TurnSeconds` is the turn timer
   (`--timer=N`).
 - Not built yet: story and cutscenes (themes and three endings set by the user, in
-  `docs/story-notes.md`), story flags beyond the main-mission chain, traits and augments
-  (augments will be wares at undercity shops), music, and the network side of PvP. The
+  `docs/story-notes.md`), story flags and standing with the two sides, more steampunk parts in
+  the sculptor, music, and the network side of PvP. The
   user's direction and a suggested build order are in `docs/design-notes.md`.
 
 ## Build and check

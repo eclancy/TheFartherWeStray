@@ -111,7 +111,7 @@ fields up to two and fills their three slots each; battles apply the boosts befo
   lost every rival duel, so the main mission wanting a rival win stayed shut. Rivals may want
   easing, or that milestone a softer form.
 
-## Traits, augments and names (the user's direction, 2026-11-02; not built yet)
+## Traits, augments and names (the user's direction, 2026-11-02; built, the sculptor's steampunk parts still to do)
 
 **Decided by the user:**
 - **Players can name their creatures.**
@@ -123,16 +123,27 @@ fields up to two and fills their three slots each; battles apply the boosts befo
   neon and metal in colour, bringing more chemical and weapon-like attacks. They lean toward the
   undercity side.
 
-**How it maps onto what exists:** the lab already has flesh grafts (parts from the codex), machine
-grafts (brass, not inherited) and infusions (blood strains, inherited). Machine grafts and
-chem infusions become the first **augments** (moved to undercity shops, gated by missions, with
-skills of their own); breedable **traits** are a new inherited layer (a few per creature, from
-its parents, e.g. thick hide, keen nose, venom glands), each with a small stat or a passive.
+**Built (2026-11-02):**
+- **Names:** Name on the ranch.
+- **Traits** (`Classes/Traits.cs`): 14 biological quirks (Leathery Skin, Keen Nose, Swift,
+  Strong Jaw, Iron Stomach, Hard Head, Night Eyes, Quick Healer, Big Heart, Hunter's Instinct,
+  Herd-Born, Sure-Footed, Strong Swimmer, Stout), each a small passive, up to two a creature,
+  shown in natural green. Wild creatures are born with them (about half have one, one in eight
+  two), so recruits bring theirs. Bred, each parent's trait passes down half the time; a child
+  that gets none sometimes shows a new one (about one in six).
+- **Augments** (`Classes/Augments.cs`): 8, four mechanical (Piston Fist, Rivet Gun, Lens Visor,
+  Hextech Core) and four chemical (Acid Canister, Chem Veins, Strobe Tips, Drip Feed). Each bolts
+  on a graft (its look, drawn by the sculptor, and its stats) and teaches an attack (Piston
+  Punch, Rivet Volley, Targeting Beam, Core Discharge, Acid Spray, Chem Rush, Strobe Flash,
+  Toxic Drip). Sold only at undercity shops (the Foundry, Lantern Row, the Sump), some after a
+  main mission or a cup; fitted at the lab, which no longer sells brass directly. Never
+  inherited: breeding reads the parents as they were born.
 
-**Open:**
-- [ ] Do augments take a slot each (how many), and can they be removed?
-- [ ] Do traits mutate when bred, or only pass on?
-- [ ] Does using augments shift your standing with the two sides?
+**Defaulted, open to change:**
+- [x] Augment slots: **two** per creature; a third scraps the oldest (no removing them back).
+- [x] Traits: pass on, and **sometimes a new one appears** in a child that inherited none.
+- [ ] Does using augments (and breeding traits) shift your standing with the two sides? Waiting on
+  standing itself (story flags and alignment, not built).
 
 ## Rival tamers (the user's pick, 2026-11-02)
 

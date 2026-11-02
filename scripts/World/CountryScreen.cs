@@ -227,11 +227,13 @@ public partial class CountryScreen : Control
             var row = new HBoxContainer();
             row.AddThemeConstantOverride("separation", 10);
             var icon = ware.Id == ShopBook.Berry ? SkillIcons.Action("berry", 2)
+                : AugmentBook.Get(ware.Id) is { } aug ? SkillIcons.Skill(Classes.ClassBook.Skill(aug.Skill), 2)
                 : GearBook.IsGear(ware.Id) ? SkillIcons.Passive(Classes.ClassBook.Passive(ware.Id), 2) : SkillIcons.Skill(Classes.ClassBook.Skill(ware.Id), 2);
             row.AddChild(Ui.Picture(icon, ShopBook.Text(ware.Id)));
             var words = new VBoxContainer { CustomMinimumSize = new Vector2(440, 0) };
             int owned = Ranch.Items.GetValueOrDefault(ware.Id);
-            words.AddChild(Ui.Text($"{ShopBook.Name(ware.Id)}{(GearBook.IsGear(ware.Id) ? "  (gear)" : "")}{(owned > 0 ? $"   ·   {owned} in the bag" : "")}", 16, Ink));
+            string kind = AugmentBook.IsAugment(ware.Id) ? "  (augment)" : GearBook.IsGear(ware.Id) ? "  (gear)" : "";
+            words.AddChild(Ui.Text($"{ShopBook.Name(ware.Id)}{kind}{(owned > 0 ? $"   ·   {owned} in the bag" : "")}", 16, AugmentBook.IsAugment(ware.Id) ? Cyan : Ink));
             var text = Wrap(ShopBook.Text(ware.Id), 13, Dim);
             text.CustomMinimumSize = new Vector2(440, 0);
             words.AddChild(text);

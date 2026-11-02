@@ -50,15 +50,25 @@ public static class ShopBook
         new() { Id = "sun_goggles", Price = 50, At = new[] { "dunes" } },
         new() { Id = "shell_bracer", Price = 50, At = new[] { "coast" } },
         new() { Id = "ember_charm", Price = 80, At = new[] { "cinder" } },
+        // Augments: undercity work only, some once its roads are open.
+        new() { Id = "piston_fist", Price = 70, At = new[] { "foundry" } },
+        new() { Id = "rivet_gun", Price = 80, At = new[] { "foundry" } },
+        new() { Id = "lens_visor", Price = 60, At = new[] { "foundry", "lantern" } },
+        new() { Id = "hextech_core", Price = 110, At = new[] { "foundry" }, OpenedBy = "main_sump" },
+        new() { Id = "acid_canister", Price = 80, At = new[] { "lantern", "sump" } },
+        new() { Id = "drip_feed", Price = 70, At = new[] { "sump" } },
+        new() { Id = "chem_veins", Price = 90, At = new[] { "lantern" }, OpenedBy = "main_coast" },
+        new() { Id = "strobe_tips", Price = 85, At = new[] { "lantern" }, Cup = "bronze" },
     };
 
     /// <summary>What a place sells now.</summary>
     public static List<Ware> At(Ranch r, string place) => Stock.Where(w => w.At.Contains(place)
         && (w.OpenedBy == null || r.Story.Contains(w.OpenedBy)) && (w.Cup == null || r.Cups.Contains(w.Cup))).ToList();
 
-    public static string Name(string id) => id == Berry ? "Glowberry" : ClassBook.Passive(id)?.Name ?? ClassBook.Skill(id).Name;
+    public static string Name(string id) => id == Berry ? "Glowberry" : AugmentBook.Get(id)?.Name ?? ClassBook.Passive(id)?.Name ?? ClassBook.Skill(id).Name;
 
     public static string Text(string id) => id == Berry
         ? "A lure for the curious: set it down where a curious creature will come for it. Every battle brings 3; these are extra."
+        : AugmentBook.Get(id) is { } aug ? AugmentBook.Text(aug) + " Fitted at the lab; two to a creature; not inherited."
         : ClassBook.Passive(id)?.Text ?? ClassBook.Skill(id).Text;
 }

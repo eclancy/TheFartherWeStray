@@ -206,6 +206,58 @@ public partial class GameRoot : Node
             return;
         }
 
+        if (args.ContainsKey("traits"))
+        {
+            // Traits and augments without a screen: how often wild creatures are born with traits, how
+            // often a parent's trait passes down, that an augment fits (graft, stats, attack) but never
+            // passes down, and that both survive a save (old saves get their traits rolled).
+            var counts = new int[3];
+            var seen = new Dictionary<string, int>();
+            for (ulong k = 0; k < 600; k++)
+            {
+                var wild = Creature.Specimen(Species.Generate(SeededRng.Derive(0x7EA7, k)), 0);
+                counts[wild.Traits.Count]++;
+                foreach (var t in wild.Traits) seen[t] = seen.GetValueOrDefault(t) + 1;
+            }
+            GD.Print($"wild: {counts[0] / 6f:0}% none, {counts[1] / 6f:0}% one, {counts[2] / 6f:0}% two; every trait seen: {seen.Count}/{Classes.TraitBook.Traits.Length} (rarest {seen.Values.Min()}, commonest {seen.Values.Max()})");
+            int offered = 0, passed = 0, bare = 0, fresh = 0;
+            for (ulong k = 0; k < 400; k++)
+            {
+                var pa = Creature.Specimen(Species.Generate(SeededRng.Derive(0xB4ED, k * 2)), 0);
+                var pb = Creature.Specimen(Species.Generate(SeededRng.Derive(0xB4ED, k * 2 + 1)), 0);
+                if (pa.Traits.Count + pb.Traits.Count == 0) continue;
+                var child = Breeding.Breed(pa, pb, SeededRng.Derive(0xC417, k)).Child;
+                var parentTraits = pa.Traits.Concat(pb.Traits).Distinct().ToList();
+                offered += parentTraits.Count;
+                passed += child.Traits.Count(parentTraits.Contains);
+                if (child.Traits.All(t => !parentTraits.Contains(t))) { bare++; if (child.Traits.Count > 0) fresh++; }
+            }
+            GD.Print($"breeding: {passed}/{offered} parent traits passed down ({passed * 100f / offered:0}%, about half, up to two a child); {fresh} of {bare} children with none passed showed a new one");
+
+            Ranching.Ranch.SavePath = "user://traits_test.json";
+            var ranch = Ranching.Ranch.New();
+            int tank = ranch.Creatures.First(r => r.Species.Name == "Tank").Id, sprocket = ranch.Creatures.First(r => r.Species.Name == "Sprocket").Id;
+            var plain = Tactics.Unit.From(ranch.Get(tank), Tactics.Side.Player, ranch.Record(tank).Training);
+            ranch.Items["piston_fist"] = 1;
+            ranch.Items["acid_canister"] = 1;
+            GD.Print("  " + ranch.Install(tank, "piston_fist"));
+            GD.Print("  " + ranch.Install(tank, "acid_canister"));
+            var fitted = Tactics.Unit.From(ranch.Get(tank), Tactics.Side.Player, ranch.Record(tank).Training);
+            GD.Print($"augments: Tank ATK {plain.Atk} -> {fitted.Atk}, grafts {ranch.Get(tank).Species.Grafts}, skills now {string.Join(", ", fitted.Skills.Select(sk => sk.Name))}");
+            foreach (var r in ranch.Creatures) r.Rested = true;
+            var (pup, result) = ranch.Breed(tank, sprocket);
+            var pupC = ranch.Get(pup);
+            GD.Print($"  bred Tank x Sprocket -> {pupC.Name}: grafts {pupC.Species.Grafts}, augments {pupC.Augments.Count}, traits {string.Join(", ", pupC.Traits)} ({string.Join("; ", result.FromA.Concat(result.FromB).Where(n => n.StartsWith("trait")))})");
+            ranch.Save();
+            var back = Ranching.Ranch.Load();
+            bool kept = ranch.Creatures.All(r => back.Record(r.Id).Traits.SequenceEqual(r.Traits) && back.Record(r.Id).Augments.SequenceEqual(r.Augments));
+            back.Record(tank).Traits = null;
+            back.Tidy();
+            GD.Print($"traits: {(kept ? "kept" : "DIFFERENT")} after save and load; an old save's creature gets {string.Join(", ", back.Record(tank).Traits)} (it was born with {string.Join(", ", ranch.Record(tank).Traits)})");
+            GetTree().Quit();
+            return;
+        }
+
         if (args.ContainsKey("shoptest"))
         {
             // The shops without a screen: buy where you stand (and not elsewhere), wear gear, use items
@@ -354,7 +406,7 @@ public partial class GameRoot : Node
             for (ulong seed = 1; seed <= 20; seed++)
             {
                 var battle = Tactics.Encounter.Create(seed, null, Tactics.BattleMap.Names[(int)(seed % 5)]);
-                foreach (var u in battle.Units.Where(u => u.Side == Tactics.Side.Player)) u.Skills = Classes.ClassBook.Skills.ToList();
+                foreach (var u in battle.Units.Where(u => u.Side == Tactics.Side.Player)) u.Skills = Classes.ClassBook.Skills.Concat(Classes.AugmentBook.Skills).ToList();
                 // Each player creature also wears a reaction, cycling through all of them across the battles.
                 var reactions = Classes.ClassBook.Passives.Where(p => p.Kind == Classes.PassiveKind.Reaction).ToList();
                 int ri = (int)seed * 3;
@@ -376,7 +428,7 @@ public partial class GameRoot : Node
             // Then every skill fired once by hand, with a foe and an ally placed right beside the user.
             int fired = 0;
             var failed = new List<string>();
-            foreach (var sk in Classes.ClassBook.Skills)
+            foreach (var sk in Classes.ClassBook.Skills.Concat(Classes.AugmentBook.Skills))
             {
                 var battle = Tactics.Encounter.Create(3);
                 var user = battle.Units.First(u => u.Side == Tactics.Side.Player && u.Size == 1);
@@ -400,7 +452,7 @@ public partial class GameRoot : Node
                 try { battle.UseSkill(user, sk, aim); fired++; }
                 catch (Exception e) { failed.Add($"{sk.Id} ({e.GetType().Name}: {e.Message})"); }
             }
-            GD.Print($"direct: {fired}/{Classes.ClassBook.Skills.Length} skills fired without error; problems: {(failed.Count == 0 ? "none" : string.Join("; ", failed))}");
+            GD.Print($"direct: {fired}/{Classes.ClassBook.Skills.Length + Classes.AugmentBook.Skills.Length} skills (augments too) fired without error; problems: {(failed.Count == 0 ? "none" : string.Join("; ", failed))}");
 
             // Every reaction, directly: a defender wearing it is attacked up to 30 times until its effect shows.
             var proven = new List<string>();
@@ -501,7 +553,8 @@ public partial class GameRoot : Node
             string wingKey = ranch.Codex.First(k => k.StartsWith("Wings.") && k != "Wings.None");
             GD.Print($"codex: {ranch.Codex.Count} parts; chem {ranch.Chem}");
             GD.Print("  " + Ranching.Lab.GraftPart(ranch, tank, "Wings", (int)Enum.Parse<Wings>(wingKey.Split('.')[1])));
-            GD.Print("  " + Ranching.Lab.AddMachine(ranch, tank, Graft.Plating));
+            ranch.Items["rivet_gun"] = 1;
+            GD.Print("  " + ranch.Install(tank, "rivet_gun"));
             GD.Print("  " + Ranching.Lab.Infuse(ranch, tank, Strain.Chemtech));
             var tankAfter = ranch.Get(tank);
             GD.Print($"  Tank moves: {tankBefore.MoveType} -> {tankAfter.MoveType}; strain {tankAfter.Species.Strain}; chem left {ranch.Chem}");
@@ -762,7 +815,7 @@ public partial class GameRoot : Node
         // --encounter=E jumps the ranch ahead (for looking at later boards; use it with --save=NAME).
         if (args.TryGetValue("encounter", out var encounterArg) && ulong.TryParse(encounterArg, out var encounterAt)) _ranch.Encounter = encounterAt;
         bool vatDemo = args.ContainsKey("vatdemo");
-        _home = () => new Ranching.RanchScreen { Ranch = _ranch, Fight = StartRanchBattle, OpenMap = ShowMap, VatDemo = vatDemo, AutoFight = _autoPlay, StartInLab = args.ContainsKey("labmode"), StartOnParty = args.ContainsKey("partymode"), StartOnJobs = args.ContainsKey("jobsmode") };
+        _home = () => new Ranching.RanchScreen { Ranch = _ranch, Fight = StartRanchBattle, OpenMap = ShowMap, VatDemo = vatDemo, AutoFight = _autoPlay, StartInLab = args.ContainsKey("labmode"), StartOnParty = args.ContainsKey("partymode"), StartOnJobs = args.ContainsKey("jobsmode"), StartOn = args.GetValueOrDefault("select") };
         // --mapmode (or --boardmode, from before the map) opens on the country map.
         _demoDispatch = args.ContainsKey("dispatchdemo");
         _demoShop = args.ContainsKey("shopdemo");

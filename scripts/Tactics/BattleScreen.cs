@@ -729,13 +729,13 @@ public partial class BattleScreen : Control
         _info.AddChild(UI.Ui.Chips(gear, 16));
 
         // Skills, passive and reaction as icons.
-        if (u.Skills.Count > 0 || u.Passive != null || u.Reaction != null)
+        if (u.Skills.Count > 0 || u.Passive != null || u.Reaction != null || u.Traits.Count > 0)
         {
             var icons = new HFlowContainer();
             icons.AddThemeConstantOverride("h_separation", 4);
             foreach (var s in u.Skills) icons.AddChild(UI.Ui.Picture(SkillIcons.Skill(s, 2), $"{s.Name} ({s.Class})\n{s.Text}"));
-            foreach (var p in new[] { u.Equipped, u.ShinyPassive, u.GearPassive, u.Reaction }.Where(p => p != null))
-                icons.AddChild(UI.Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p == u.ShinyPassive ? "shiny" : p == u.GearPassive ? "gear" : p.Kind == Classes.PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"));
+            foreach (var p in new[] { u.Equipped, u.ShinyPassive, u.GearPassive, u.Reaction }.Concat(u.Traits).Where(p => p != null))
+                icons.AddChild(UI.Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p == u.ShinyPassive ? "shiny" : p == u.GearPassive ? "gear" : p.Class == "Trait" ? "trait" : p.Kind == Classes.PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"));
             _info.AddChild(icons);
         }
 

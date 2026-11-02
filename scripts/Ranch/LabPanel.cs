@@ -9,8 +9,8 @@ namespace CreatureTactics.Ranching;
 
 /// <summary>
 /// The lab at the ranch: a graft chamber showing the selected creature as it would look with the
-/// parts you're considering, a row per part slot (cycle through your codex, then graft), machine
-/// grafts, and blood infusions for natural creatures.
+/// parts you're considering, a row per part slot (cycle through your codex, then graft), augments
+/// from the bag (bought at undercity shops), and blood infusions for natural creatures.
 /// </summary>
 public partial class LabPanel : Control
 {
@@ -87,18 +87,25 @@ public partial class LabPanel : Control
             _rows.AddChild(row);
         }
 
-        _rows.AddChild(Text("MACHINE GRAFTS · Piltover brass · not inherited", 700, gold));
-        var machines = new HBoxContainer();
-        machines.AddThemeConstantOverride("separation", 6);
-        foreach (var (graft, name, cost) in Lab.Machines)
+        // Augments: bought at undercity shops, bolted on here, two to a creature, never inherited.
+        var neon = Color.FromHtml("#4fe3ff");
+        string fitted = rec.Augments.Count == 0 ? "none fitted" : string.Join(", ", rec.Augments.Select(a => Classes.AugmentBook.Get(a)?.Name));
+        _rows.AddChild(Text($"AUGMENTS · undercity work · {rec.Augments.Count}/{Classes.AugmentBook.Slots}: {fitted} · not inherited", 700, neon));
+        var augments = new HFlowContainer();
+        augments.AddThemeConstantOverride("h_separation", 6);
+        var inBag = Ranch.Items.Where(kv => Classes.AugmentBook.IsAugment(kv.Key) && kv.Value > 0).ToList();
+        foreach (var (augId, count) in inBag)
         {
-            bool has = rec.Species.Grafts.HasFlag(graft);
+            var aug = Classes.AugmentBook.Get(augId);
             int id = _id.Value;
-            var b = Btn(has ? name : $"{name}  {cost}", !has && Ranch.Chem >= cost, () => Finish(Lab.AddMachine(Ranch, id, graft)));
-            b.Icon = has ? Glyphs.Get("check", 1) : flask;
-            machines.AddChild(b);
+            bool full = rec.Augments.Count >= Classes.AugmentBook.Slots;
+            var b = Btn($"Fit {aug.Name}{(count > 1 ? $" ({count})" : "")}", !rec.Augments.Contains(augId), () => Finish(Ranch.Install(id, augId)));
+            b.Icon = SkillIcons.Skill(Classes.ClassBook.Skill(aug.Skill), 1);
+            b.TooltipText = Classes.AugmentBook.Text(aug) + (full ? $"\nReplaces the {Classes.AugmentBook.Get(rec.Augments[0])?.Name} (scrapped)." : "");
+            augments.AddChild(b);
         }
-        _rows.AddChild(machines);
+        if (inBag.Count == 0) augments.AddChild(Text("None in the bag: the Foundry, Lantern Row and the Sump sell them.", 700, dim));
+        _rows.AddChild(augments);
 
         if (rec.Species.Strain == Strain.Natural)
         {

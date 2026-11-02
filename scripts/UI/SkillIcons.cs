@@ -65,6 +65,9 @@ public static class SkillIcons
         ["stone_peck"] = "mountain", ["serpent_lash"] = "whip", ["dread_crow"] = "sound",
         // Items from the shops.
         ["snare_net"] = "chain", ["soothing_chime"] = "sound", ["tonic"] = "heal", ["smelling_salts"] = "sparkle",
+        // Augments' attacks.
+        ["piston_punch"] = "fist", ["rivet_volley"] = "gear", ["targeting_beam"] = "eye", ["core_discharge"] = "bolt",
+        ["acid_spray"] = "flask", ["chem_rush"] = "flask", ["strobe_flash"] = "stun", ["toxic_drip"] = "poison",
     };
 
     /// <summary>Each class's emblem.</summary>
@@ -182,7 +185,7 @@ public static class SkillIcons
     public static Texture2D Passive(PassiveDef p, int scale = 2) => Cached("passive:" + p.Id, scale, () =>
     {
         var img = Image.CreateEmpty(BadgeSize, BadgeSize, false, Image.Format.Rgba8);
-        Frame(img, 0, 0, BadgeSize, Color.FromHtml(p.Class switch { "Shiny" => "#f2c14e", "Gear" => "#c9a24a", _ => p.Kind == PassiveKind.Reaction ? "#d84f8f" : "#3faa6a" }));
+        Frame(img, 0, 0, BadgeSize, Color.FromHtml(p.Class switch { "Shiny" => "#f2c14e", "Gear" => "#c9a24a", "Trait" => "#8a9a4a", _ => p.Kind == PassiveKind.Reaction ? "#d84f8f" : "#3faa6a" }));
         Glyphs.Draw(img, PassiveGlyph(p), 2, 2);
         return img;
     });

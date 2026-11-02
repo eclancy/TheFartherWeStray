@@ -244,6 +244,8 @@ public sealed class Creature
     public bool Shiny;
     public string Mutation; // null, or a short note like "mutant tail"
     public string Nickname; // the name you gave it, if any
+    public List<string> Traits = new();   // biological quirks it was born with (TraitBook), passed down when bred
+    public List<string> Augments = new(); // mechanical and chemical work bolted on at the lab (AugmentBook), never passed down
     /// <summary>What to call it: the name you gave it, or its species' name.</summary>
     public string Name => Nickname ?? Species.Name;
     public float BodyJitter, LegJitter, HeadJitter;
@@ -271,6 +273,7 @@ public sealed class Creature
         c.Palette = BuildPalette(palette, species);
 
         if (rng.Chance(1f / 14f)) c.Mutate(rng);
+        c.Traits = Classes.TraitBook.Roll(seed);
         return c;
     }
 
@@ -289,7 +292,7 @@ public sealed class Creature
             {
                 Species = species, Seed = species.Seed, Parts = species.Parts, Size = species.BaseSize,
                 Attitude = species.CommonAttitude, Spec = species.Palette, Palette = BuildPalette(species.Palette, species),
-                BodyJitter = 1, LegJitter = 1, HeadJitter = 1,
+                BodyJitter = 1, LegJitter = 1, HeadJitter = 1, Traits = Classes.TraitBook.Roll(species.Seed),
             };
         }
         return Generate(species, SeededRng.Derive(species.Seed, (ulong)sibling + 1));

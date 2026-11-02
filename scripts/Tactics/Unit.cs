@@ -45,17 +45,18 @@ public sealed class Unit
     public Unit TauntedBy;
     public PassiveDef ShinyPassive;                  // a shiny's own second passive, on top of the equipped one
     public PassiveDef GearPassive;                   // what its gear does
+    public readonly List<PassiveDef> Traits = new(); // what it was born with
     /// <summary>The support passive equipped in its training.</summary>
     public PassiveDef Equipped => ClassBook.Passive(Training?.Passive);
-    /// <summary>Every support passive in effect, as one: the equipped one, plus a shiny's own, plus its gear's.</summary>
+    /// <summary>Every support passive in effect, as one: the equipped one, plus a shiny's own, its gear's and its traits.</summary>
     public PassiveDef Passive
     {
         get
         {
-            if (ShinyPassive == null && GearPassive == null) return Equipped;
+            if (ShinyPassive == null && GearPassive == null && Traits.Count == 0) return Equipped;
             if (_merged == null || _mergedFor != Training?.Passive)
             {
-                _merged = PassiveDef.Merge(PassiveDef.Merge(Equipped, ShinyPassive), GearPassive);
+                _merged = new[] { ShinyPassive, GearPassive }.Concat(Traits).Aggregate(Equipped, PassiveDef.Merge);
                 _mergedFor = Training?.Passive;
             }
             return _merged;
@@ -146,10 +147,11 @@ public sealed class Unit
                 atk += ma; def += md; spd += ms; hp += mh;
             }
         }
-        // A shiny's own passive and its gear count whatever it trains as.
+        // A shiny's own passive, its gear and its traits count whatever it trains as.
         var shine = ClassBook.ShinyPassive(c);
         var gear = ClassBook.Passive(training?.Gear);
-        foreach (var extra in new[] { shine, gear })
+        var traits = c.Traits.Select(ClassBook.Passive).Where(p => p != null).ToList();
+        foreach (var extra in traits.Prepend(gear).Prepend(shine))
         {
             if (extra == null) continue;
             atk += extra.Atk; def += extra.Def; spd += extra.Spd; move += extra.Move; hit += extra.Hit; hp *= 1 + extra.HpPct;
@@ -179,8 +181,12 @@ public sealed class Unit
         u.Training = training;
         u.ShinyPassive = shine;
         u.GearPassive = gear;
+        u.Traits.AddRange(traits);
         if (training != null) u.Skills = training.Usable().ToList();
         else if (ClassBook.WildSkill(c) is { } wild) u.Skills.Add(ClassBook.Skill(wild));
+        // Augments teach their attacks whatever it trains as.
+        foreach (var a in c.Augments)
+            if (AugmentBook.Get(a) is { } aug && u.Skills.All(s => s.Id != aug.Skill)) u.Skills.Add(ClassBook.Skill(aug.Skill));
         return u;
     }
 }

@@ -29,12 +29,6 @@ public static class Lab
         new("Tail", typeof(Tail), 15), new("Wings", typeof(Wings), 40), new("Pattern", typeof(Pattern), 6),
     };
 
-    public static readonly (Graft graft, string name, int cost)[] Machines =
-    {
-        (Graft.Plating, "Brass plating", 20), (Graft.MetalLimb, "Clockwork limb", 20),
-        (Graft.Visor, "Lens visor", 15), (Graft.Core, "Hextech core", 30),
-    };
-
     /// <summary>Machine grafts: bolted on, never inherited.</summary>
     public const Graft MachineGrafts = Graft.Plating | Graft.MetalLimb | Graft.Visor | Graft.Core;
 
@@ -94,19 +88,6 @@ public static class Lab
         rec.Parts = Set(rec.Parts, slot, value);
         ranch.Refresh(id);
         return $"{rec.Name}: {slot.ToLowerInvariant()} grafted to {Words(slot, value)} (-{cost} chem).";
-    }
-
-    public static string AddMachine(Ranch ranch, int id, Graft graft)
-    {
-        var rec = ranch.Record(id);
-        var (_, name, cost) = Machines.First(m => m.graft == graft);
-        if (rec.Species.Grafts.HasFlag(graft)) return $"It already has {name.ToLowerInvariant()}.";
-        if (ranch.Chem < cost) return $"Not enough chem: {name.ToLowerInvariant()} costs {cost}.";
-        ranch.Chem -= cost;
-        rec.Species = rec.Species.Clone(); // species objects can be shared (the DrawPets cast), so graft a copy
-        rec.Species.Grafts |= graft;
-        ranch.Refresh(id);
-        return $"{rec.Name}: {name.ToLowerInvariant()} fitted (-{cost} chem).";
     }
 
     public static string Infuse(Ranch ranch, int id, Strain strain)

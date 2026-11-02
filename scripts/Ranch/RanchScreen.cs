@@ -26,6 +26,7 @@ public partial class RanchScreen : Control
     public bool StartInLab;               // --labmode: open on the lab (screenshots)
     public bool StartOnJobs;              // --jobsmode: open on the job tree (screenshots)
     public bool StartOnParty;             // --partymode: open on the party (screenshots)
+    public string StartOn;                // --select=NAME: open with that creature selected (screenshots)
 
     static readonly Color Cyan = Color.FromHtml("#4fe3ff"), Magenta = Color.FromHtml("#ff4f9a"), Gold = Color.FromHtml("#f2c14e");
     static readonly Color Ink = Color.FromHtml("#e8e2f4"), Dim = Color.FromHtml("#9a91b4");
@@ -147,7 +148,7 @@ public partial class RanchScreen : Control
         if (JustJoined.Count > 0)
             Flash($"{string.Join(", ", JustJoined.Select(id => Ranch.Get(id).Name))} joined the ranch.");
         if (Ranch.Report.Count > 0) _notes.Text = string.Join("\n", Ranch.Report);
-        Select(Ranch.Squad.FirstOrDefault(Ranch.Creatures[0].Id));
+        Select(Ranch.Creatures.FirstOrDefault(r => r.Name == StartOn)?.Id ?? Ranch.Squad.FirstOrDefault(Ranch.Creatures[0].Id));
         Rebuild();
         if (StartInLab) SetPanel(Panel.Lab);
         if (StartOnJobs) SetPanel(Panel.Jobs);
@@ -331,7 +332,7 @@ public partial class RanchScreen : Control
         if (p == Panel.Lab && _selected is { } id) _lab.ShowCreature(id);
         Flash(p switch
         {
-            Panel.Lab => "The lab: graft parts from your codex, fit brass, or infuse new blood. It all costs chem.",
+            Panel.Lab => "The lab: graft parts from your codex (chem), fit augments from the bag, or infuse new blood (chem).",
             Panel.Jobs => "The job tree: every class this creature could ever train, and what each still needs.",
             Panel.Party => "Your tamers lead from off the field: up to two, three creatures each.",
             _ => "",
@@ -477,6 +478,11 @@ public partial class RanchScreen : Control
         if (c.Shiny) head.AddChild(Ui.ChipView(new Chip("sparkle", "shiny", Gold), 15));
         if (c.Mutation != null) head.AddChild(Ui.ChipView(new Chip("swirl", c.Mutation.ToString().ToLowerInvariant(), Ui.Pink, "mutation"), 15));
         _detail.AddChild(head);
+        // What it was born with (natural, passed down), and what's bolted on (neon and brass, not).
+        var born = c.Traits.Select(ClassBook.Passive).Where(p => p != null).Select(p => new Chip("paw", p.Name, Color.FromHtml("#9ac25a"), $"Trait: {p.Text} Passed down when bred."));
+        var fitted = c.Augments.Select(AugmentBook.Get).Where(a => a != null).Select(a => new Chip(a.Chem ? "flask" : "gear", a.Name, Color.FromHtml(a.Chem ? "#4ff0a0" : "#4fe3ff"), AugmentBook.Text(a)));
+        var marks = born.Concat(fitted).ToList();
+        if (marks.Count > 0) _detail.AddChild(Ui.Chips(marks, 15));
 
         _detail.AddChild(Ui.Chips(new[]
         {

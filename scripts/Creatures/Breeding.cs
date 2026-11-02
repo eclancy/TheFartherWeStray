@@ -121,6 +121,8 @@ public static class Breeding
             Generation = Math.Max(a.Generation, b.Generation) + 1, ParentA = A.Name, ParentB = B.Name,
         };
         c.Palette = Creature.BuildPalette(palette, child);
+        c.Traits = Classes.TraitBook.Inherit(a.Traits, b.Traits, rng, (fromA, id) => (fromA ? r.FromA : r.FromB).Add($"trait: {Classes.ClassBook.Passive(id).Name}"),
+            id => r.Notes.Add($"a new trait: {Classes.ClassBook.Passive(id).Name}"));
         r.Child = c;
         return r;
     }

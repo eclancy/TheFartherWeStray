@@ -148,7 +148,7 @@ leanings) and a few barred ones. **Tinker** needs hands: a biped, or claws.
 | Chemist | Alchemist, chemtech blood | Shimmer Dose, Caustic Cloud, Mutagen |
 | Runeweaver | Mystic, arcane blood | Glyph Snare, Glyph Shield, Arcane Surge |
 | Voidcaller | Brawler, abyssal blood | Dread, Siphon, Maw |
-| Artificer | Tinker, two machine grafts | Spark Coil, Repair, Overdrive |
+| Artificer | Tinker, two machine grafts (augments count) | Spark Coil, Repair, Overdrive |
 
 The gates are why you breed and visit the lab:
 - Breed wings, a shell or huge size into a line.
@@ -167,7 +167,12 @@ off, and 5 for each creature you release.
 - **Flesh grafts:** swap a part slot (horns, wings, shell...) for any variant in your **codex**,
   the parts you've met on creatures you fought or recruited. Wings cost the most (40), since they
   give flight and open Skydiver.
-- **Machine grafts:** brass plating, a clockwork limb, a lens visor, a hextech core.
+- **Augments:** bought at undercity shops and fitted here, two to a creature, never inherited.
+  Four mechanical (Piston Fist, Rivet Gun, Lens Visor, Hextech Core) and four chemical (Acid
+  Canister, Chem Veins, Strobe Tips, Drip Feed); each bolts on its brass or neon work and teaches
+  an attack.
+- **Traits** aren't made here: creatures are born with them (Keen Nose, Quick Healer, Stout...) and
+  pass them down when bred.
 - **Infusions:** chemtech, arcane or abyssal blood for a natural creature.
 
 The graft chamber previews the creature with the parts you're considering. Flesh and machine

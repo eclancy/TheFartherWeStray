@@ -32,6 +32,8 @@ public sealed class CreatureRecord
     public bool Shiny;
     public string Mutation;
     public string Nickname;   // the name you gave it (null: its species' name)
+    public List<string> Traits;           // born with, passed down (null in saves from before traits: rolled on load)
+    public List<string> Augments = new(); // bolted on at the lab, not passed down
     [JsonIgnore] public string Name => Nickname ?? Species.Name;
     public float BodyJitter = 1, LegJitter = 1, HeadJitter = 1;
     public int Generation;
@@ -43,15 +45,27 @@ public sealed class CreatureRecord
         Id = id, Species = c.Species, Seed = c.Seed, Size = c.Size, Attitude = c.Attitude, Parts = c.Parts, Spec = c.Spec, BirthParts = c.BirthParts,
         Shiny = c.Shiny, Mutation = c.Mutation, BodyJitter = c.BodyJitter, LegJitter = c.LegJitter, HeadJitter = c.HeadJitter,
         Generation = c.Generation, ParentA = c.ParentA, ParentB = c.ParentB, Nickname = c.Nickname,
+        Traits = new List<string>(c.Traits), Augments = new List<string>(c.Augments),
     };
 
-    public Creature ToCreature() => new()
+    /// <summary>The creature itself; its augments bolted on (their grafts on a copy of its species) unless <paramref name="augmented"/> is false, as for breeding.</summary>
+    public Creature ToCreature(bool augmented = true)
     {
-        Species = Species, Seed = Seed, Size = Size, Attitude = Attitude, Parts = Parts, Spec = Spec, BirthParts = BirthParts,
-        Palette = Creature.BuildPalette(Spec, Species), Shiny = Shiny, Mutation = Mutation, Nickname = Nickname,
-        BodyJitter = BodyJitter, LegJitter = LegJitter, HeadJitter = HeadJitter,
-        Generation = Generation, ParentA = ParentA, ParentB = ParentB,
-    };
+        var species = Species;
+        if (augmented && Augments.Count > 0)
+        {
+            species = Species.Clone();
+            foreach (var a in Augments) if (Classes.AugmentBook.Get(a) is { } aug) species.Grafts |= aug.Graft;
+        }
+        return new Creature
+        {
+            Species = species, Seed = Seed, Size = Size, Attitude = Attitude, Parts = Parts, Spec = Spec, BirthParts = BirthParts,
+            Palette = Creature.BuildPalette(Spec, species), Shiny = Shiny, Mutation = Mutation, Nickname = Nickname,
+            BodyJitter = BodyJitter, LegJitter = LegJitter, HeadJitter = HeadJitter,
+            Generation = Generation, ParentA = ParentA, ParentB = ParentB,
+            Traits = new List<string>(Traits ?? new List<string>()), Augments = augmented ? new List<string>(Augments) : new List<string>(),
+        };
+    }
 }
 
 /// <summary>
@@ -203,6 +217,8 @@ public sealed class Ranch
     /// </summary>
     public void Tidy()
     {
+        // Saves from before traits: every creature gets the ones its seed was born with.
+        foreach (var rec in Creatures.Where(rec => rec.Traits == null)) { rec.Traits = Classes.TraitBook.Roll(rec.Seed); _cache.Remove(rec.Id); }
         if (World.Country.Get(Location) is not { } here || !World.Country.IsOpen(this, here)) Location = World.Country.Home;
         Wanderers.RemoveAll(w => !World.Roaming.Roams(this, w.At));
         // The first pack is out there from the start (old saves get one too).
@@ -246,6 +262,23 @@ public sealed class Ranch
         if (gear != null && --Items[gear] == 0) Items.Remove(gear);
         t.Gear = gear;
         return gear == null ? $"{Record(id).Name} takes its gear off." : $"{Record(id).Name} wears the {ClassBook.Passive(gear).Name}: {ClassBook.Passive(gear).Text}";
+    }
+
+    /// <summary>Bolts an augment from the bag onto a creature at the lab; a third scraps the oldest.</summary>
+    public string Install(int id, string augment)
+    {
+        var rec = Record(id);
+        var aug = Classes.AugmentBook.Get(augment);
+        if (aug == null || Items.GetValueOrDefault(augment) <= 0) return "There's none in the bag: undercity shops sell augments.";
+        string an = "AEIOU".Contains(aug.Name[0]) ? "an" : "a";
+        if (rec.Augments.Contains(augment)) return $"{rec.Name} already has {an} {aug.Name}.";
+        string scrapped = null;
+        if (rec.Augments.Count >= Classes.AugmentBook.Slots) { scrapped = Classes.AugmentBook.Get(rec.Augments[0])?.Name; rec.Augments.RemoveAt(0); }
+        rec.Augments.Add(augment);
+        if (--Items[augment] == 0) Items.Remove(augment);
+        Refresh(id);
+        var skill = Classes.ClassBook.Skill(aug.Skill);
+        return $"{rec.Name} has {an} {aug.Name} bolted on: it can use {skill.Name}.{(scrapped != null ? $" The {scrapped} is scrapped." : "")}";
     }
 
     /// <summary>Sends a creature off on a dispatch (out of the squad, if it was in it).</summary>
@@ -322,7 +355,8 @@ public sealed class Ranch
     /// <summary>Breeds two rested creatures. The child arrives tired, like its parents.</summary>
     public (int id, Breeding.Result result) Breed(int a, int b)
     {
-        var result = Breeding.Breed(Get(a), Get(b), SeededRng.Derive(Encounter * 7919UL + (ulong)Bred, (ulong)(a * 131 + b)));
+        // Parents as they were born to it: augments are bolted on, not blood.
+        var result = Breeding.Breed(Record(a).ToCreature(augmented: false), Record(b).ToCreature(augmented: false), SeededRng.Derive(Encounter * 7919UL + (ulong)Bred, (ulong)(a * 131 + b)));
         Bred++;
         Record(a).Rested = Record(b).Rested = false;
         // Siblings of the same pair splice to the same name, so later ones get numbered.

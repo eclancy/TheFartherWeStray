@@ -733,7 +733,7 @@ public static class ClassBook
     public static PassiveDef ShinyPassive(Creature c) =>
         c.Shiny ? ShinyPassives[(int)(SeededRng.Derive(c.Seed, 0x5419) % (ulong)ShinyPassives.Length)] : null;
 
-    static readonly Dictionary<string, PassiveDef> _passives = Passives.Concat(ShinyPassives).Concat(GearBook.Gear).ToDictionary(p => p.Id);
+    static readonly Dictionary<string, PassiveDef> _passives = Passives.Concat(ShinyPassives).Concat(GearBook.Gear).Concat(TraitBook.Traits).ToDictionary(p => p.Id);
     public static PassiveDef Passive(string id) => id != null && _passives.TryGetValue(id, out var p) ? p : null;
     public static List<PassiveDef> PassivesOf(string cls) => Passives.Where(p => p.Class == cls).OrderBy(p => p.Kind).ToList();
 
@@ -760,7 +760,7 @@ public static class ClassBook
         return atk > 0 ? "ATK +1" : def > 0 ? "DEF +1" : spd > 0 ? "SPD +1" : $"max HP +{hp}";
     }
 
-    static readonly Dictionary<string, SkillDef> _skills = Skills.Concat(GearBook.Items).ToDictionary(s => s.Id);
+    static readonly Dictionary<string, SkillDef> _skills = Skills.Concat(GearBook.Items).Concat(AugmentBook.Skills).ToDictionary(s => s.Id);
     static readonly Dictionary<string, ClassDef> _classes = Classes.ToDictionary(c => c.Id);
 
     public static SkillDef Skill(string id) => _skills[id];

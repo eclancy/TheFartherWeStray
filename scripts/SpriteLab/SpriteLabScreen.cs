@@ -28,6 +28,7 @@ public partial class SpriteLabScreen : Control
     public override void _Ready()
     {
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        Audio.Music.Stop(); // a workbench: quiet
         var bg = new ColorRect { Color = new Color(0.075f, 0.06f, 0.13f) };
         bg.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         AddChild(bg);

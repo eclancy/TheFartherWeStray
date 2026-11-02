@@ -54,6 +54,7 @@ public partial class RanchScreen : Control
     public override void _Ready()
     {
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        Audio.Music.Play("ranch");
         var bg = new TextureRect
         {
             Texture = ImageTexture.CreateFromImage(IsoArt.PaintBackdrop(480, 270, 99)),

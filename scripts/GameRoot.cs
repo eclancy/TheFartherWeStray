@@ -43,7 +43,44 @@ public partial class GameRoot : Node
         // Sound: every button clicks; N mutes, --mute starts muted.
         AddChild(new Audio.Sound());
         Audio.Sound.Muted = args.ContainsKey("mute");
+        // Music: rendered on a worker thread once the game starts (not for headless tests); --nomusic turns it off.
+        Audio.Music.Off = args.ContainsKey("nomusic");
+        if (DisplayServer.GetName() != "headless") AddChild(new Audio.Music());
         GetTree().NodeAdded += node => { if (node is BaseButton button) button.Pressed += () => Audio.Sound.Play("click"); };
+
+        if (args.ContainsKey("music"))
+        {
+            // Every song as a .wav in .shots/music/, played twice through so the loop's seam can be heard,
+            // with its length, levels, how long it took to make, and any bar that doesn't add up.
+            string dir = ProjectSettings.GlobalizePath("res://.shots/music");
+            System.IO.Directory.CreateDirectory(dir);
+            foreach (var problem in Audio.SongBook.All.SelectMany(Audio.MusicSynth.Problems)) GD.Print("PROBLEM " + problem);
+            foreach (var song in Audio.SongBook.All)
+            {
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                var loop = Audio.MusicSynth.Render(song);
+                long ms = clock.ElapsedMilliseconds;
+                Audio.SfxSynth.ToStream(loop.Concat(loop).ToArray()).SaveToWav($"{dir}/{song.Id}.wav");
+                float peak = loop.Max(System.Math.Abs), rms = (float)System.Math.Sqrt(loop.Average(x => x * x));
+                float seam = System.Math.Abs(loop[0] - loop[^1]), step = loop.Zip(loop.Skip(1), (a, b) => System.Math.Abs(a - b)).Average();
+                GD.Print($"{song.Id,-13} {song.Name,-18} {song.Bpm,3} bpm  {song.Bars} bars  {loop.Length / (float)Audio.SfxSynth.Rate,5:0.0}s loop  peak {peak:0.00}  rms {rms:0.000}  seam jump {seam:0.000} (a step averages {step:0.000})  made in {ms} ms");
+                // The balance: each part's share of the mix's loudness, weighted roughly as the ear hears
+                // (a gentle cut below about 300 Hz, so a booming bass doesn't count for more than it sounds).
+                float Level(Audio.Part[] parts)
+                {
+                    var raw = Audio.MusicSynth.Render(new Audio.Song { Id = song.Id, Bpm = song.Bpm, Bars = song.Bars, Parts = parts }, false);
+                    float rc = 1 / (System.MathF.Tau * 300), a = rc / (rc + 1f / Audio.SfxSynth.Rate), y = 0, prev = 0;
+                    double sum = 0;
+                    foreach (var x in raw) { y = a * (y + x - prev); prev = x; sum += y * y; }
+                    return (float)System.Math.Sqrt(sum / raw.Length);
+                }
+                float all = Level(song.Parts);
+                GD.Print("    " + string.Join("  ", song.Parts.Select(part => $"{part.Inst} {Level(new[] { part }) / all * 100:0}%")));
+            }
+            GD.Print($"wrote {Audio.SongBook.All.Length} songs to {dir}");
+            GetTree().Quit();
+            return;
+        }
 
         if (args.ContainsKey("sfx"))
         {

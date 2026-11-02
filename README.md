@@ -36,7 +36,13 @@ Every strain except natural gets a neon rim light and glow spill.
 `GODOT_BIN` is set in `.claude/settings.json` (Godot 4.5.1 mono). Build C# with
 `dotnet build CreatureTactics.sln`. On a fresh checkout, run `"$GODOT_BIN" --headless --path . --import` once.
 
-The game opens on the **ranch**. **Tab** switches to the **Sprite Lab** and back.
+The game opens on the **ranch**. **Tab** switches to the **Sprite Lab** and back. **N** mutes the
+sound and music (`--mute` starts muted, `--nomusic` plays without music).
+
+**Music** is made in code like everything else: a flute and harp at the ranch, a marching horn on
+the map, and battle music by whose ground you fight on (a brass fanfare in the city above, neon saw
+bass in the undercity, a driving pulse in the wilds, something faster for rival tamers and the
+coliseum). `--music` writes every track to `.shots/music/`.
 
 ### Ranch and breeding
 

@@ -48,7 +48,17 @@ fields up to two and fills their three slots each; battles apply the boosts befo
 - **Wild encounters that wander the map,** like FFTA's: packs roaming between locations, met by
   travelling into them.
 - **A shop:** equipment for your team, and items that help lure and catch wild creatures.
-- **Sound** (begun 2026-11-02, see below).
+- **Sound** (begun 2026-11-02; effects built). **Music** (built 2026-11-02, the user's pick):
+  six looping tracks made in code like the sound effects (`Audio/Songs.cs`, `Audio/Music.cs`):
+  Home Pasture (the ranch: a flute over a harp, F major), The Open Road (the map: a marching horn
+  call), Wild Clash (battles in the wilds: driving E minor), Brass and Banners (the city above: a
+  brass fanfare with bells, timpani and clockwork ticks), Neon Sump (the undercity: a dark
+  phrygian groove on saw bass with echoing arpeggios) and Rival's Gambit (duels and the coliseum:
+  fast harmonic minor). The two sides are heard apart, as they're seen apart.
+  **Open:** [ ] the user's ear on all of it (made without listening: levels and balance were
+  measured, not heard); [ ] more tracks (main missions, the endings, the lab, a title screen);
+  [ ] a separate music volume or mute key; [ ] tracks per region (the far regions borrow the
+  wilds' battle track).
 
 **Built (2026-11-02): the country map** (`scripts/World/`, the user's pick to build first).
 - `Country.cs`: eight places as data (the ranch, three in the city above, three in the undercity,

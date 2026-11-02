@@ -36,37 +36,40 @@ public static class SfxSynth
         float total = voices.Max(v => v.At + v.Len) + 0.01f;
         var buf = new float[(int)(total * Rate)];
         var rng = new SeededRng(seed);
-        foreach (var v in voices)
-        {
-            int start = (int)(v.At * Rate), n = Math.Max(1, (int)(v.Len * Rate));
-            double phase = 0;
-            float held = 0, lp = 0;
-            for (int i = 0; i < n && start + i < buf.Length; i++)
-            {
-                float t = i / (float)Rate, k = i / (float)n;
-                float f = v.FreqEnd > 0 ? v.Freq * MathF.Pow(v.FreqEnd / v.Freq, k) : v.Freq;
-                if (v.Vibrato > 0) f *= 1 + v.Vibrato * MathF.Sin(MathF.Tau * v.VibratoHz * t);
-                double before = phase;
-                phase += f / Rate;
-                float x = (float)(phase - Math.Floor(phase));
-                if (v.Wave == Wave.Noise && (i == 0 || Math.Floor(phase) != Math.Floor(before))) held = rng.Range(-1f, 1f);
-                float s = v.Wave switch
-                {
-                    Wave.Square => x < v.Duty ? 1 : -1,
-                    Wave.Triangle => 4 * MathF.Abs(x - 0.5f) - 1,
-                    Wave.Saw => 2 * x - 1,
-                    Wave.Sine => MathF.Sin(MathF.Tau * x),
-                    _ => held,
-                };
-                float cut = v.CutEnd >= 0 ? v.Cut + (v.CutEnd - v.Cut) * k : v.Cut;
-                lp += (s - lp) * Math.Clamp(cut, 0.002f, 1f);
-                float env = Math.Min(1f, t / Math.Max(v.Attack, 0.0005f)) * MathF.Pow(1 - k, v.Decay);
-                if (v.Tremolo > 0) env *= 1 - v.Tremolo * (0.5f + 0.5f * MathF.Sin(MathF.Tau * v.TremoloHz * t));
-                buf[start + i] += lp * env * v.Vol;
-            }
-        }
+        foreach (var v in voices) Mix(buf, v, rng);
         for (int i = 0; i < buf.Length; i++) buf[i] = MathF.Tanh(buf[i] * 1.1f); // a soft limit, never a hard clip
         return buf;
+    }
+
+    /// <summary>Adds one voice into a buffer (music uses this too, a note at a time).</summary>
+    public static void Mix(float[] buf, Voice v, SeededRng rng)
+    {
+        int start = (int)(v.At * Rate), n = Math.Max(1, (int)(v.Len * Rate));
+        double phase = 0;
+        float held = 0, lp = 0;
+        for (int i = 0; i < n && start + i < buf.Length; i++)
+        {
+            float t = i / (float)Rate, k = i / (float)n;
+            float f = v.FreqEnd > 0 ? v.Freq * MathF.Pow(v.FreqEnd / v.Freq, k) : v.Freq;
+            if (v.Vibrato > 0) f *= 1 + v.Vibrato * MathF.Sin(MathF.Tau * v.VibratoHz * t);
+            double before = phase;
+            phase += f / Rate;
+            float x = (float)(phase - Math.Floor(phase));
+            if (v.Wave == Wave.Noise && (i == 0 || Math.Floor(phase) != Math.Floor(before))) held = rng.Range(-1f, 1f);
+            float s = v.Wave switch
+            {
+                Wave.Square => x < v.Duty ? 1 : -1,
+                Wave.Triangle => 4 * MathF.Abs(x - 0.5f) - 1,
+                Wave.Saw => 2 * x - 1,
+                Wave.Sine => MathF.Sin(MathF.Tau * x),
+                _ => held,
+            };
+            float cut = v.CutEnd >= 0 ? v.Cut + (v.CutEnd - v.Cut) * k : v.Cut;
+            lp += (s - lp) * Math.Clamp(cut, 0.002f, 1f);
+            float env = Math.Min(1f, t / Math.Max(v.Attack, 0.0005f)) * MathF.Pow(1 - k, v.Decay);
+            if (v.Tremolo > 0) env *= 1 - v.Tremolo * (0.5f + 0.5f * MathF.Sin(MathF.Tau * v.TremoloHz * t));
+            buf[start + i] += lp * env * v.Vol;
+        }
     }
 
     public static AudioStreamWav ToStream(float[] samples)

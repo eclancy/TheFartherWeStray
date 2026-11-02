@@ -44,6 +44,7 @@ public partial class CountryScreen : Control
     {
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         TextureFilter = TextureFilterEnum.Nearest;
+        Audio.Music.Play("map");
         _board = Country.Board(Ranch);
         _token = Screen(Country.Get(Ranch.Location));
 

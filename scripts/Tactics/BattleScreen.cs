@@ -144,6 +144,7 @@ public partial class BattleScreen : Control
 
         _battle = Mission != null ? Mission.CreateBattle(Squad ?? Encounter.StarterSquad().ToList()) : Encounter.Create(Seed, Squad, MapName);
         Prepare?.Invoke(_battle);
+        Audio.Music.Play(Audio.Music.ForBattle(Mission));
         if (DemoShiny && _battle.Units.FirstOrDefault(x => x.Side == Side.Wild) is { } demo && !demo.Creature.Shiny)
         {
             var c = demo.Creature;
@@ -475,6 +476,7 @@ public partial class BattleScreen : Control
     void ShowEnd()
     {
         _mode = Mode.Over;
+        Audio.Music.Stop(0.3f); // out of the way of the jingle
         Audio.Sound.Play(_battle.Winner == Side.Player ? "victory" : "defeat");
         _overlay.QueueRedraw();
         int n = _battle.Recruited.Count;

@@ -205,7 +205,21 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   `Sound.Fx(theme)`). `Sound.Play(name, pitch)` plays one; `UnitView.Heft` lowers big creatures.
   Every button clicks (hooked in `GameRoot`); N mutes, `--mute` starts muted. `--sfx` writes each
   sound and `reel.wav` to `.shots/sfx/` with peak and RMS levels. Sound never touches the rules.
-  No music yet.
+- **Music (2026-11-02, the user's pick):** made in code too. `Audio/Songs.cs`: `SongBook` holds six
+  songs as data (a tempo, a chord progression a bar at a time, and parts: an instrument and a
+  pattern of note tokens, "-" hold, "." rest, "|" bar lines, drums as letters), `Theory` draws
+  arpeggios, bass lines and pads from the progression so only melodies and drums are written by
+  hand. `Audio/Music.cs`: `MusicSynth` renders a song through `SfxSynth.Mix` into a seamless loop
+  (notes and echoes wrap round the seam, a low cut, levelled to one loudness); `Instruments` are the
+  voices (flute, horn, lead, chip, harp, lute, pulse, bell, bass, saw bass, pad, drums). The `Music`
+  node renders every song on a worker thread at start (about 2.5 s; not in headless runs) and fades
+  between tracks: `ranch` (ranch and lab), `map`, and in battle `Music.ForBattle`: `rival` for
+  duels and cups, else by the place's side, `battle_city` (brass fanfare), `battle_under` (neon
+  saw bass) or `battle` (the wilds). It stops for the result jingle and in the Sprite Lab. Quieter
+  than effects (`Music.Db`); N mutes both, `--nomusic` turns it off. `--music` writes each song
+  twice through to `.shots/music/`, with levels, the seam, each part's share of the mix (weighted
+  roughly as the ear hears) and any bar that doesn't add up. Titles are working names; the user
+  hasn't heard it yet.
 - **Names:** players can name creatures (Name on the ranch); `Creature.Nickname`, saved on the
   record. Show `Creature.Name` (nickname or species) on screen, never `Species.Name`, which
   breeding still uses for species.
@@ -216,8 +230,8 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   match can't be replayed from its commands. `BattleScreen.TurnSeconds` is the turn timer
   (`--timer=N`).
 - Not built yet: story and cutscenes (themes and three endings set by the user, in
-  `docs/story-notes.md`; the flags, standing and endings machinery is built), music, and the
-  network side of PvP. The
+  `docs/story-notes.md`; the flags, standing and endings machinery is built) and the network
+  side of PvP. The
   user's direction and a suggested build order are in `docs/design-notes.md`.
 
 ## Build and check

@@ -148,7 +148,16 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   grids: terrain (now with roofs, boards, dirt and water), heights, and props. Buildings are roof
   tiles on house-front walls (FFTA towns: fliers and climbers stand on roofs). Props
   (`Props.cs`: 25 kinds, trees to neon signs, built like creatures and coloured per region) block
-  their tile except reeds, banners and grates; fliers pass over them. Small ground details (tufts,
+  their tile except reeds, banners and grates; fliers pass over them. **Surroundings and the
+  camera (the user's ask, 2026-11-02: closer in, a proper city):** `IsoArt(map, skirt)` paints
+  tiles round the map (`Surround`, from the map's name, by region: house blocks with alleys behind,
+  tall; low plazas, stalls and lamps in front so nothing hides the fight; cliffs, dunes, lava, sea,
+  crystal or fields in the wilds), darkened toward the edge; `AroundProps` stand on them
+  (`PropArt.Place` places both). They're scenery, never part of the battle (`Pick` is map-only).
+  Battles, cutscenes, the base and the title use `BattleScreen.Skirt` (8). The battle camera
+  (`BattleScreen.Camera`) draws the board at 3x (wheel: 2 to 3.5), follows whoever acts, pans with
+  WASD / arrows / a middle-drag, and keeps over the battlefield; the HUD sits on its own canvas
+  layer above the board's depth-sorted sprites. Small ground details (tufts,
   cracks, fungus, neon puddles) are painted per tile. **The undercity's grime** (the user's ask,
   2026-11-02): broken streetlights (`l`) that stutter and spark, leaking hydrants (`y`) spraying
   into a rippling puddle, steam grates (`v`), and neon signs buzzing out now and then, animated by

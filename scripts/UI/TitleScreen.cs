@@ -44,7 +44,7 @@ public partial class TitleScreen : Control
         show.Story.Add("main_foundry");
         show.Encounter = 12;
         _map = HomeBase.Map(show);
-        _art = new IsoArt(_map);
+        _art = new IsoArt(_map, Tactics.BattleScreen.Skirt);
         var bg = new TextureRect
         {
             Texture = ImageTexture.CreateFromImage(IsoArt.PaintBackdrop(480, 270, 11, "Ranch")),

@@ -43,7 +43,7 @@ public partial class CutsceneScreen : Control
     {
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         _map = BattleMap.ByName(Scene.Map);
-        _art = new IsoArt(_map);
+        _art = new IsoArt(_map, Tactics.BattleScreen.Skirt);
         _script = Script.Parse(Scene.Script);
         if (Scene.Music != null) Audio.Music.Play(Scene.Music); else Audio.Music.Stop();
 

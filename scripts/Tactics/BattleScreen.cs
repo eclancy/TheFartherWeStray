@@ -30,7 +30,16 @@ public partial class BattleScreen : Control
     public Mission Mission;               // the contract being played; null for a one-off rout
     public string MapName = "Undercity Foundry";
 
-    const int Scale = 2;
+    // The camera (the user's ask, 2026-11-02: closer in, less background): the board drawn at a
+    // zoom, aimed at a point that follows whoever acts; WASD / the arrows or a middle-drag pan it,
+    // the wheel zooms. The map is painted with surroundings, so there's town or country to see round it.
+    public const int Skirt = 8;
+    const float MinZoom = 2, MaxZoom = 3.5f;
+    static readonly Vector2 View = new(740, 540); // the middle of the play area, left of the info panel
+    float _zoom = 3, _zoomShown = 3;
+    Vector2 _look, _lookShown;     // the board point the camera aims at, and where it's got to
+    Rect2 _bounds;                 // where the camera may aim: over the battlefield
+    UnitView _follow;              // who the camera is following, if anyone
     static readonly Color Cyan = Color.FromHtml("#4fe3ff"), Magenta = Color.FromHtml("#ff4f9a"), Gold = Color.FromHtml("#f2c14e");
     static readonly Color Ink = Color.FromHtml("#e8e2f4"), Dim = Color.FromHtml("#9a91b4");
 
@@ -72,16 +81,19 @@ public partial class BattleScreen : Control
         bg.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         AddChild(bg);
 
-        _board = new Node2D { Scale = new Vector2(Scale, Scale), TextureFilter = TextureFilterEnum.Nearest };
+        _board = new Node2D { Scale = new Vector2(_zoom, _zoom), TextureFilter = TextureFilterEnum.Nearest };
         AddChild(_board);
+        // The HUD on a layer of its own: the board's sprites sort by depth in the hundreds and would draw over it.
+        var hud = new CanvasLayer { Layer = 1 };
+        AddChild(hud);
 
         _strip = new HBoxContainer { Position = new Vector2(24, 18) };
         _strip.AddThemeConstantOverride("separation", 6);
-        AddChild(_strip);
+        hud.AddChild(_strip);
 
         // The info panel: whoever is under the cursor (or whose turn it is), in glyphs and numbers.
         _infoPanel = new PanelContainer { Position = new Vector2(1470, 100), CustomMinimumSize = new Vector2(PanelW, 0), MouseFilter = MouseFilterEnum.Ignore };
-        var backing = new StyleBoxFlat { BgColor = new Color(0.04f, 0.03f, 0.08f, 0.8f), BorderColor = new Color(0.3f, 0.26f, 0.42f) };
+        var backing = new StyleBoxFlat { BgColor = new Color(0.04f, 0.03f, 0.08f, 0.93f), BorderColor = new Color(0.3f, 0.26f, 0.42f) };
         backing.SetBorderWidthAll(1);
         backing.SetCornerRadiusAll(6);
         backing.SetContentMarginAll(14);
@@ -89,36 +101,42 @@ public partial class BattleScreen : Control
         _info = new VBoxContainer();
         _info.AddThemeConstantOverride("separation", 8);
         _infoPanel.AddChild(_info);
-        AddChild(_infoPanel);
+        hud.AddChild(_infoPanel);
 
         _timer = new HBoxContainer { Position = new Vector2(150, 1010), Visible = false, MouseFilter = MouseFilterEnum.Ignore };
         _timer.AddChild(Ui.Picture(Glyphs.Get("clock", 2), "Turn timer: the turn ends when it runs out"));
         _timerText = Ui.Text("", 24, Ink, 6);
         _timer.AddChild(_timerText);
-        AddChild(_timer);
+        hud.AddChild(_timer);
 
         _skillBar = new HBoxContainer { Position = new Vector2(260, 994) };
         _skillBar.AddThemeConstantOverride("separation", 6);
-        AddChild(_skillBar);
+        hud.AddChild(_skillBar);
 
+        // Dark backings under the objective line and the log, so they read over a busy town.
+        foreach (var (pos, size) in new[] { (new Vector2(0, 88), new Vector2(1460, 40)), (new Vector2(1460, 868), new Vector2(460, 212)) })
+        {
+            var under = new ColorRect { Position = pos, Size = size, Color = new Color(0.03f, 0.02f, 0.06f, 0.72f), MouseFilter = MouseFilterEnum.Ignore };
+            hud.AddChild(under);
+        }
         _log = MakeLabel(15, Dim);
         _log.Position = new Vector2(1474, 880);
         _log.Size = new Vector2(PanelW - 8, 190);
         _log.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _log.VerticalAlignment = VerticalAlignment.Bottom;
-        AddChild(_log);
+        hud.AddChild(_log);
 
         _objective = MakeLabel(19, Gold);
         _objective.Position = new Vector2(24, 100);
         _objective.Size = new Vector2(1400, 30);
-        AddChild(_objective);
+        hud.AddChild(_objective);
 
         _banner = MakeLabel(54, Gold);
         _banner.HorizontalAlignment = HorizontalAlignment.Center;
         _banner.Position = new Vector2(0, 430);
         _banner.Size = new Vector2(1480, 200);
         _banner.Visible = false;
-        AddChild(_banner);
+        hud.AddChild(_banner);
 
         StartBattle();
     }
@@ -153,10 +171,13 @@ public partial class BattleScreen : Control
             c.Shiny = true;
             demo.ShinyPassive = Classes.ClassBook.ShinyPassive(c);
         }
-        _art = new IsoArt(_battle.Map);
+        _art = new IsoArt(_battle.Map, Skirt);
         _backdrop.Texture = ImageTexture.CreateFromImage(IsoArt.PaintBackdrop(480, 270, Seed, _battle.Map.Theme));
-        // Centred in the play area, between the turn strip and the command bar.
-        _board.Position = new Vector2((1480 - _art.Width * Scale) / 2f, Mathf.Max(110, 550 - _art.Height * Scale / 2f));
+        // The camera may aim anywhere over the battlefield; it starts on your side of it.
+        var corners = new[] { new Vector2I(0, 0), new Vector2I(_battle.Map.W - 1, 0), new Vector2I(0, _battle.Map.H - 1), new Vector2I(_battle.Map.W - 1, _battle.Map.H - 1) }
+            .Select(t => _art.TileCenter(new Vector2(t.X, t.Y), 0)).ToList();
+        _bounds = new Rect2(corners.Aggregate((a, b) => a.Min(b)), Vector2.Zero).Expand(corners.Aggregate((a, b) => a.Max(b)));
+        _follow = null;
         _board.AddChild(new Sprite2D { Texture = ImageTexture.CreateFromImage(_art.PaintBoard()), Centered = false });
         // Props stand on their tiles, sorted with the creatures so a tree hides what's behind it.
         PropArt.Place(_board, _battle.Map, _art);
@@ -173,6 +194,9 @@ public partial class BattleScreen : Control
             _views[u] = v;
             v.Place(u.Pos);
         }
+        var yours = _views.Where(p => p.Key.Side == Side.Player).Select(p => p.Value.Position).ToList();
+        _look = _lookShown = Clamped(yours.Count > 0 ? yours.Aggregate((a, b) => a + b) / yours.Count : _bounds.GetCenter());
+        PlaceCamera();
         // Everyone starts facing the other side.
         foreach (var (u, v) in _views)
         {
@@ -191,7 +215,7 @@ public partial class BattleScreen : Control
     async void Opening()
     {
         _mode = Mode.Busy;
-        var home = _board.Position;
+        var home = _look;
         if (_battle.Rival is { } rival)
         {
             _banner.Text = $"{rival.Name.ToUpperInvariant()}\nchallenges you";
@@ -203,21 +227,18 @@ public partial class BattleScreen : Control
         }
         foreach (var (u, v) in _views.Where(p => p.Key.Side == Side.Wild && p.Key.Creature.Shiny).ToList())
         {
-            var centre = new Vector2(740, 520) - (v.Position + new Vector2(0, -v.SpriteHeight / 2)) * Scale;
-            var pan = CreateTween();
-            pan.TweenProperty(_board, "position", centre, 0.7f).SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
-            await ToSignal(pan, Tween.SignalName.Finished);
+            _look = Body(v);
+            await Wait(0.7f);
             AddLog($"A shiny {u.Name} appears! {u.ShinyPassive?.Name}: {u.ShinyPassive?.Text}");
             Popup(v, "shiny!", Gold, -12, UI.Glyphs.Mini("star", 2));
             Audio.Sound.Play("shiny");
             await v.Glint();
             await Wait(0.3f);
         }
-        if (_board.Position != home)
+        if (_look != home)
         {
-            var back = CreateTween();
-            back.TweenProperty(_board, "position", home, 0.6f).SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
-            await ToSignal(back, Tween.SignalName.Finished);
+            _look = home;
+            await Wait(0.6f);
         }
         if (DemoFx) FxDemo();
         else RunTurns();
@@ -235,7 +256,8 @@ public partial class BattleScreen : Control
         foe.Pos = near;
         _views[foe].Place(near);
         var mid = (_views[user].Position + _views[foe].Position) / 2 + new Vector2(0, -20);
-        _board.Position = new Vector2(960, 540) - mid * Scale;
+        _look = _lookShown = mid;
+        PlaceCamera();
         var picks = new List<Classes.SkillDef>();
         foreach (var theme in System.Enum.GetValues<FxTheme>())
         {
@@ -486,8 +508,33 @@ public partial class BattleScreen : Control
 
     // ------------------------------------------------------------------ input
 
+    Vector2 Clamped(Vector2 p) => new(Mathf.Clamp(p.X, _bounds.Position.X, _bounds.End.X), Mathf.Clamp(p.Y, _bounds.Position.Y, _bounds.End.Y));
+
+    /// <summary>Puts the board where the camera is: its aim in the middle of the play area, at its zoom.</summary>
+    void PlaceCamera()
+    {
+        _board.Scale = new Vector2(_zoomShown, _zoomShown);
+        _board.Position = View - _lookShown * _zoomShown;
+    }
+
+    void Camera(double delta)
+    {
+        // Held keys pan (and stop the camera following); a followed creature keeps the camera on it.
+        var pan = new Vector2(
+            (Input.IsKeyPressed(Key.D) || Input.IsKeyPressed(Key.Right) ? 1 : 0) - (Input.IsKeyPressed(Key.A) || Input.IsKeyPressed(Key.Left) ? 1 : 0),
+            (Input.IsKeyPressed(Key.S) || Input.IsKeyPressed(Key.Down) ? 1 : 0) - (Input.IsKeyPressed(Key.W) || Input.IsKeyPressed(Key.Up) ? 1 : 0));
+        if (pan != Vector2.Zero) { _follow = null; _look += pan * (float)delta * 320 / _zoom; }
+        if (_follow != null && IsInstanceValid(_follow)) _look = Body(_follow);
+        _look = Clamped(_look);
+        float k = 1 - Mathf.Exp(-(float)delta * 6);
+        _lookShown = _lookShown.Lerp(_look, k);
+        _zoomShown = Mathf.Lerp(_zoomShown, _zoom, k);
+        PlaceCamera();
+    }
+
     public override void _Process(double delta)
     {
+        if (_board != null && _art != null) Camera(delta);
         if (_flashes.Count > 0) _overlay?.QueueRedraw();
         // The turn timer runs only while you're choosing.
         bool timing = TurnSeconds > 0 && !AutoPlay && _mode is Mode.Command or Mode.Skill or Mode.Berry && _active?.Side == Side.Player;
@@ -553,7 +600,20 @@ public partial class BattleScreen : Control
             }
             return;
         }
+        // The camera: the wheel zooms, a middle-button drag pans.
+        if (e is InputEventMouseMotion motion && (motion.ButtonMask & MouseButtonMask.Middle) != 0)
+        {
+            _follow = null;
+            _look = Clamped(_look - motion.Relative / _zoomShown);
+            _lookShown = _look;
+            return;
+        }
         if (e is not InputEventMouseButton { Pressed: true } mb) return;
+        if (mb.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
+        {
+            _zoom = Mathf.Clamp(_zoom + (mb.ButtonIndex == MouseButton.WheelUp ? 0.5f : -0.5f), MinZoom, MaxZoom);
+            return;
+        }
         if (mb.ButtonIndex == MouseButton.Right)
         {
             if (_mode is Mode.Berry or Mode.Skill) EnterCommand();
@@ -852,15 +912,19 @@ public partial class BattleScreen : Control
             {
                 case TurnEvent t:
                     _active = t.U;
+                    _follow = _views[t.U];
                     if (t.U.Side == Side.Player && !AutoPlay) Audio.Sound.Play("turn");
                     RefreshObjective();
                     RefreshStrip();
                     foreach (var v in _views.Values) v.QueueRedraw();
                     break;
                 case MoveEvent m:
+                    _follow = _views[m.U];
                     await _views[m.U].Walk(m.Path);
                     break;
                 case StrikeEvent s:
+                    _follow = null;
+                    _look = Clamped((Body(_views[s.A]) + Body(_views[s.T])) / 2);
                     Audio.Sound.Play("swing", UnitView.Heft(s.A));
                     await _views[s.A].Lunge(_views[s.T]);
                     break;
@@ -907,6 +971,8 @@ public partial class BattleScreen : Control
                 {
                     // Call the skill's name over the user and flash the ground it covers.
                     var view = _views[sk.U];
+                    _follow = null;
+                    _look = Clamped((Body(view) + TileMid(sk.Center)) / 2);
                     Popup(view, sk.Skill.Name, Gold, -10, SkillIcons.Skill(sk.Skill, 1));
                     var color = sk.Skill.Target is Classes.TargetKind.Ally or Classes.TargetKind.Self ? Cyan : Color.FromHtml("#ff8a3d");
                     _flashes.Add((sk.Area, color, Time.GetTicksMsec() / 1000.0 + 0.45));

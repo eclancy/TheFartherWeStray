@@ -49,7 +49,7 @@ public partial class BaseScreen : Control
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         Audio.Music.Play("ranch");
         _map = HomeBase.Map(Ranch);
-        _art = new IsoArt(_map);
+        _art = new IsoArt(_map, Tactics.BattleScreen.Skirt);
         var bg = new TextureRect
         {
             Texture = ImageTexture.CreateFromImage(IsoArt.PaintBackdrop(480, 270, 7, "Ranch")),

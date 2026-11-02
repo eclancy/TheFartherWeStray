@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using CreatureTactics.Creatures;
 using Godot;
 
@@ -64,11 +65,11 @@ public static class PropArt
     /// </summary>
     public static void Place(Node2D board, BattleMap map, IsoArt art)
     {
-        foreach (var (tile, prop) in map.Props)
+        foreach (var (tile, prop) in map.Props.Concat(art.AroundProps))
         {
             int variant = tile.X * 7 + tile.Y * 3;
             var (tex, anchor) = Texture(prop, variant, map.Theme);
-            var at = art.TileCenter(tile, map.HeightAt(tile));
+            var at = art.TileCenter(tile, art.HeightOf(tile));
             int z = 100 + (tile.X + tile.Y) * 4 + 1;
             var sprite = new Sprite2D { Texture = tex, Centered = false, Position = at - anchor + new Vector2(0, 1), ZIndex = z };
             board.AddChild(sprite);

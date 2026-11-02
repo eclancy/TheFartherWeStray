@@ -20,17 +20,154 @@ public sealed class IsoArt
     public readonly int Width, Height;
     readonly int _ox, _oy;
 
-    public IsoArt(BattleMap map)
+    // The surroundings painted round the battlefield (the user's ask, 2026-11-02: less background, a
+    // proper city): tiles outside the map, never part of the battle, and the props standing on them.
+    readonly int _skirt;
+    readonly Dictionary<Vector2I, (Terrain terrain, int height)> _around = new();
+    readonly HashSet<Vector2I> _aroundBlocked = new();
+    public readonly List<(Vector2I tile, Prop prop)> AroundProps = new();
+    float _fade; // how far the tile being painted is darkened (the surroundings fade out at their edge)
+
+    /// <param name="skirt">How many tiles of surroundings to paint round the map (0: the map alone, an island).</param>
+    public IsoArt(BattleMap map, int skirt = 0)
     {
         _map = map;
         _look = Look.Get(map.Theme);
+        _skirt = skirt;
+        if (skirt > 0) Surround();
         int maxH = 0;
-        for (int y = 0; y < map.H; y++)
-        for (int x = 0; x < map.W; x++) maxH = Math.Max(maxH, map.HeightAt(new Vector2I(x, y)));
-        _ox = map.H * TW / 2 + Margin;
-        _oy = maxH * HS + Margin;
-        Width = (map.W + map.H) * TW / 2 + Margin * 2;
-        Height = (map.W + map.H) * TH / 2 + maxH * HS + BaseDepth + Margin * 2;
+        foreach (var t in PaintOrder()) maxH = Math.Max(maxH, HeightOf(t));
+        _ox = (map.H + 2 * skirt) * TW / 2 + Margin;
+        _oy = skirt * TH + maxH * HS + Margin;
+        Width = (map.W + map.H + 4 * skirt) * TW / 2 + Margin * 2;
+        Height = (map.W + map.H + 4 * skirt) * TH / 2 + maxH * HS + BaseDepth + Margin * 2;
+    }
+
+    public Terrain TerrainOf(Vector2I t) => _map.InBounds(t) ? _map.TerrainAt(t) : _around.TryGetValue(t, out var a) ? a.terrain : Terrain.Grass;
+    public int HeightOf(Vector2I t) => _map.InBounds(t) ? _map.HeightAt(t) : _around.TryGetValue(t, out var a) ? a.height : 0;
+    bool BlockedAt(Vector2I t) => _map.InBounds(t) ? _map.Blocked(t) : _aroundBlocked.Contains(t);
+
+    /// <summary>Every tile painted, the surroundings included, back to front.</summary>
+    IEnumerable<Vector2I> PaintOrder()
+    {
+        int w = _map.W + 2 * _skirt, h = _map.H + 2 * _skirt;
+        for (int s = 0; s < w + h - 1; s++)
+        for (int x = 0; x < w; x++)
+        {
+            int y = s - x;
+            if (y >= 0 && y < h) yield return new Vector2I(x - _skirt, y - _skirt);
+        }
+    }
+
+    /// <summary>How many tiles outside the map a tile is (0 inside it).</summary>
+    int Outside(Vector2I t) => Math.Max(t.X < 0 ? -t.X : t.X >= _map.W ? t.X - _map.W + 1 : 0, t.Y < 0 ? -t.Y : t.Y >= _map.H ? t.Y - _map.H + 1 : 0);
+
+    /// <summary>
+    /// Fills the surroundings, the same every time for a map. Next to the map, the ground carries on
+    /// (a sidewalk, the shore, the field) at the edge's own height. Beyond that, by region: in a town,
+    /// blocks of houses with alleys between, tall behind the battlefield, low in front so nothing hides
+    /// the fight; out in the wilds, cliffs and rock behind, open ground in front, the region's own
+    /// water, lava, crystal or fields.
+    /// </summary>
+    void Surround()
+    {
+        uint salt = (uint)Creatures.SeededRng.Hash(_map.Name);
+        uint R(Vector2I t, int k) => Hash(t.X + 1000, t.Y + 1000, (int)(salt % 100000) + k);
+        string theme = _map.Theme;
+        foreach (var t in PaintOrder())
+        {
+            int d = Outside(t);
+            if (d == 0) continue;
+            var near = new Vector2I(Math.Clamp(t.X, 0, _map.W - 1), Math.Clamp(t.Y, 0, _map.H - 1));
+            var nearT = _map.TerrainAt(near);
+            int nearH = _map.HeightAt(near);
+            bool behind = (t.X < 0 || t.Y < 0) && !(t.X >= _map.W || t.Y >= _map.H); // up the screen: may stand tall
+            bool front = (t.X >= _map.W || t.Y >= _map.H) && !(t.X < 0 || t.Y < 0);  // down the screen: kept low
+            uint r = R(t, 0);
+            bool alley = (t.X + 1000) % 5 == 0 || (t.Y + 1000) % 5 == 0;
+            Terrain terrain;
+            int height;
+            Prop? prop = null;
+            int Tall(int lo, int hi) => behind ? lo + (int)(r % (uint)(hi - lo + 1)) + (d >= 4 ? 1 : 0) : front ? Math.Min(1, lo) : Math.Min(2, lo + (int)(r % 2));
+            switch (theme)
+            {
+                case "Undercity" or "Uptown" or "Ruins":
+                {
+                    bool ruins = theme == "Ruins";
+                    if (d == 1)
+                    {
+                        // The street carries on past the map's edge (a building at the edge carries on too).
+                        (terrain, height) = nearT == Terrain.Roof ? (Terrain.Roof, nearH) : (theme == "Uptown" && nearT == Terrain.Grass ? Terrain.Grass : Terrain.Stone, Math.Min(nearH, 3));
+                        if (terrain != Terrain.Roof && r % 7 == 0) prop = theme == "Undercity" ? (r % 3 == 0 ? Prop.BrokenLamp : Prop.Lamp) : theme == "Uptown" ? Prop.Lamp : Prop.Rock;
+                        break;
+                    }
+                    if (alley || (front && r % 3 != 0) || (ruins && r % 3 == 0))
+                    {
+                        terrain = theme == "Uptown" && !alley && r % 2 == 0 ? Terrain.Grass : ruins && r % 2 == 0 ? Terrain.Grass : Terrain.Stone;
+                        height = 0;
+                        uint q = R(t, 7) % 24; // about one tile in five has something on it
+                        prop = q switch
+                        {
+                            0 => theme == "Uptown" ? Prop.Tree : theme == "Ruins" ? Prop.DeadTree : Prop.Barrel,
+                            1 => theme == "Undercity" ? Prop.Neon : theme == "Uptown" ? Prop.Hedge : Prop.Rock,
+                            2 => theme == "Undercity" ? Prop.Crate : theme == "Uptown" ? Prop.Statue : Prop.Pillar,
+                            3 => theme == "Undercity" ? (r % 5 == 0 ? Prop.Hydrant : r % 2 == 0 ? Prop.Vent : Prop.Barrel) : theme == "Uptown" ? Prop.Lamp : Prop.Grave,
+                            4 => front ? Prop.Stall : (Prop?)null,
+                            _ => null,
+                        };
+                        break;
+                    }
+                    terrain = Terrain.Roof;
+                    height = ruins ? Math.Max(1, Tall(1, 3) - (int)(r % 2)) : Tall(2, 4);
+                    if (r % 6 == 0 && height >= 2) prop = Prop.Chimney;
+                    break;
+                }
+                case "Mire":
+                    if (d == 1) { (terrain, height) = (nearT is Terrain.Chem or Terrain.Water ? Terrain.Chem : Terrain.Wood, Math.Min(nearH, 1)); break; }
+                    if (alley) { (terrain, height) = (Terrain.Wood, 0); prop = r % 5 == 0 ? Prop.Lamp : null; break; }
+                    if (r % 3 == 0 && !front) { (terrain, height) = (Terrain.Roof, Tall(1, 2)); break; }
+                    (terrain, height) = (r % 2 == 0 ? Terrain.Chem : Terrain.Grass, 0);
+                    if (terrain == Terrain.Grass && r % 4 == 1) prop = Prop.Reeds;
+                    break;
+                case "Frost":
+                    if (behind && d >= 2) { (terrain, height) = (Terrain.Stone, Tall(1, 3)); if (r % 5 == 0) prop = Prop.Pine; break; }
+                    (terrain, height) = (r % 6 == 0 ? Terrain.Ice : Terrain.Grass, d == 1 ? Math.Min(nearH, 2) : 0);
+                    if (terrain == Terrain.Grass && r % 4 == 0) prop = r % 3 == 0 ? Prop.Rock : Prop.Pine;
+                    break;
+                case "Desert":
+                    if (behind && d >= 2) { (terrain, height) = (Terrain.Stone, Tall(1, 3)); if (r % 7 == 0) prop = Prop.Pillar; break; }
+                    (terrain, height) = (Terrain.Sand, d == 1 ? Math.Min(nearH, 2) : (int)(r % 2) * (front ? 0 : 1));
+                    if (r % 9 == 0) prop = r % 2 == 0 ? Prop.Rock : Prop.DeadTree;
+                    break;
+                case "Volcanic":
+                    if (behind && d >= 2) { (terrain, height) = (Terrain.Stone, Tall(1, 4)); break; }
+                    (terrain, height) = (d >= 2 && r % 4 == 0 ? Terrain.Lava : Terrain.Stone, d == 1 ? Math.Min(nearH, 2) : 0);
+                    if (terrain == Terrain.Stone && r % 8 == 0) prop = Prop.Rock;
+                    break;
+                case "Coast":
+                    if (front && d >= 2) { (terrain, height) = (Terrain.Water, 0); break; }
+                    if (behind && d >= 3) { (terrain, height) = (Terrain.Stone, Tall(1, 3)); break; }
+                    (terrain, height) = (d == 1 ? (nearT == Terrain.Water ? Terrain.Water : Terrain.Sand) : Terrain.Grass, d == 1 ? Math.Min(nearH, 1) : (int)(r % 2));
+                    if (terrain == Terrain.Grass && r % 5 == 0) prop = Prop.Reeds;
+                    break;
+                case "Cavern":
+                    if (behind && d >= 2) { (terrain, height) = (Terrain.Crystal, Tall(2, 4)); break; }
+                    (terrain, height) = (r % 3 == 0 ? Terrain.Grass : Terrain.Stone, d == 1 ? Math.Min(nearH, 2) : 0);
+                    if (r % 6 == 0) prop = r % 2 == 0 ? Prop.Crystals : Prop.Mushroom;
+                    break;
+                default: // the ranch and anywhere else: fields and orchards, a barn or two behind
+                    if (behind && d >= 3 && !alley && r % 3 == 0) { (terrain, height) = (Terrain.Roof, Tall(1, 2)); break; }
+                    (terrain, height) = (alley ? Terrain.Dirt : (t.X + t.Y) % 2 == 0 && d >= 2 && r % 3 != 0 ? Terrain.Dirt : Terrain.Grass, 0);
+                    if (terrain == Terrain.Grass && r % 6 == 0) prop = r % 3 == 0 ? Prop.Tree : Prop.Bush;
+                    break;
+            }
+            _around[t] = (terrain, height);
+            if (prop is { } pr && terrain is not (Terrain.Roof or Terrain.Water or Terrain.Chem or Terrain.Lava))
+            {
+                AroundProps.Add((t, pr));
+                _aroundBlocked.Add(t);
+            }
+        }
     }
 
     /// <summary>Board-pixel position of a tile's top corner at a height. Tile coords may be fractional.</summary>
@@ -84,15 +221,22 @@ public sealed class IsoArt
     public Image PaintBoard(double time = 0)
     {
         var img = Image.CreateEmpty(Width, Height, false, Image.Format.Rgba8);
-        foreach (var t in DrawOrder()) PaintTile(img, t);
+        foreach (var t in PaintOrder())
+        {
+            // The surroundings darken toward their edge, so the battlefield stands out.
+            int d = Outside(t);
+            _fade = d == 0 ? 0 : Math.Clamp(0.22f + (d - 1) / (float)_skirt * 0.45f, 0, 0.62f);
+            PaintTile(img, t);
+        }
+        _fade = 0;
         Creatures.ArtStyle.Current.GradeImage(img);
         return img;
     }
 
     void PaintTile(Image img, Vector2I t)
     {
-        var terrain = _map.TerrainAt(t);
-        int h = _map.HeightAt(t);
+        var terrain = TerrainOf(t);
+        int h = HeightOf(t);
         var top = TileTop(t, h);
         int depth = h * HS + BaseDepth;
         float hw = TW / 2f, hh = TH / 2f;
@@ -199,7 +343,7 @@ public sealed class IsoArt
     /// </summary>
     void Decorate(Image img, Vector2I t, Vector2 top, Terrain terrain)
     {
-        if (_map.Blocked(t)) return;
+        if (BlockedAt(t)) return;
         uint seed = Hash(t.X, t.Y, 99);
         int count = (int)(seed % 4);
         for (int k = 0; k < count; k++)
@@ -413,7 +557,7 @@ public sealed class IsoArt
             Color? px = stamp[y][x] switch { 'a' => a, 'b' => b, 'c' => c, _ => null };
             int ix = x0 + x, iy = y0 + y;
             if (px == null || ix < 0 || iy < 0 || ix >= Width || iy >= Height || img.GetPixel(ix, iy).A == 0) continue;
-            img.SetPixel(ix, iy, px.Value);
+            img.SetPixel(ix, iy, _fade > 0 ? px.Value.Darkened(_fade) : px.Value);
         }
     }
 
@@ -550,7 +694,8 @@ public sealed class IsoArt
             // (u, v): position along the diamond's two edges from its top corner.
             float dx = px - top.X, dy = py - top.Y;
             float u = dy / TH + dx / TW, v = dy / TH - dx / TW;
-            img.SetPixel(x, y, shade(x, y, u, v));
+            var c = shade(x, y, u, v);
+            img.SetPixel(x, y, _fade > 0 ? c.Darkened(_fade) : c);
         }
     }
 
@@ -561,7 +706,7 @@ public sealed class IsoArt
         {
             var p = a + (b - a) * (i / (float)Math.Max(1, n));
             int x = Mathf.Clamp(Mathf.FloorToInt(p.X), 0, Width - 1), y = Mathf.Clamp(Mathf.FloorToInt(p.Y), 0, Height - 1);
-            if (img.GetPixel(x, y).A > 0) img.SetPixel(x, y, c);
+            if (img.GetPixel(x, y).A > 0) img.SetPixel(x, y, _fade > 0 ? c.Darkened(_fade) : c);
         }
     }
 

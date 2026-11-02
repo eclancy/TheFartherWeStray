@@ -290,7 +290,14 @@ takes you back to the ranch, where your recruits, chem and JP are waiting.
 | B, then a green tile | set down a glowberry (lures curious creatures) |
 | Esc / right-click | undo the move, if you haven't acted yet |
 | Space | end the turn |
-| Enter | after a battle: back to the ranch |
+| WASD / arrows, middle-drag | move the camera (it follows whoever acts until you do) |
+| Mouse wheel | zoom in and out |
+| Enter | after a battle: back home |
+
+Battles are seen close up, and every map stands in its own surroundings: the undercity's dark
+streets and neon, the city above's red roofs and gardens, snowfields, dunes, basalt and lava, the
+sea, crystal caverns, the fields round your base. The surroundings are scenery, a little darker
+than the battlefield; only the battlefield can be walked.
 
 Parts become stats: whip tails reach 2 tiles, horns and hooves knock back, spines hurt melee
 attackers, shells add defence but cost movement, high ground hits harder, and huge creatures

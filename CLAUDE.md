@@ -24,14 +24,20 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   two-vat breeding (one child per pair; parents rest until the next battle), and the
   ranch-battle-ranch loop. Bred species exist only in the save, so `CreatureRecord` stores the
   whole `Species`.
-- Not built yet: classes and skills (the notes' training disciplines, with part-gated unlocks),
-  and grafting at the lab. There's no human player character on the field (the notes' Option A).
+- Classes and skills (`scripts/Classes/Classes.cs`): six base classes and three advanced ones
+  (Skydiver needs wings, Juggernaut horns). JP from battles learns skills in order; a primary,
+  a secondary and an innate skill are usable. Skills are pure data (`SkillDef`) read by
+  `Battle.UseSkill`, so a new skill should be a new entry, not new code. Wild creatures get a
+  strain-based natural skill.
+- Not built yet: grafting at the lab, more maps, rival tamers. There's no human player character
+  on the field (the notes' Option A).
 
 ## Build and check
 
 - `dotnet build CreatureTactics.sln` is the fast check.
 - **Battle rules:** `"$GODOT_BIN" --headless --path . -- --autobattle=N` prints an AI-vs-AI log.
-  Run a few seeds after any rules change.
+  After any rules change, run seeds 1-20: every one should end in under 30 rounds. Stalemates have
+  come from kiting skittish fliers and from units stuck behind cliffs.
 - **Ranch and save file:** `--ranchtest` (headless) must report every creature identical after a
   save and load. Run it after touching `Species`, `Creature`, `PaletteSpec` or the painter's
   inputs. `--breeding=N` writes a sheet of parents and children. Use `--save=NAME` for anything

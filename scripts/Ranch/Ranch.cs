@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using CreatureTactics.Classes;
 using CreatureTactics.Creatures;
 using CreatureTactics.Tactics;
 using Godot;
@@ -24,6 +25,7 @@ public sealed class CreatureRecord
     public float BodyJitter = 1, LegJitter = 1, HeadJitter = 1;
     public int Generation;
     public string ParentA, ParentB;
+    public Training Training = new();
 
     public static CreatureRecord From(Creature c, int id) => new()
     {
@@ -85,8 +87,12 @@ public sealed class Ranch
     public static Ranch New()
     {
         var r = new Ranch();
-        foreach (var name in new[] { "Blaze", "Sprocket", "Tank", "Hoot" })
-            r.Squad.Add(r.Add(Creature.Specimen(DrawPetsCast.All.First(s => s.Name == name), 0)));
+        foreach (var (c, t) in Tactics.Encounter.StarterSquad())
+        {
+            int id = r.Add(c);
+            r.Record(id).Training = t;
+            r.Squad.Add(id);
+        }
         return r;
     }
 
@@ -114,7 +120,7 @@ public sealed class Ranch
         return c;
     }
 
-    public List<Creature> SquadCreatures() => Squad.Select(Get).ToList();
+    public List<(Creature, Training)> SquadCreatures() => Squad.Select(id => (Get(id), Record(id).Training)).ToList();
 
     public void Release(int id)
     {
@@ -134,15 +140,56 @@ public sealed class Ranch
         for (int n = 2; Creatures.Any(r => r.Species.Name == result.Child.Species.Name); n++)
             result.Child.Species.Name = $"{name} {Roman(n)}";
         int id = Add(result.Child, rested: false);
+
+        // The child is born knowing one skill from a parent (the notes' MVP: "a part mix plus 1 skill").
+        var known = Record(a).Training.Skills.Concat(Record(b).Training.Skills)
+            .Append(Record(a).Training.Innate).Append(Record(b).Training.Innate).Where(s => s != null).Distinct().ToList();
+        var training = new Training { Class = DefaultClass(result.Child) };
+        if (known.Count > 0)
+        {
+            var rng = new SeededRng(SeededRng.Derive(result.Child.Seed, 0x5C11));
+            training.Innate = known[rng.Int(known.Count)];
+            result.Notes.Add($"born knowing {ClassBook.Skill(training.Innate).Name}");
+        }
+        Record(id).Training = training;
         return (id, result);
     }
 
+    /// <summary>A sensible first class for a newcomer, from what it is.</summary>
+    public static string DefaultClass(Creature c) => c.Species.Strain switch
+    {
+        Strain.Arcane => "Mystic",
+        Strain.Chemtech => "Alchemist",
+        Strain.Clockwork => "Tinker",
+        _ => c.Species.Plan is BodyPlan.Avian or BodyPlan.Insectoid ? "Skirmisher"
+            : c.Armor is Armor.Shell or Armor.Crystal || c.Species.Plan == BodyPlan.Blob ? "Guardian" : "Brawler",
+    };
+
     static string Roman(int n) => n switch { 2 => "II", 3 => "III", 4 => "IV", 5 => "V", 6 => "VI", 7 => "VII", 8 => "VIII", 9 => "IX", _ => n.ToString() };
 
-    /// <summary>After a battle: recruits move in, everyone is rested, the next encounter is lined up.</summary>
+    /// <summary>What happened after the last battle (JP and skills learned), for the ranch screen.</summary>
+    [JsonIgnore] public List<string> Report = new();
+
+    /// <summary>
+    /// After a battle: the squad earns JP for its classes (more if it was still standing) and learns
+    /// skills, recruits move in keeping their wild skill, everyone is rested, the next encounter is lined up.
+    /// </summary>
     public List<int> AfterBattle(Battle battle)
     {
-        var joined = battle.Recruited.Select(u => Add(u.Creature)).ToList();
+        Report.Clear();
+        foreach (var u in battle.Units.Where(u => u.Training != null))
+        {
+            int jp = 12 + (u.Gone ? 0 : 4) + (battle.Winner == Tactics.Side.Player ? 4 : 0);
+            foreach (var skill in u.Training.Earn(jp))
+                Report.Add($"{u.Name} learned {skill.Name} ({skill.Class}).");
+        }
+        var joined = new List<int>();
+        foreach (var u in battle.Recruited)
+        {
+            int id = Add(u.Creature);
+            Record(id).Training = new Training { Class = DefaultClass(u.Creature), Innate = ClassBook.WildSkill(u.Creature) };
+            joined.Add(id);
+        }
         foreach (var r in Creatures) r.Rested = true;
         Encounter++;
         Save();

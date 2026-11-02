@@ -45,7 +45,8 @@ DrawPets cast. Creatures you recruit in battle move in.
 
 | Input | Does |
 |---|---|
-| Left-click a creature | add it to or take it out of the squad (up to 4) |
+| Click a creature | select it. Its panel sets squad, class and secondary skills |
+| S | add the selected creature to or take it out of the squad (up to 4) |
 | Right-click a creature | put it in a breeding vat (two vats) |
 | Enter | breed the pair in the vats |
 | F | take the squad into the next battle |
@@ -64,6 +65,35 @@ the creature you want:
 Parents and newborns rest until the next battle, and a battle rests everyone. Hover a creature
 for its lineage, parts, gear and stats.
 
+### Classes and skills
+
+Classes are training disciplines, as FFTA jobs are: classes teach skills, and parts (the gear)
+modify them. Each class leans the stats a little and teaches three skills. Creatures earn JP
+for their class in every battle (more if they're still standing, and more for a win) and learn
+the class's skills in order. In battle a creature can use its class's learned skills, the learned
+skills of one **secondary** class, and its **innate** skill.
+
+| Class | Teaches |
+|---|---|
+| Brawler | Heavy Blow, Rend (bleed), Frenzy (ATK up) |
+| Skirmisher | Quick Strike (hit and run), Pounce (leap), Evasion |
+| Guardian | Shield Wall, Taunt, Second Wind |
+| Mystic (hextech) | Hex Bolt (range 4), Ward, Arc Storm (area) |
+| Alchemist (chemtech) | Toxic Flask (poison), Mend (heal), Acid Splash (area, DEF down) |
+| Tinker (clockwork) | Overclock (SPD and MOVE up), Snare (root), Shock Prod (stun) |
+| **Skydiver** | 2 Brawler and 2 Skirmisher skills, **and wings**: Dive Bomb, Gale, Updraft |
+| **Juggernaut** | 2 Brawler and 2 Guardian skills, **and horns**: Trample, Iron Hide, Earthshaker |
+| **Hexwarden** | 2 Mystic and 2 Tinker skills: Hex Cage, Overcharge, Nova |
+
+Locked classes show as hints with progress, like FFTA's silhouettes. The part-gated ones are
+why you breed: a creature without wings can't become a Skydiver until wings are bred into its
+line. A bred child is born knowing one skill from a parent (its innate skill), and recruits keep
+the skill they had in the wild.
+
+Wild creatures fight with a natural skill from their strain: chemtech beasts throw toxic flasks,
+arcane ones cast hex bolts, clockwork ones carry shock prods, abyssal ones rend, and aggressive
+natural ones swing heavy blows.
+
 ### Battle
 
 Your squad faces a wild pack of four on an isometric foundry yard with height, brass platforms,
@@ -74,6 +104,7 @@ a chem canal and a pit. Each encounter number brings a different pack. Turns go 
 |---|---|
 | Click a blue tile | move (passes allies, climbs 1 level; flyers, climbers and swimmers differ) |
 | Click a marked enemy | attack. Hover it first for damage and hit chance |
+| 1-9 or the skill buttons | aim a skill: orange tiles are in range, gold shows the area, the panel previews the result |
 | B, then a green tile | set down a glowberry (lures curious creatures) |
 | Esc / right-click | undo the move, if you haven't acted yet |
 | Space | end the turn |
@@ -133,6 +164,7 @@ The full list is in `scripts/GameRoot.cs`.
   `Unit.cs` (stats from parts), `BattleMap.cs`, `Encounter.cs`, `IsoArt.cs` (pixel-art board and
   backdrop), `BattleScreen.cs`.
 - `scripts/Creatures/Breeding.cs`: inheritance rules.
+- `scripts/Classes/Classes.cs`: every class and skill as data, training (JP, learning, unlocks).
 - `scripts/Ranch/`: the roster and save file (`Ranch.cs`) and the ranch screen with its vats.
 - `scripts/SpriteLab/`: the sheet screen and the PNG composer.
 - `docs/game-ideas.md`: the design notes.

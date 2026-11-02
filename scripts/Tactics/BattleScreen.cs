@@ -15,7 +15,7 @@ public partial class BattleScreen : Control
 {
     public ulong Seed = 1;
     public bool AutoPlay;   // the AI plays your side too (demos and screenshots)
-    public List<Creature> Squad;          // your creatures; null for the default squad
+    public List<(Creature, Classes.Training)> Squad; // your creatures and their training; null for the default squad
     public System.Action<Battle> Finished; // set when a ranch is waiting for the result
 
     const int Scale = 2;
@@ -33,7 +33,10 @@ public partial class BattleScreen : Control
     HBoxContainer _strip;
     readonly List<string> _logLines = new();
 
-    enum Mode { Busy, Command, Berry, Over }
+    enum Mode { Busy, Command, Berry, Skill, Over }
+    Classes.SkillDef _skill;      // the skill being aimed (Mode.Skill)
+    HBoxContainer _skillBar;
+    readonly List<(List<Vector2I> area, Color color, double until)> _flashes = new();
     Mode _mode = Mode.Busy;
     Unit _active;
     Vector2I? _hoverTile;
@@ -67,6 +70,10 @@ public partial class BattleScreen : Control
         _panel.Size = new Vector2(410, 760);
         _panel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         AddChild(_panel);
+
+        _skillBar = new HBoxContainer { Position = new Vector2(380, 975) };
+        _skillBar.AddThemeConstantOverride("separation", 8);
+        AddChild(_skillBar);
 
         _log = MakeLabel(16, Dim);
         _log.Position = new Vector2(24, 930);
@@ -162,14 +169,61 @@ public partial class BattleScreen : Control
     void EnterCommand()
     {
         _mode = Mode.Command;
+        _skill = null;
         _reach = _active.Moved ? new() : _battle.Reachable(_active);
         RefreshPanel();
+        RefreshSkillBar();
         _overlay.QueueRedraw();
     }
+
+    /// <summary>The active creature's skills as buttons (1-9), greyed out while cooling down.</summary>
+    void RefreshSkillBar()
+    {
+        foreach (var child in _skillBar.GetChildren()) child.QueueFree();
+        if (_mode is not (Mode.Command or Mode.Skill) || _active == null) return;
+        for (int i = 0; i < _active.Skills.Count; i++)
+        {
+            var s = _active.Skills[i];
+            bool ready = _active.Ready(s) && !_active.Acted;
+            int cd = _active.Cooldowns.TryGetValue(s.Id, out int c) ? c : 0;
+            var b = new Button
+            {
+                Text = $"{i + 1}  {s.Name}{(cd > 0 ? $"  ({cd})" : "")}",
+                Disabled = !ready,
+                TooltipText = $"{s.Class}: {s.Text}",
+                FocusMode = FocusModeEnum.None,
+                CustomMinimumSize = new Vector2(170, 44),
+            };
+            b.AddThemeFontSizeOverride("font_size", 16);
+            if (s == _skill) b.Modulate = Gold;
+            b.Pressed += () => SelectSkill(s);
+            _skillBar.AddChild(b);
+        }
+    }
+
+    void SelectSkill(Classes.SkillDef s)
+    {
+        if (_mode is not (Mode.Command or Mode.Skill) || _active.Acted || !_active.Ready(s)) return;
+        _mode = Mode.Skill;
+        _skill = s;
+        _skillTiles = _battle.SkillTiles(_active, s);
+        RefreshPanel();
+        RefreshSkillBar();
+        _overlay.QueueRedraw();
+    }
+
+    List<Vector2I> _skillTiles = new();
+
+    /// <summary>Where the aimed skill would land for the hovered tile (self-centred skills ignore the cursor).</summary>
+    Vector2I? SkillAim() => _skill == null ? null
+        : _skill.AroundSelf || _skill.Target == Classes.TargetKind.Self ? _active.Pos
+        : _hoverTile is { } h && _skillTiles.Contains(h) ? h : null;
 
     async void PlayerAct(System.Action act)
     {
         _mode = Mode.Busy;
+        _skill = null;
+        RefreshSkillBar();
         _overlay.QueueRedraw();
         act();
         await PlayEvents();
@@ -181,6 +235,7 @@ public partial class BattleScreen : Control
     async void EndPlayerTurn()
     {
         _mode = Mode.Busy;
+        RefreshSkillBar();
         _battle.EndTurn(_active);
         await PlayEvents();
         if (_battle.Winner != null) { ShowEnd(); return; }
@@ -205,6 +260,7 @@ public partial class BattleScreen : Control
 
     public override void _Process(double delta)
     {
+        if (_flashes.Count > 0) _overlay?.QueueRedraw();
         var tile = _art?.Pick(_board.GetLocalMousePosition());
         if (tile != _hoverTile)
         {
@@ -226,7 +282,19 @@ public partial class BattleScreen : Control
                 else { Seed++; StartBattle(); }
                 return;
             }
-            if (_mode == Mode.Berry && k.Keycode == Key.Escape) { _mode = Mode.Command; _overlay.QueueRedraw(); RefreshPanel(); return; }
+            if (_mode is Mode.Berry or Mode.Skill && k.Keycode == Key.Escape) { EnterCommand(); return; }
+            if (_mode is Mode.Command or Mode.Skill && k.Keycode >= Key.Key1 && k.Keycode <= Key.Key9)
+            {
+                int i = (int)(k.Keycode - Key.Key1);
+                if (i < _active.Skills.Count) SelectSkill(_active.Skills[i]);
+                return;
+            }
+            if (_mode == Mode.Skill && k.Keycode is Key.Enter or Key.KpEnter && SkillAim() is { } aimed)
+            {
+                var s = _skill;
+                PlayerAct(() => _battle.UseSkill(_active, s, aimed));
+                return;
+            }
             if (_mode != Mode.Command) return;
             switch (k.Keycode)
             {
@@ -248,12 +316,24 @@ public partial class BattleScreen : Control
         if (e is not InputEventMouseButton { Pressed: true } mb) return;
         if (mb.ButtonIndex == MouseButton.Right)
         {
-            if (_mode == Mode.Berry) { _mode = Mode.Command; _overlay.QueueRedraw(); RefreshPanel(); }
+            if (_mode is Mode.Berry or Mode.Skill) EnterCommand();
             else if (_mode == Mode.Command && _battle.CanUndo(_active)) PlayerAct(() => _battle.UndoMove(_active));
             return;
         }
         if (mb.ButtonIndex != MouseButton.Left || _hoverTile == null) return;
         var tile = _hoverTile.Value;
+        if (_mode == Mode.Skill)
+        {
+            // Self-centred skills go off on a click anywhere in their area; aimed ones on a valid tile.
+            var aim = SkillAim();
+            bool selfish = _skill.AroundSelf || _skill.Target == Classes.TargetKind.Self;
+            if (aim != null && (!selfish || _battle.SkillArea(_active, _skill, aim.Value).Contains(tile) || _active.Tiles.Contains(tile)))
+            {
+                var s = _skill;
+                PlayerAct(() => _battle.UseSkill(_active, s, aim.Value));
+            }
+            return;
+        }
         if (_mode == Mode.Berry)
         {
             if (_battle.BerrySpots(_active).Contains(tile)) PlayerAct(() => _battle.OfferBerry(_active, tile));
@@ -283,6 +363,17 @@ public partial class BattleScreen : Control
         {
             foreach (var t in _battle.BerrySpots(_active)) yield return (t, new Color(0.4f, 1f, 0.55f, 0.4f));
         }
+        else if (_mode == Mode.Skill)
+        {
+            foreach (var t in _skillTiles) yield return (t, new Color(1f, 0.55f, 0.15f, 0.3f));
+            if (SkillAim() is { } aim)
+                foreach (var t in _battle.SkillArea(_active, _skill, aim)) yield return (t, new Color(Gold, 0.55f));
+        }
+        // Skills going off: their area flashes for a moment.
+        double now = Time.GetTicksMsec() / 1000.0;
+        _flashes.RemoveAll(f => f.until < now);
+        foreach (var (area, color, until) in _flashes)
+            foreach (var t in area) yield return (t, new Color(color, (float)Mathf.Clamp((until - now) * 1.6, 0, 0.7)));
     }
 
     public Vector2I? HoverTile => _mode == Mode.Over ? null : _hoverTile;
@@ -303,7 +394,11 @@ public partial class BattleScreen : Control
             var (weapon, armor, move) = c.Loadout();
             lines.Add($"{u.Name}{(u.Side == Side.Wild ? "  (wild)" : "")}");
             lines.Add($"{c.Size} {c.Species.Plan}{(c.Species.Strain != Strain.Natural ? $", {c.Species.Strain}" : "")}");
-            lines.Add($"HP {Mathf.Max(0, _views.TryGetValue(u, out var v) ? v.DisplayHp : u.Hp)}/{u.MaxHp}   ATK {u.Atk}   DEF {u.Def}   SPD {u.Spd}   MOVE {u.Move}");
+            lines.Add($"HP {Mathf.Max(0, _views.TryGetValue(u, out var v) ? v.DisplayHp : u.Hp)}/{u.MaxHp}   ATK {u.AtkNow}   DEF {u.DefNow}   SPD {u.SpdNow}   MOVE {u.MoveNow}");
+            if (u.ClassName != null) lines.Add($"Class: {u.ClassName}{(u.Training.Secondary != null ? $" / {u.Training.Secondary}" : "")}");
+            if (u.Skills.Count > 0) lines.Add($"Skills: {string.Join(", ", u.Skills.Select(s => s.Name))}");
+            var status = StatusLine(u);
+            if (status != "") lines.Add($"Status: {status}");
             lines.Add($"Weapon: {weapon}");
             lines.Add($"Armour: {armor}");
             lines.Add($"Moves: {move}");
@@ -316,10 +411,18 @@ public partial class BattleScreen : Control
                 lines.Add($">> {_active.Name} attacks: about {dmg} damage, {hit}% to hit");
             }
         }
+        if (_mode == Mode.Skill)
+        {
+            lines.Add("");
+            lines.Add($"{_skill.Name} ({_skill.Class}): {_skill.Text}");
+            lines.Add(SkillAim() is { } aim ? ">> " + _battle.SkillPreview(_active, _skill, aim) : "Point at an orange tile.");
+            lines.Add(_skill.AroundSelf || _skill.Target == Classes.TargetKind.Self ? "Click (or Enter) to use.   Esc: cancel" : "Click an orange tile to use.   Esc: cancel");
+        }
         if (_mode is Mode.Command or Mode.Berry)
         {
             lines.Add("");
             lines.Add($"{_active.Name}'s turn");
+            if (!_active.Acted && _active.Skills.Count > 0) lines.Add("1-9 or the buttons below: use a skill");
             lines.Add(_mode == Mode.Berry
                 ? "Click a green tile to set down a glowberry.   Esc: cancel"
                 : $"{(_active.Moved ? "" : "Click a blue tile to move.   ")}{(_active.Acted ? "" : "Click a marked enemy to attack.   ")}"
@@ -327,6 +430,18 @@ public partial class BattleScreen : Control
                   + $"{(_battle.CanUndo(_active) ? "Esc: undo move.   " : "")}Space: end turn");
         }
         _panel.Text = string.Join("\n", lines);
+    }
+
+    /// <summary>Poison, stun, root, taunt and buffs, in words.</summary>
+    public static string StatusLine(Unit u)
+    {
+        var parts = new List<string>();
+        if (u.PoisonTurns > 0) parts.Add($"poisoned ({u.PoisonTurns})");
+        if (u.Stunned) parts.Add("stunned");
+        if (u.Rooted) parts.Add("rooted");
+        if (u.TauntedBy != null) parts.Add($"taunted by {u.TauntedBy.Name}");
+        foreach (var b in u.Buffs) parts.Add($"{(b.stat == Classes.StatKind.Evade ? "evasion" : b.stat.ToString().ToUpperInvariant())} {(b.amount > 0 ? "+" : "")}{b.amount} ({b.turns})");
+        return string.Join(", ", parts);
     }
 
     void RefreshStrip()
@@ -410,18 +525,36 @@ public partial class BattleScreen : Control
                 case LogEvent l:
                     AddLog(l.Text);
                     break;
+                case SkillEvent sk:
+                {
+                    // Call the skill's name over the user and flash the ground it covers.
+                    var view = _views[sk.U];
+                    Popup(view, sk.Skill.Name, Gold, -10);
+                    var color = sk.Skill.Target is Classes.TargetKind.Ally or Classes.TargetKind.Self ? Cyan : Color.FromHtml("#ff8a3d");
+                    _flashes.Add((sk.Area, color, Time.GetTicksMsec() / 1000.0 + 0.45));
+                    _overlay.QueueRedraw();
+                    if (sk.Center != sk.U.Pos && _views.Values.FirstOrDefault(x => x.Unit.Tiles.Contains(sk.Center)) is { } target)
+                        await view.Lunge(target);
+                    else await Wait(0.25f);
+                    break;
+                }
+                case StatusEvent st:
+                    Popup(_views[st.U], st.Text, Color.FromHtml("#c79bff"), 8);
+                    _views[st.U].QueueRedraw();
+                    await Wait(0.15f);
+                    break;
             }
         }
         RefreshPanel();
     }
 
-    void Popup(UnitView v, string text, Color color)
+    void Popup(UnitView v, string text, Color color, float dy = 0)
     {
         var l = MakeLabel(9, color);
         l.Text = text;
         l.ZIndex = 400;
-        l.Position = v.Position + new Vector2(-20, -v.SpriteHeight - 14);
-        l.Size = new Vector2(40, 12);
+        l.Position = v.Position + new Vector2(-40, -v.SpriteHeight - 14 + dy);
+        l.Size = new Vector2(80, 12);
         l.HorizontalAlignment = HorizontalAlignment.Center;
         _board.AddChild(l);
         var tw = CreateTween();
@@ -522,6 +655,16 @@ public partial class UnitView : Node2D
         float frac = Mathf.Clamp(DisplayHp / (float)Unit.MaxHp, 0, 1);
         DrawRect(new Rect2(-w / 2 - 1, y - 1, w + 2, 4), new Color(0.05f, 0.03f, 0.08f, 0.9f));
         DrawRect(new Rect2(-w / 2, y, w * frac, 2), frac > 0.5f ? new Color(0.4f, 1f, 0.6f) : frac > 0.25f ? new Color(1f, 0.8f, 0.3f) : new Color(1f, 0.3f, 0.35f));
+        // Status pips above the HP bar: poison, stun, root, buffs up, debuffs down.
+        var pips = new List<Color>();
+        if (Unit.PoisonTurns > 0) pips.Add(new Color(0.45f, 1f, 0.4f));
+        if (Unit.Stunned) pips.Add(new Color(1f, 0.9f, 0.3f));
+        if (Unit.Rooted) pips.Add(new Color(0.75f, 0.5f, 0.3f));
+        if (Unit.Buffs.Any(b => b.amount > 0)) pips.Add(new Color(0.3f, 0.9f, 1f));
+        if (Unit.Buffs.Any(b => b.amount < 0) || Unit.TauntedBy != null) pips.Add(new Color(1f, 0.35f, 0.5f));
+        for (int i = 0; i < pips.Count; i++)
+            DrawRect(new Rect2(-w / 2 + i * 4, y - 5, 3, 3), pips[i]);
+
         if (active)
         {
             // A marker over the active creature.

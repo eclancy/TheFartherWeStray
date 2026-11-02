@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CreatureTactics.Classes;
 using CreatureTactics.Creatures;
 using CreatureTactics.SpriteLab;
 using CreatureTactics.Tactics;
@@ -9,8 +10,8 @@ using Godot;
 namespace CreatureTactics.Ranching;
 
 /// <summary>
-/// The ranch: your roster, the squad for the next fight, and the breeding vats. Left-click a
-/// creature to put it in (or take it out of) the squad; right-click to put it in a breeding vat;
+/// The ranch: your roster, the squad, training, and the breeding vats. Click a creature to select
+/// it: its panel sets squad, class and secondary skills. Right-click puts it in a breeding vat;
 /// Enter breeds; F goes to battle.
 /// </summary>
 public partial class RanchScreen : Control
@@ -25,10 +26,11 @@ public partial class RanchScreen : Control
     static readonly Color Ink = Color.FromHtml("#e8e2f4"), Dim = Color.FromHtml("#9a91b4");
 
     GridContainer _grid;
-    Label _header, _status, _notes, _detail;
+    Label _header, _status, _notes, _detail, _training;
     VatPanel _vats;
+    Button _squadButton, _classButton, _secondButton, _vatButton, _releaseButton;
     readonly List<int> _pen = new();
-    int? _hover, _releaseArmed;
+    int? _selected, _releaseArmed;
     double _releaseTimer;
 
     public override void _Ready()
@@ -49,21 +51,40 @@ public partial class RanchScreen : Control
         _header = Text(26, Ink, new Vector2(32, 20), new Vector2(1860, 40));
         _status = Text(17, Gold, new Vector2(32, 62), new Vector2(1100, 30));
 
-        var scroll = new ScrollContainer { Position = new Vector2(24, 100), Size = new Vector2(1120, 960), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        var scroll = new ScrollContainer { Position = new Vector2(24, 100), Size = new Vector2(1120, 920), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         AddChild(scroll);
         _grid = new GridContainer { Columns = 6 };
         _grid.AddThemeConstantOverride("h_separation", 8);
         _grid.AddThemeConstantOverride("v_separation", 8);
         scroll.AddChild(_grid);
+        Text(16, Dim, new Vector2(32, 1036), new Vector2(1120, 30)).Text =
+            "Click: select    Right-click: breeding vat    Enter: breed    F: to battle    S: squad    Delete twice: release    Tab: Sprite Lab";
 
-        _vats = new VatPanel { Position = new Vector2(1170, 100), Size = new Vector2(720, 380), Screen = this, MouseFilter = MouseFilterEnum.Ignore };
+        _vats = new VatPanel { Position = new Vector2(1170, 96), Size = new Vector2(720, 320), Screen = this, MouseFilter = MouseFilterEnum.Ignore };
         AddChild(_vats);
-        _notes = Text(16, Ink, new Vector2(1170, 490), new Vector2(720, 120));
+        _notes = Text(15, Ink, new Vector2(1170, 432), new Vector2(720, 96));
         _notes.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _detail = Text(16, Dim, new Vector2(1170, 620), new Vector2(720, 330));
+        _detail = Text(15, Dim, new Vector2(1170, 532), new Vector2(720, 230));
         _detail.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        Text(17, Ink, new Vector2(1170, 960), new Vector2(720, 80)).Text =
-            "Left-click: squad (up to 4)    Right-click: breeding vat    Enter: breed\nF: to battle    Delete twice: release    Tab: Sprite Lab";
+        _training = Text(15, Ink, new Vector2(1170, 760), new Vector2(720, 200));
+        _training.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+
+        var buttons = new HBoxContainer { Position = new Vector2(1170, 970) };
+        buttons.AddThemeConstantOverride("separation", 8);
+        AddChild(buttons);
+        Button Make(string text, Action onPress)
+        {
+            var b = new Button { Text = text, FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(0, 44) };
+            b.AddThemeFontSizeOverride("font_size", 15);
+            b.Pressed += onPress;
+            buttons.AddChild(b);
+            return b;
+        }
+        _squadButton = Make("Squad", () => { if (_selected is { } id) ToggleSquad(id); });
+        _classButton = Make("Class", () => { if (_selected is { } id) CycleClass(id); });
+        _secondButton = Make("Secondary", () => { if (_selected is { } id) CycleSecondary(id); });
+        _vatButton = Make("Vat", () => { if (_selected is { } id) TogglePen(id); });
+        _releaseButton = Make("Release", () => { if (_selected is { } id) Release(id); });
 
         if (VatDemo)
         {
@@ -73,6 +94,8 @@ public partial class RanchScreen : Control
         }
         if (JustJoined.Count > 0)
             Flash($"{string.Join(", ", JustJoined.Select(id => Ranch.Get(id).Species.Name))} joined the ranch.");
+        if (Ranch.Report.Count > 0) _notes.Text = string.Join("\n", Ranch.Report);
+        Select(Ranch.Squad.FirstOrDefault(Ranch.Creatures[0].Id));
         Rebuild();
         if (AutoFight) GetTree().CreateTimer(1.5).Timeout += () => { if (IsInsideTree() && Ranch.Squad.Count > 0) Fight?.Invoke(); };
     }
@@ -98,19 +121,84 @@ public partial class RanchScreen : Control
         {
             var card = new RanchCard { Screen = this, Id = rec.Id };
             int id = rec.Id;
-            card.Clicked += right => { if (right) TogglePen(id); else ToggleSquad(id); };
-            card.Hovered += () => { _hover = id; ShowDetail(id); };
+            card.Clicked += right => { if (right) TogglePen(id); else Select(id); };
+            card.Hovered += () => ShowDetail(id);
             _grid.AddChild(card);
         }
         _header.Text = $"THE RANCH      {Ranch.Creatures.Count} creatures      squad {Ranch.Squad.Count}/{Ranch.SquadSize}      next: encounter {Ranch.Encounter}";
         _vats.QueueRedraw();
+        RefreshSelected();
     }
 
     public bool InSquad(int id) => Ranch.Squad.Contains(id);
     public int PenSlot(int id) => _pen.IndexOf(id);
     public bool IsNew(int id) => JustJoined.Contains(id);
+    public bool IsSelected(int id) => _selected == id;
     public Creature ChildShown;
     public IReadOnlyList<int> Pen => _pen;
+
+    void Select(int id)
+    {
+        _selected = id;
+        foreach (var card in _grid.GetChildren().OfType<RanchCard>()) card.QueueRedraw();
+        ShowDetail(id);
+        RefreshSelected();
+    }
+
+    /// <summary>The selected creature's training panel and buttons.</summary>
+    void RefreshSelected()
+    {
+        bool any = _selected != null && Ranch.Creatures.Any(r => r.Id == _selected);
+        foreach (var b in new[] { _squadButton, _classButton, _secondButton, _vatButton, _releaseButton }) b.Disabled = !any;
+        if (!any) { _training.Text = ""; return; }
+        int id = _selected.Value;
+        var c = Ranch.Get(id);
+        var t = Ranch.Record(id).Training;
+        _squadButton.Text = InSquad(id) ? "Leave squad" : "Join squad";
+        _classButton.Text = $"Class: {t.Class}  >";
+        _secondButton.Text = $"Secondary: {t.Secondary ?? "none"}  >";
+        _vatButton.Text = PenSlot(id) >= 0 ? "Out of vat" : "Into vat";
+
+        var cls = ClassBook.Class(t.Class);
+        var lines = new List<string> { $"{c.Species.Name} trains as a {cls.Name}: {cls.Blurb}  JP {t.JpIn(cls.Id)}" };
+        int spent = 0;
+        foreach (var sid in cls.Skills)
+        {
+            var s = ClassBook.Skill(sid);
+            spent += s.Cost;
+            bool known = t.Skills.Contains(sid);
+            lines.Add(known ? $"   [learned] {s.Name}: {s.Text}" : $"   [{spent - t.JpIn(cls.Id)} JP to go] {s.Name}: {s.Text}");
+        }
+        if (t.Secondary != null)
+            lines.Add($"Secondary {t.Secondary}: {string.Join(", ", t.Skills.Where(s => ClassBook.Skill(s).Class == t.Secondary).Select(s => ClassBook.Skill(s).Name))}");
+        if (t.Innate != null) lines.Add($"Innate: {ClassBook.Skill(t.Innate).Name} ({ClassBook.Skill(t.Innate).Text})");
+        foreach (var adv in ClassBook.Classes.Where(k => k.Advanced))
+            lines.Add(ClassBook.Unlocked(adv, c, t) ? $"{adv.Name}: unlocked" : $"??? - needs {ClassBook.Hint(adv, c, t)}");
+        _training.Text = string.Join("\n", lines);
+    }
+
+    void CycleClass(int id)
+    {
+        var c = Ranch.Get(id);
+        var t = Ranch.Record(id).Training;
+        var open = ClassBook.Available(c, t).Select(k => k.Id).ToList();
+        t.Class = open[(open.IndexOf(t.Class) + 1) % open.Count];
+        if (t.Secondary == t.Class) t.Secondary = null;
+        Ranch.Save();
+        RefreshSelected();
+    }
+
+    void CycleSecondary(int id)
+    {
+        // Any other class it has learned something in, or none.
+        var t = Ranch.Record(id).Training;
+        var options = new List<string> { null };
+        options.AddRange(ClassBook.Classes.Select(k => k.Id).Where(k => k != t.Class && t.LearnedIn(k) > 0));
+        t.Secondary = options[(options.IndexOf(t.Secondary) + 1) % options.Count];
+        if (options.Count == 1) Flash("Learn a skill in another class first; then it can be a secondary skill set.");
+        Ranch.Save();
+        RefreshSelected();
+    }
 
     void ToggleSquad(int id)
     {
@@ -125,7 +213,7 @@ public partial class RanchScreen : Control
     {
         if (_pen.Contains(id)) _pen.Remove(id);
         else if (!Ranch.Record(id).Rested) { Flash($"{Ranch.Get(id).Species.Name} is resting. Fight a battle and everyone can breed again."); return; }
-        else if (_pen.Count >= 2) { Flash("Both vats are full: right-click one of them to take it out."); return; }
+        else if (_pen.Count >= 2) { Flash("Both vats are full: take one out first."); return; }
         else _pen.Add(id);
         ChildShown = null;
         _notes.Text = _pen.Count == 2 ? "Press Enter to breed." : "";
@@ -147,17 +235,36 @@ public partial class RanchScreen : Control
         if (result.Notes.Count > 0) lines.Add(string.Join("; ", result.Notes));
         _notes.Text = string.Join("\n", lines);
         Flash($"{a.Species.Name} and {b.Species.Name} rest until the next battle.");
+        Select(id);
         Rebuild();
-        ShowDetail(id);
+    }
+
+    void Release(int id)
+    {
+        if (Ranch.Creatures.Count <= 1) { Flash("You can't release your last creature."); return; }
+        if (_releaseArmed != id)
+        {
+            _releaseArmed = id;
+            _releaseTimer = 3;
+            Flash($"Release {Ranch.Get(id).Species.Name} back to the wild? Press Release (or Delete) again.");
+            return;
+        }
+        Flash($"{Ranch.Get(id).Species.Name} returns to the wild.");
+        _releaseArmed = null;
+        _pen.Remove(id);
+        Ranch.Release(id);
+        Ranch.Save();
+        _selected = Ranch.Creatures[0].Id;
+        Rebuild();
     }
 
     void ShowDetail(int id)
     {
         var c = Ranch.Get(id);
-        var u = Unit.From(c, Tactics.Side.Player);
+        var u = Unit.From(c, Tactics.Side.Player, Ranch.Record(id).Training);
         string lineage = c.Generation > 0 ? $"\nBred: generation {c.Generation}, of {c.ParentA} and {c.ParentB}" : "";
         _detail.Text = CreatureSheet.Describe(c) + lineage
-            + $"\nHP {u.MaxHp}   ATK {u.Atk}   DEF {u.Def}   SPD {u.Spd}   MOVE {u.Move}"
+            + $"\nHP {u.MaxHp}   ATK {u.Atk}   DEF {u.Def}   SPD {u.Spd}   MOVE {u.Move}   (as a {u.ClassName})"
             + (Ranch.Record(id).Rested ? "" : "\nResting: can breed again after the next battle.");
     }
 
@@ -178,26 +285,15 @@ public partial class RanchScreen : Control
                 Breed();
                 break;
             case Key.F:
-                if (Ranch.Squad.Count == 0) { Flash("Pick at least one creature for the squad (left-click)."); return; }
+                if (Ranch.Squad.Count == 0) { Flash("Pick at least one creature for the squad."); return; }
                 Ranch.Save();
                 Fight?.Invoke();
                 break;
-            case Key.Delete when _hover is { } id:
-                if (Ranch.Creatures.Count <= 1) { Flash("You can't release your last creature."); return; }
-                if (_releaseArmed != id)
-                {
-                    _releaseArmed = id;
-                    _releaseTimer = 3;
-                    Flash($"Press Delete again to release {Ranch.Get(id).Species.Name} back to the wild.");
-                    return;
-                }
-                Flash($"{Ranch.Get(id).Species.Name} returns to the wild.");
-                _releaseArmed = null;
-                _pen.Remove(id);
-                Ranch.Release(id);
-                Ranch.Save();
-                _hover = null;
-                Rebuild();
+            case Key.S when _selected is { } sid:
+                ToggleSquad(sid);
+                break;
+            case Key.Delete when _selected is { } did:
+                Release(did);
                 break;
             default:
                 return;
@@ -242,9 +338,9 @@ public partial class RanchCard : Control
         var box = new StyleBoxFlat
         {
             BgColor = new Color(0.1f, 0.08f, 0.16f, 0.92f),
-            BorderColor = pen >= 0 ? Color.FromHtml("#ff4f9a") : squad ? Color.FromHtml("#4fe3ff") : _hover ? new Color(0.6f, 0.55f, 0.75f) : new Color(0.24f, 0.2f, 0.33f),
+            BorderColor = Screen.IsSelected(Id) ? Color.FromHtml("#f2c14e") : pen >= 0 ? Color.FromHtml("#ff4f9a") : squad ? Color.FromHtml("#4fe3ff") : _hover ? new Color(0.6f, 0.55f, 0.75f) : new Color(0.24f, 0.2f, 0.33f),
         };
-        box.SetBorderWidthAll(squad || pen >= 0 ? 3 : _hover ? 2 : 1);
+        box.SetBorderWidthAll(Screen.IsSelected(Id) || squad || pen >= 0 ? 3 : _hover ? 2 : 1);
         box.SetCornerRadiusAll(8);
         DrawStyleBox(box, new Rect2(Vector2.Zero, Size));
 
@@ -282,11 +378,12 @@ public partial class VatPanel : Control
         var pen = Screen.Pen;
         Creature A = pen.Count > 0 ? Screen.Ranch.Get(pen[0]) : null;
         Creature B = pen.Count > 1 ? Screen.Ranch.Get(pen[1]) : null;
-        Vat(new Rect2(0, 30, 220, 330), "VAT A", A, Color.FromHtml("#ff4f9a"));
-        Vat(new Rect2(250, 30, 220, 330), "VAT B", B, Color.FromHtml("#ff4f9a"));
-        Vat(new Rect2(500, 30, 220, 330), "OFFSPRING", Screen.ChildShown, Color.FromHtml("#4fe3ff"));
-        DrawString(font, new Vector2(226, 200), "+", HorizontalAlignment.Left, -1, 28, Color.FromHtml("#e8e2f4"));
-        DrawString(font, new Vector2(474, 200), "=", HorizontalAlignment.Left, -1, 28, Color.FromHtml("#e8e2f4"));
+        float h = Size.Y - 50;
+        Vat(new Rect2(0, 30, 220, h), "VAT A", A, Color.FromHtml("#ff4f9a"));
+        Vat(new Rect2(250, 30, 220, h), "VAT B", B, Color.FromHtml("#ff4f9a"));
+        Vat(new Rect2(500, 30, 220, h), "OFFSPRING", Screen.ChildShown, Color.FromHtml("#4fe3ff"));
+        DrawString(font, new Vector2(226, 30 + h / 2), "+", HorizontalAlignment.Left, -1, 28, Color.FromHtml("#e8e2f4"));
+        DrawString(font, new Vector2(474, 30 + h / 2), "=", HorizontalAlignment.Left, -1, 28, Color.FromHtml("#e8e2f4"));
     }
 
     void Vat(Rect2 r, string label, Creature c, Color glow)

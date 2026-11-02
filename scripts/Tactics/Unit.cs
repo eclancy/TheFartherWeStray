@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Linq;
+using CreatureTactics.Classes;
 using CreatureTactics.Creatures;
 using Godot;
 
@@ -33,6 +35,23 @@ public sealed class Unit
     public int Weathered;    // aggressive: attacks it made that didn't drop anyone
     public bool GuardUsed;   // loyal: has shielded an ally this round
 
+    // Class, skills and statuses.
+    public Training Training;                        // null for wild creatures
+    public List<SkillDef> Skills = new();
+    public readonly Dictionary<string, int> Cooldowns = new();
+    public readonly List<(StatKind stat, int amount, int turns)> Buffs = new();
+    public int PoisonDmg, PoisonTurns;
+    public bool Stunned, Rooted;
+    public Unit TauntedBy;
+
+    public int Mod(StatKind s) => Buffs.Where(b => b.stat == s).Sum(b => b.amount);
+    public int AtkNow => System.Math.Max(1, Atk + Mod(StatKind.Atk));
+    public int DefNow => System.Math.Max(0, Def + Mod(StatKind.Def));
+    public int SpdNow => System.Math.Max(1, Spd + Mod(StatKind.Spd));
+    public int MoveNow => Rooted ? 0 : System.Math.Max(1, Move + Mod(StatKind.Move));
+    public bool Ready(SkillDef s) => !Cooldowns.TryGetValue(s.Id, out int cd) || cd <= 0;
+    public string ClassName => Training?.Class;
+
     public Attitude Attitude => Creature.Attitude;
     public string Name => Creature.Species.Name;
     public int Range => Weapon == Weapon.Whip ? 2 : 1;
@@ -48,7 +67,7 @@ public sealed class Unit
 
     public IEnumerable<Vector2I> Tiles => TilesAt(Pos);
 
-    public static Unit From(Creature c, Side side)
+    public static Unit From(Creature c, Side side, Training training = null)
     {
         var sp = c.Species;
         (float hp, float atk, float def, float spd, int move) = sp.Plan switch
@@ -83,6 +102,12 @@ public sealed class Unit
             case Armor.Crystal: def += 3; break;
             case Armor.Mane: hp += 6; break;
         }
+        // The class leans the stats (FFTA jobs do the same).
+        if (training != null)
+        {
+            var cls = ClassBook.Class(training.Class);
+            hp += cls.Hp; atk += cls.Atk; def += cls.Def; spd += cls.Spd; move += cls.Move;
+        }
         var g = sp.Grafts;
         if (g.HasFlag(Graft.Plating)) def += 3;
         if (g.HasFlag(Graft.MetalLimb)) atk += 1;
@@ -105,6 +130,9 @@ public sealed class Unit
             HitBonus = hit, MoveType = c.MoveType, Weapon = c.Weapon, Armor = c.Armor,
         };
         u.Hp = u.MaxHp;
+        u.Training = training;
+        if (training != null) u.Skills = training.Usable().ToList();
+        else if (ClassBook.WildSkill(c) is { } wild) u.Skills.Add(ClassBook.Skill(wild));
         return u;
     }
 }

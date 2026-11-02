@@ -30,6 +30,13 @@ public partial class GameRoot : Node
 {
     public override void _Ready()
     {
+        // A crash during setup quits instead of leaving a headless run hanging until its timeout.
+        try { Start(); }
+        catch (Exception e) { GD.PrintErr(e.ToString()); GetTree().Quit(1); }
+    }
+
+    void Start()
+    {
         var args = ParseArgs(OS.GetCmdlineUserArgs());
         ulong sheet = args.TryGetValue("sheet", out var s) && ulong.TryParse(s, out var n) ? n : 1;
         bool four = args.ContainsKey("four"), drawPets = args.ContainsKey("drawpets");
@@ -71,6 +78,7 @@ public partial class GameRoot : Node
                 while (battle.Winner == null && battle.Round <= 30) { var u = battle.NextTurn(); if (u == null) break; battle.AiTurn(u); }
                 var joined = ranch.AfterBattle(battle);
                 GD.Print($"encounter {ranch.Encounter - 1}: {battle.Winner}, joined: {string.Join(", ", joined.Select(id => ranch.Get(id).Species.Name))}");
+                foreach (var line in ranch.Report) GD.Print("  " + line);
                 var pair = ranch.Creatures.Where(r => r.Rested).Take(2).Select(r => r.Id).ToList();
                 var (child, result) = ranch.Breed(pair[0], pair[1]);
                 GD.Print($"  bred {ranch.Get(pair[0]).Species.Name} x {ranch.Get(pair[1]).Species.Name} -> {ranch.Get(child).Species.Name} (gen {ranch.Get(child).Generation})");
@@ -85,6 +93,8 @@ public partial class GameRoot : Node
                 if (before.AsSpan().SequenceEqual(after)) same++;
                 else GD.Print($"  MISMATCH after load: {ranch.Get(rec.Id).Species.Name}");
             }
+            int trained = ranch.Creatures.Count(r => { var l = loaded.Record(r.Id).Training; return l.Class == r.Training.Class && l.Innate == r.Training.Innate && l.Skills.SequenceEqual(r.Training.Skills) && l.JpIn(l.Class) == r.Training.JpIn(r.Training.Class); });
+            GD.Print($"training: {trained}/{ranch.Creatures.Count} identical after save and load; " + string.Join("; ", ranch.Creatures.Select(r => $"{ranch.Get(r.Id).Species.Name} {r.Training.Class} [{string.Join(",", r.Training.Skills)}]{(r.Training.Innate != null ? " innate " + r.Training.Innate : "")}")));
             GD.Print($"roundtrip: {same}/{ranch.Creatures.Count} creatures identical after save and load; squad {string.Join(",", loaded.Squad)}; next encounter {loaded.Encounter}");
             GetTree().Quit();
             return;

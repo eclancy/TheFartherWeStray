@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using CreatureTactics.Classes;
 using CreatureTactics.Creatures;
 
 namespace CreatureTactics.Tactics;
@@ -8,11 +9,14 @@ namespace CreatureTactics.Tactics;
 public static class Encounter
 {
     /// <summary>The default squad when there is no ranch (--battle runs): four of the DrawPets cast.</summary>
-    static readonly string[] Squad = { "Blaze", "Sprocket", "Tank", "Hoot" };
+    static readonly (string name, string cls)[] Squad = { ("Blaze", "Brawler"), ("Sprocket", "Skirmisher"), ("Tank", "Guardian"), ("Hoot", "Mystic") };
 
-    public static Battle Create(ulong seed, IEnumerable<Creature> squad = null)
+    public static IEnumerable<(Creature, Training)> StarterSquad() =>
+        Squad.Select(s => (Creature.Specimen(DrawPetsCast.All.First(sp => sp.Name == s.name), 0), Training.Starter(s.cls)));
+
+    public static Battle Create(ulong seed, IEnumerable<(Creature, Training)> squad = null)
     {
-        squad ??= Squad.Select(n => Creature.Specimen(DrawPetsCast.All.First(s => s.Name == n), 0));
+        squad ??= StarterSquad();
         var wild = new List<Creature>();
         for (int i = 0; i < 4; i++) wild.Add(Creature.Specimen(SeededRng.Derive(seed, 0xF00D + (ulong)i), 0));
         return new Battle(BattleMap.Foundry(), squad, wild, seed);
@@ -33,6 +37,8 @@ public static class Encounter
         BerryEvent { Placed: true } b => $"  a glowberry at {b.Tile}",
         BerryEvent b => $"  the glowberry at {b.Tile} is taken",
         LogEvent l => $"  {l.Text}",
+        SkillEvent s => $"{s.U.Name} uses {s.Skill.Name}",
+        StatusEvent st => $"  {st.U.Name}: {st.Text}",
         EndEvent end => end.Winner == Side.Player ? "== Victory" : "== Defeat",
         _ => e.ToString(),
     };

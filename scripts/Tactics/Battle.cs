@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CreatureTactics.Classes;
 using CreatureTactics.Creatures;
 using Godot;
 
@@ -19,6 +20,8 @@ public sealed record HealEvent(Unit U, int Amount) : BattleEvent;
 public sealed record BerryEvent(Vector2I Tile, bool Placed) : BattleEvent;
 public sealed record LogEvent(string Text) : BattleEvent;
 public sealed record EndEvent(Side Winner) : BattleEvent;
+public sealed record SkillEvent(Unit U, SkillDef Skill, Vector2I Center, List<Vector2I> Area) : BattleEvent;
+public sealed record StatusEvent(Unit U, string Text) : BattleEvent;
 
 /// <summary>
 /// The rules of one battle, with no drawing: FFTA-style individual turns in speed order, move then
@@ -42,11 +45,11 @@ public sealed class Battle
 
     public IEnumerable<Unit> Alive => Units.Where(u => !u.Gone);
 
-    public Battle(BattleMap map, IEnumerable<Creature> squad, IEnumerable<Creature> wild, ulong seed)
+    public Battle(BattleMap map, IEnumerable<(Creature creature, Training training)> squad, IEnumerable<Creature> wild, ulong seed)
     {
         Map = map;
         _rng = new SeededRng(seed);
-        foreach (var c in squad) Place(Unit.From(c, Side.Player), map.PlayerAnchor);
+        foreach (var (c, t) in squad) Place(Unit.From(c, Side.Player, t), map.PlayerAnchor);
         foreach (var c in wild) Place(Unit.From(c, Side.Wild), map.WildAnchor);
     }
 
@@ -76,7 +79,7 @@ public sealed class Battle
         foreach (var u in SpeedOrder()) yield return u; // the round after
     }
 
-    List<Unit> SpeedOrder() => Alive.OrderByDescending(u => u.Spd).ThenBy(u => u.Side).ThenBy(u => Units.IndexOf(u)).ToList();
+    List<Unit> SpeedOrder() => Alive.OrderByDescending(u => u.SpdNow).ThenBy(u => u.Side).ThenBy(u => Units.IndexOf(u)).ToList();
 
     public Unit NextTurn()
     {
@@ -95,6 +98,21 @@ public sealed class Battle
         next.TurnStart = next.Pos;
         Active = next;
         Events.Add(new TurnEvent(next, next.Side, next.Hp));
+
+        // Start of turn: cooldowns tick, poison bites, a stunned creature loses its turn.
+        foreach (var id in next.Cooldowns.Keys.ToList()) next.Cooldowns[id]--;
+        if (next.PoisonTurns > 0)
+        {
+            next.PoisonTurns--;
+            Log($"{next.Name} suffers from poison.");
+            Hurt(next, next.PoisonDmg, null);
+        }
+        if (next.Gone || next.Stunned)
+        {
+            if (next.Stunned) { next.Stunned = false; Events.Add(new StatusEvent(next, "stunned!")); Log($"{next.Name} is stunned and can't act."); }
+            if (!next.Gone) EndTurn(next);
+            return NextTurn();
+        }
         return next;
     }
 
@@ -186,7 +204,7 @@ public sealed class Battle
                 int step = StepCost(u, cur, nxt);
                 if (step < 0) continue;
                 int c = cost[cur] + step;
-                if (c > u.Move || (cost.TryGetValue(nxt, out int old) && old <= c)) continue;
+                if (c > u.MoveNow || (cost.TryGetValue(nxt, out int old) && old <= c)) continue;
                 cost[nxt] = c;
                 prev[nxt] = cur;
                 open.Add(nxt);
@@ -247,8 +265,8 @@ public sealed class Battle
     {
         int heightDiff = FootHeight(a, a.Pos) - FootHeight(t, t.Pos);
         float mult = heightDiff > 0 ? 1.15f : heightDiff < 0 ? 0.9f : 1f; // high ground hits harder
-        int dmg = Math.Max(1, Mathf.RoundToInt((a.Atk * 1.5f - t.Def * 0.75f) * mult));
-        int hit = 85 + (a.Spd - t.Spd) * 3 + a.HitBonus + (heightDiff > 0 ? 5 : 0);
+        int dmg = Math.Max(1, Mathf.RoundToInt((a.AtkNow * 1.5f - t.DefNow * 0.75f) * mult));
+        int hit = 85 + (a.SpdNow - t.SpdNow) * 3 + a.HitBonus + (heightDiff > 0 ? 5 : 0) - t.Mod(StatKind.Evade);
         if (t.Attitude == Attitude.Skittish) hit -= 15;
         if (t.Creature.Size == SizeClass.Tiny && Map.TerrainAt(t.Pos) == Terrain.Grass) hit -= 10; // hides in the moss
         return (dmg, Math.Clamp(hit, 30, 98));
@@ -298,8 +316,8 @@ public sealed class Battle
     {
         u.Hp -= amount;
         Events.Add(new DamageEvent(u, amount, Miss: false));
-        if (by.Side == Side.Player && u.Side == Side.Wild) u.HitBy.Add(by);
-        u.LastAttacker = by;
+        if (by != null && by.Side == Side.Player && u.Side == Side.Wild) u.HitBy.Add(by);
+        if (by != null) u.LastAttacker = by;
         if (u.Hp <= 0) Defeat(u);
     }
 
@@ -392,6 +410,201 @@ public sealed class Battle
 
     void Log(string text) => Events.Add(new LogEvent(text));
 
+    // ------------------------------------------------------------------ skills
+
+    static int TileGap(Unit u, Vector2I pos, Vector2I tile)
+    {
+        var (dx, dy) = Gap(pos, u.Size, tile, 1);
+        return dx + dy;
+    }
+
+    /// <summary>Tiles a skill can be aimed at from where the unit stands (self-centred skills: its own tile).</summary>
+    public List<Vector2I> SkillTiles(Unit u, SkillDef s)
+    {
+        var tiles = new List<Vector2I>();
+        if (s.Target == TargetKind.Self || s.AroundSelf) { tiles.Add(u.Pos); return tiles; }
+        for (int y = 0; y < Map.H; y++)
+        for (int x = 0; x < Map.W; x++)
+        {
+            var p = new Vector2I(x, y);
+            int d = TileGap(u, u.Pos, p);
+            if (d > s.Range || (s.Target != TargetKind.Ally && d < 1)) continue;
+            var occ = OccupantOf(p);
+            switch (s.Target)
+            {
+                case TargetKind.Enemy when occ != null && occ.Side != u.Side:
+                    if (s.Leap ? LeapSpot(u, occ, s.Range) != null : s.Range > 1 || InRange(u, u.Pos, occ)) tiles.Add(p);
+                    break;
+                case TargetKind.Ally when occ != null && occ.Side == u.Side:
+                    tiles.Add(p);
+                    break;
+                case TargetKind.Area when Map.TerrainAt(p) != Terrain.Pit:
+                    tiles.Add(p);
+                    break;
+            }
+        }
+        return tiles;
+    }
+
+    /// <summary>Where a leaping unit lands: the free spot beside the target nearest to it.</summary>
+    Vector2I? LeapSpot(Unit u, Unit target, int range)
+    {
+        Vector2I? best = null;
+        int bestD = int.MaxValue;
+        for (int y = target.Pos.Y - u.Size; y <= target.Pos.Y + target.Size; y++)
+        for (int x = target.Pos.X - u.Size; x <= target.Pos.X + target.Size; x++)
+        {
+            var p = new Vector2I(x, y);
+            var (dx, dy) = Gap(p, u.Size, target.Pos, target.Size);
+            if (dx + dy != 1 || (p != u.Pos && !CanStand(u, p))) continue;
+            var (mx, my) = Gap(u.Pos, u.Size, p, u.Size);
+            int d = mx + my;
+            if (d > range || d >= bestD) continue;
+            best = p;
+            bestD = d;
+        }
+        return best;
+    }
+
+    /// <summary>The tiles a skill's effect covers, for highlighting.</summary>
+    public List<Vector2I> SkillArea(Unit u, SkillDef s, Vector2I tile)
+    {
+        var area = new List<Vector2I>();
+        if (s.Radius == 0) { area.Add(s.Target == TargetKind.Self ? u.Pos : tile); return area; }
+        for (int y = 0; y < Map.H; y++)
+        for (int x = 0; x < Map.W; x++)
+        {
+            var p = new Vector2I(x, y);
+            int d = s.AroundSelf ? TileGap(u, u.Pos, p) : Math.Abs(p.X - tile.X) + Math.Abs(p.Y - tile.Y);
+            if (d <= s.Radius) area.Add(p);
+        }
+        return area;
+    }
+
+    /// <summary>Who a skill aimed at a tile would affect.</summary>
+    public List<Unit> SkillTargets(Unit u, SkillDef s, Vector2I tile)
+    {
+        bool friendly = s.Target is TargetKind.Ally or TargetKind.Self;
+        if (s.Target == TargetKind.Self) return new List<Unit> { u };
+        if (s.Radius == 0)
+        {
+            var occ = OccupantOf(tile);
+            return occ != null && (occ.Side == u.Side) == friendly ? new List<Unit> { occ } : new List<Unit>();
+        }
+        var area = SkillArea(u, s, tile);
+        return Alive.Where(o => (o.Side == u.Side) == friendly && o.Tiles.Any(area.Contains)).ToList();
+    }
+
+    static bool Rolls(SkillDef s) => s.Power > 0 || s.Poison > 0 || s.StunChance > 0 || s.Root;
+
+    /// <summary>A one-line preview of a skill on a target tile (the notes ask for clear previews).</summary>
+    public string SkillPreview(Unit u, SkillDef s, Vector2I tile)
+    {
+        var targets = SkillTargets(u, s, tile);
+        if (targets.Count == 0) return s.Name + ": nothing there";
+        var parts = new List<string>();
+        foreach (var t in targets.Take(4))
+        {
+            if (t.Side != u.Side && Rolls(s))
+            {
+                var (dmg, hit) = Preview(u, t);
+                string dmgText = s.Power > 0 ? "~" + Math.Max(1, Mathf.RoundToInt(dmg * s.Power)) + " dmg, " : "";
+                parts.Add(t.Name + " " + dmgText + Math.Clamp(hit + s.HitBonus, 5, 99) + "%");
+            }
+            else if (s.Heal > 0) parts.Add(t.Name + " +" + Math.Min(t.MaxHp - t.Hp, Mathf.RoundToInt(t.MaxHp * s.Heal)) + " HP");
+            else parts.Add(t.Name);
+        }
+        string more = targets.Count > 4 ? " and " + (targets.Count - 4) + " more" : "";
+        return s.Name + ": " + string.Join("; ", parts) + more;
+    }
+
+    public void UseSkill(Unit u, SkillDef s, Vector2I tile)
+    {
+        u.Acted = true;
+        u.Cooldowns[s.Id] = s.Cooldown;
+        var primary = s.Radius == 0 && s.Target == TargetKind.Enemy ? OccupantOf(tile) : null;
+        if (s.Leap && primary != null && LeapSpot(u, primary, s.Range) is { } spot && spot != u.Pos)
+        {
+            Events.Add(new MoveEvent(u, new List<Vector2I> { u.Pos, spot }));
+            u.Pos = spot;
+        }
+        Events.Add(new SkillEvent(u, s, s.AroundSelf || s.Target == TargetKind.Self ? u.Pos : tile, SkillArea(u, s, tile)));
+        Log(u.Name + " uses " + s.Name + ".");
+
+        foreach (var t in SkillTargets(u, s, tile))
+        {
+            if (t.Gone) continue;
+            if (t.Side != u.Side)
+            {
+                if (Rolls(s))
+                {
+                    var (dmg, hit) = Preview(u, t);
+                    if (_rng.Int(100) >= Math.Clamp(hit + s.HitBonus, 5, 99))
+                    {
+                        Events.Add(new DamageEvent(t, 0, Miss: true));
+                        continue;
+                    }
+                    if (s.Power > 0)
+                    {
+                        Hurt(t, Math.Max(1, Mathf.RoundToInt(dmg * s.Power * _rng.Range(0.9f, 1.1f))), u);
+                        if (u.Side == Side.Wild && u.Attitude == Attitude.Aggressive) u.Weathered = t.Gone ? 0 : u.Weathered + 1;
+                        if (t.Gone || t.Side == u.Side) continue; // fled, or recruited by the blow
+                    }
+                }
+                if (s.Poison > 0) { t.PoisonDmg = s.Poison; t.PoisonTurns = s.PoisonTurns; Status(t, "poisoned"); }
+                if (s.StunChance > 0 && _rng.Chance(s.StunChance)) { t.Stunned = true; Status(t, "stunned"); }
+                if (s.Root) { t.Rooted = true; Status(t, "rooted"); }
+                if (s.Taunt) { t.TauntedBy = u; Status(t, "taunted"); }
+                foreach (var b in s.Buffs) { t.Buffs.Add(b); Status(t, BuffText(b)); }
+                for (int k = 0; k < s.Knock && !t.Gone; k++) Knock(u, t);
+            }
+            else
+            {
+                if (s.Heal > 0)
+                {
+                    int heal = Math.Min(t.MaxHp - t.Hp, Mathf.RoundToInt(t.MaxHp * s.Heal));
+                    t.Hp += heal;
+                    Events.Add(new HealEvent(t, heal));
+                }
+                foreach (var b in s.Buffs) { t.Buffs.Add(b); Status(t, BuffText(b)); }
+            }
+        }
+        if (s.HitAndRun && u.Moved && !u.Gone)
+        {
+            u.Moved = false; // hit and run: a second move (no undo past this point)
+            u.TurnStart = u.Pos;
+        }
+    }
+
+    static string BuffText((StatKind stat, int amount, int turns) b) =>
+        (b.stat == StatKind.Evade ? "evasion" : b.stat.ToString().ToUpperInvariant()) + (b.amount > 0 ? " +" : " ") + b.amount;
+
+    void Status(Unit u, string text) => Events.Add(new StatusEvent(u, text));
+
+    /// <summary>How much the AI likes a skill aimed at a tile (0 or less: not worth it).</summary>
+    float SkillScore(Unit u, SkillDef s, Vector2I tile)
+    {
+        float score = 0;
+        foreach (var t in SkillTargets(u, s, tile))
+        {
+            if (t.Side != u.Side)
+            {
+                var (dmg, hit) = Preview(u, t);
+                float p = Math.Clamp(hit + s.HitBonus, 5, 99) / 100f;
+                float d = dmg * s.Power;
+                score += p * (d + (d >= t.Hp ? 15 : 0) + s.Poison * s.PoisonTurns * 0.6f + s.StunChance * 10 + (s.Root ? 3 : 0) + s.Buffs.Length * 3);
+                if (s.Taunt) score += u.Hp > u.MaxHp / 2 ? 4 : -4;
+            }
+            else
+            {
+                bool threatened = Alive.Any(o => o.Side != u.Side && Dist(o, o.Pos, t) <= 4);
+                if (s.Heal > 0 && t.Hp < t.MaxHp * 0.6f) score += Math.Min(t.MaxHp - t.Hp, t.MaxHp * s.Heal);
+                if (s.Buffs.Length > 0 && threatened && !t.Buffs.Any(b => s.Buffs.Any(sb => sb.stat == b.stat))) score += 5;
+            }
+        }
+        return score;
+    }
+
     // ------------------------------------------------------------------ items and turn end
 
     /// <summary>Tiles next to the unit where a berry could be set down (the curious recruit lure).</summary>
@@ -420,6 +633,15 @@ public sealed class Battle
 
     public void EndTurn(Unit u)
     {
+        // Effects that last "for N turns" count the creature's own turns.
+        for (int i = u.Buffs.Count - 1; i >= 0; i--)
+        {
+            var b = u.Buffs[i];
+            if (b.turns <= 1) u.Buffs.RemoveAt(i); else u.Buffs[i] = (b.stat, b.amount, b.turns - 1);
+        }
+        u.Rooted = false;
+        u.TauntedBy = null;
+
         if (!u.Gone && u.Attitude == Attitude.Curious)
         {
             // Curious reaction: grabs any item within reach.
@@ -468,12 +690,46 @@ public sealed class Battle
     /// aggressive ones charge, skittish ones keep away, curious ones go for items, loyal ones stay
     /// with the pack, proud ones go after whoever hit them.
     /// </summary>
+    /// <summary>Movement cost from every spot on the map to the nearest spot where the unit could hit a foe.</summary>
+    Dictionary<Vector2I, int> ApproachField(Unit u, List<Unit> foes)
+    {
+        var dist = new Dictionary<Vector2I, int>();
+        var open = new List<Vector2I>();
+        for (int y = 0; y < Map.H; y++)
+        for (int x = 0; x < Map.W; x++)
+        {
+            var p = new Vector2I(x, y);
+            if (CanStand(u, p) && foes.Any(f => InRange(u, p, f))) { dist[p] = 0; open.Add(p); }
+        }
+        var dirs = new[] { Vector2I.Left, Vector2I.Right, Vector2I.Up, Vector2I.Down };
+        while (open.Count > 0)
+        {
+            open.Sort((a, b) => dist[a].CompareTo(dist[b]));
+            var cur = open[0];
+            open.RemoveAt(0);
+            foreach (var d in dirs)
+            {
+                var from = cur + d;
+                if (!u.TilesAt(from).All(Map.InBounds)) continue;
+                int step = StepCost(u, from, cur); // the cost of stepping from there to here
+                if (step < 0) continue;
+                int c = dist[cur] + step;
+                if (dist.TryGetValue(from, out int old) && old <= c) continue;
+                dist[from] = c;
+                open.Add(from);
+            }
+        }
+        return dist;
+    }
+
     public void AiTurn(Unit u)
     {
         var foes = Alive.Where(o => o.Side != u.Side).ToList();
         if (foes.Count == 0) { EndTurn(u); return; }
+        // A taunted creature has eyes only for its taunter.
+        if (u.TauntedBy is { Gone: false } taunter && taunter.Side != u.Side) foes = new List<Unit> { taunter };
         var tiles = Reachable(u).Keys.Append(u.Pos).ToList();
-        var mood = u.Side == Side.Player ? Attitude.Aggressive : u.Attitude;
+        var mood = u.Side == Side.Player || u.TauntedBy != null ? Attitude.Aggressive : u.Attitude;
 
         int Nearest(Vector2I p) => foes.Min(f => Dist(u, p, f));
         Unit BestTarget(Vector2I p)
@@ -482,6 +738,17 @@ public sealed class Battle
             if (inRange.Count == 0) return null;
             if (mood == Attitude.Proud && u.LastAttacker != null && inRange.Contains(u.LastAttacker)) return u.LastAttacker;
             return inRange.OrderBy(f => f.Hp).First();
+        }
+
+        // A skittish creature left without its pack doesn't hang around to be cornered: it bolts.
+        if (u.Side == Side.Wild && mood == Attitude.Skittish && !Alive.Any(o => o != u && o.Side == Side.Wild))
+        {
+            Log($"{u.Name} bolts from the field!");
+            u.Gone = true;
+            Events.Add(new FaintEvent(u));
+            CheckEnd();
+            Active = null;
+            return;
         }
 
         Vector2I dest = u.Pos;
@@ -504,9 +771,14 @@ public sealed class Battle
             default:
                 {
                     var attack = tiles.Where(p => BestTarget(p) != null).ToList();
-                    dest = attack.Count > 0
-                        ? attack.OrderBy(p => BestTarget(p).Hp).ThenByDescending(p => FootHeight(u, p)).First()
-                        : tiles.OrderBy(Nearest).First();
+                    if (attack.Count > 0)
+                        dest = attack.OrderBy(p => BestTarget(p).Hp).ThenByDescending(p => FootHeight(u, p)).First();
+                    else
+                    {
+                        // Head for the foe by walking distance, so cliffs and canals are gone around, not stared at.
+                        var field = ApproachField(u, foes);
+                        dest = tiles.OrderBy(p => field.TryGetValue(p, out int d) ? d : 1000 + Nearest(p)).First();
+                    }
                     break;
                 }
         }
@@ -515,7 +787,27 @@ public sealed class Battle
         // Skittish creatures only fight back when there is nowhere left to go.
         bool fights = mood != Attitude.Skittish || Cornered(u);
         var target = BestTarget(u.Pos);
-        if (fights && target != null) Attack(u, target);
+
+        // Weigh each ready skill against a plain attack. Support skills can be used even by the timid.
+        float basic = 0;
+        if (fights && target != null)
+        {
+            var (dmg, hit) = Preview(u, target);
+            basic = dmg * hit / 100f + (dmg >= target.Hp ? 15 : 0);
+        }
+        (SkillDef skill, Vector2I tile, float score) best = (null, default, basic);
+        foreach (var s in u.Skills.Where(u.Ready))
+        {
+            bool hostile = s.Target is TargetKind.Enemy or TargetKind.Area;
+            if (hostile && !fights) continue;
+            foreach (var t in SkillTiles(u, s))
+            {
+                float score = SkillScore(u, s, t);
+                if (score > best.score + 0.5f) best = (s, t, score);
+            }
+        }
+        if (best.skill != null) UseSkill(u, best.skill, best.tile);
+        else if (fights && target != null) Attack(u, target);
         EndTurn(u);
     }
 }

@@ -122,7 +122,7 @@ public partial class JobsPanel : Control
             _box.AddChild(grid);
         }
         Section("BASE", ClassBook.Classes.Where(k => !k.Advanced), "Open to any body that allows them.");
-        Section("PART & TEMPERAMENT", ClassBook.Classes.Where(k => k.Advanced && k.Requires.Length == 2), "Two base classes mastered, and the body or nature for it.");
+        Section("PART, FORM & TEMPERAMENT", ClassBook.Classes.Where(k => k.Advanced && k.Requires.Length == 2), "Two base classes mastered, and the body, form, aura or nature for it.");
         Section("BLOOD", ClassBook.Classes.Where(k => k.Advanced && k.Requires.Length == 1), "One base class mastered, and the strain.");
 
         // The class being looked at: its emblem, stars, JP and mastery bonus, then each lesson in order.

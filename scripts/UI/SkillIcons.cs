@@ -54,6 +54,14 @@ public static class SkillIcons
         ["snatch"] = "hand", ["scrounge"] = "heal", ["junk_toss"] = "gear",
         ["fade"] = "ghost", ["feint"] = "spd", ["ghost_step"] = "swirl",
         ["challenge"] = "taunt", ["duel_stance"] = "atk", ["finishing_blow"] = "slash",
+        ["hydra_snap"] = "fang", ["regrow"] = "heal", ["chorus_roar"] = "sound",
+        ["turn_to_stone"] = "mountain", ["plunge"] = "dive", ["grotesque_glare"] = "eye",
+        ["constrict"] = "chain", ["hypnotic_sway"] = "swirl", ["serpents_embrace"] = "hook",
+        ["sting"] = "poison", ["pincer_grip"] = "claw", ["neurotoxin"] = "stun",
+        ["lure"] = "hook", ["abyssal_maw"] = "fang", ["glow_flash"] = "sun",
+        ["gaze_beam"] = "bolt", ["petrifying_stare"] = "eye", ["inner_eye"] = "evade",
+        ["benediction"] = "heal", ["radiance"] = "sun", ["sanctuary"] = "def",
+        ["brand"] = "flame", ["sigil_burst"] = "rune", ["warding_circle"] = "def",
     };
 
     /// <summary>Each class's emblem.</summary>
@@ -66,6 +74,8 @@ public static class SkillIcons
         ["Deadeye"] = "hit", ["Chemist"] = "poison", ["Runeweaver"] = "crystal", ["Voidcaller"] = "skull", ["Artificer"] = "storm",
         ["Thornstag"] = "thorns", ["Lionheart"] = "crown", ["Geomancer"] = "spear", ["Bonebreaker"] = "club", ["Swarmlord"] = "bee",
         ["Seer"] = "eye", ["Sunsail"] = "sun", ["Cavalier"] = "move", ["Scavenger"] = "hand", ["Phantom"] = "ghost", ["Champion"] = "star",
+        ["Manyhead"] = "fang", ["Stoneguard"] = "mountain", ["Coilbinder"] = "swirl", ["Venomtail"] = "poison", ["Lurelight"] = "sun",
+        ["Oculus"] = "eye", ["Saint"] = "sparkle", ["Hexmark"] = "rune",
     };
 
     public enum Kind { Attack, Heal, Boost, Control, Move }

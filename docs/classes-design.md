@@ -1,10 +1,13 @@
 # Job trees: every creature its own
 
 _Status: **built** (2026-11-01), still iterating. The user wants many class options, added early.
-It grew past this draft: 9 base classes (Hunter, Howler and Rogue were added), 11 part classes
-(adding Packleader and Deadeye), 4 blood classes, a passive per class, and FFTA multiclassing (main,
-secondary, innate, one equipped passive). The README has the current tables; the code is
-`scripts/Classes/Classes.cs` and `scripts/Ranch/JobsPanel.cs`._
+It grew past this draft: 9 base classes (Hunter, Howler and Rogue were added), 30 part, form, aura
+and temperament classes, 4 blood classes, a support passive and usually a reaction per class,
+mastery stars, and FFTA multiclassing (main, secondary, innate, a support slot and a reaction
+slot). On 2026-11-02 eight classes were tied to forms and auras: Manyhead (hydra), Stoneguard
+(gargoyle), Coilbinder (naga), Venomtail (scorpion), Lurelight (angler), Oculus (watcher), Saint
+(a halo) and Hexmark (a sigil). The code is `scripts/Classes/Classes.cs` and
+`scripts/Ranch/JobsPanel.cs`._
 
 ## The idea
 
@@ -18,6 +21,7 @@ Three layers, each answering one question:
 | **Affinities**: which base classes come easily, which can't be taken | body plan (and hands) | only by breeding a different body plan |
 | **Part classes**: advanced jobs gated by a part or a size | wings, horns, shell, whip tail, claws, swimming, size | breed it in, or graft it at the lab |
 | **Blood classes**: advanced jobs gated by strain | chemtech / arcane / abyssal blood, clockwork grafts | infuse at the lab, or breed the blood in |
+| **Form and aura classes**: advanced jobs gated by the kind of beast it is, or its mystical mark | form (hydra, gargoyle, naga, scorpion, angler, watcher), aura (halo, sigil) | breed it in: a child takes its form from the body plan's parent and its aura from either |
 
 The ranch's training panel shows each creature's whole tree: open, locked with a hint (and how
 to get the missing piece), or never possible for this creature.

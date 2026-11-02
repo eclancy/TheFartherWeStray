@@ -315,6 +315,38 @@ public static class ClassBook
         new() { Id = "challenge", Name = "Challenge", Class = "Champion", Cost = 30, Cooldown = 3, Range = 3, Taunt = true, Buffs = new[] { (StatKind.Def, -3, 2) }, Text = "Range 3: the foe must face you, DEF -3." },
         new() { Id = "duel_stance", Name = "Duel Stance", Class = "Champion", Cost = 30, Cooldown = 4, Target = TargetKind.Self, Range = 0, Buffs = new[] { (StatKind.Atk, 3, 3), (StatKind.Evade, 15, 3) }, Text = "ATK +3 and 15% harder to hit for 3 turns." },
         new() { Id = "finishing_blow", Name = "Finishing Blow", Class = "Champion", Cost = 35, Cooldown = 3, Power = 1f, Execute = 1.2f, Text = "x1.0, or x2.2 against a foe below 40% HP." },
+        // Manyhead (Brawler + Howler, needs the hydra form).
+        new() { Id = "hydra_snap", Name = "Hydra Snap", Class = "Manyhead", Cost = 30, Cooldown = 2, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 1, Power = 0.8f, Poison = 2, PoisonTurns = 2, Text = "Every head bites: each adjacent foe (x0.8) and poison 2 a turn for 2 turns." },
+        new() { Id = "regrow", Name = "Regrow", Class = "Manyhead", Cost = 30, Cooldown = 4, Target = TargetKind.Self, Range = 0, Heal = 0.3f, Cleanse = true, Text = "Grow back what was lost: recover 30% of max HP and cleanse." },
+        new() { Id = "chorus_roar", Name = "Chorus Roar", Class = "Manyhead", Cost = 35, Cooldown = 4, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 2, StunChance = 0.2f, Buffs = new[] { (StatKind.Atk, -2, 2), (StatKind.Def, -2, 2) }, Text = "All its heads roar: foes within 2 get ATK -2 and DEF -2, 20% chance to stun." },
+        // Stoneguard (Guardian + Mystic, needs the gargoyle form).
+        new() { Id = "turn_to_stone", Name = "Turn to Stone", Class = "Stoneguard", Cost = 30, Cooldown = 4, Target = TargetKind.Self, Range = 0, Cleanse = true, Buffs = new[] { (StatKind.Def, 8, 2), (StatKind.Spd, -4, 2) }, Text = "Become stone: cleansed, DEF +8 and SPD -4 for 2 turns." },
+        new() { Id = "plunge", Name = "Plunge", Class = "Stoneguard", Cost = 30, Cooldown = 3, Range = 4, Leap = true, Power = 1.3f, HighGround = 0.6f, Text = "Drop on a foe up to 4 tiles away (x1.3, x1.9 from higher ground)." },
+        new() { Id = "grotesque_glare", Name = "Grotesque Glare", Class = "Stoneguard", Cost = 35, Cooldown = 3, Range = 3, StunChance = 0.45f, Buffs = new[] { (StatKind.Def, -2, 2) }, Text = "Range 3: a 45% chance the foe freezes in fright, and DEF -2." },
+        // Coilbinder (Rogue + Mystic, needs the naga form).
+        new() { Id = "constrict", Name = "Constrict", Class = "Coilbinder", Cost = 30, Cooldown = 3, Power = 0.7f, Root = true, Buffs = new[] { (StatKind.Spd, -3, 2) }, Text = "Coil round a foe (x0.7): rooted, and SPD -3 for 2 turns." },
+        new() { Id = "hypnotic_sway", Name = "Hypnotic Sway", Class = "Coilbinder", Cost = 30, Cooldown = 3, Range = 3, StunChance = 0.55f, HitBonus = 10, Text = "Range 3: a 55% chance the foe loses its next turn, swaying with it." },
+        new() { Id = "serpents_embrace", Name = "Serpent's Embrace", Class = "Coilbinder", Cost = 35, Cooldown = 3, Range = 2, Pull = 1, Power = 0.9f, Drain = 0.4f, Text = "Range 2: pull a foe in (x0.9) and heal for 40% of the damage." },
+        // Venomtail (Alchemist + Hunter, needs the scorpion form).
+        new() { Id = "sting", Name = "Sting", Class = "Venomtail", Cost = 30, Cooldown = 2, Range = 2, Straight = true, Power = 1f, Poison = 5, PoisonTurns = 3, Text = "Strike over the back, range 2 in a line (x1): poison 5 a turn for 3 turns." },
+        new() { Id = "pincer_grip", Name = "Pincer Grip", Class = "Venomtail", Cost = 30, Cooldown = 3, Power = 0.8f, Root = true, Buffs = new[] { (StatKind.Def, -2, 2) }, Text = "Clamp a foe (x0.8): rooted, DEF -2 for 2 turns." },
+        new() { Id = "neurotoxin", Name = "Neurotoxin", Class = "Venomtail", Cost = 35, Cooldown = 3, Range = 2, Power = 0.5f, StunChance = 0.4f, Poison = 3, PoisonTurns = 2, Text = "Range 2 (x0.5): 40% to stun, poison 3 a turn for 2 turns." },
+        // Lurelight (Hunter + Mystic, needs the angler form).
+        new() { Id = "lure", Name = "Lure", Class = "Lurelight", Cost = 30, Cooldown = 3, Range = 4, Pull = 3, Buffs = new[] { (StatKind.Def, -2, 2) }, Text = "Range 4: the light draws a foe 3 tiles closer; DEF -2 for 2 turns." },
+        new() { Id = "abyssal_maw", Name = "Abyssal Maw", Class = "Lurelight", Cost = 30, Cooldown = 3, Power = 1.7f, HitBonus = -5, HealOnKill = 0.3f, Text = "A gulping bite (x1.7); a kill heals 30% of max HP." },
+        new() { Id = "glow_flash", Name = "Glow Flash", Class = "Lurelight", Cost = 35, Cooldown = 4, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 2, StunChance = 0.3f, Buffs = new[] { (StatKind.Evade, -15, 2) }, Text = "A flash in the dark: foes within 2 are 15% easier to hit, 30% to stun." },
+        // Oculus (Mystic + Hunter, needs the watcher form).
+        new() { Id = "gaze_beam", Name = "Gaze Beam", Class = "Oculus", Cost = 30, Cooldown = 2, Range = 5, Straight = true, Power = 1.3f, HitBonus = 20, Text = "A beam from the great eye down a straight line, range 5 (x1.3, +20 hit)." },
+        new() { Id = "petrifying_stare", Name = "Petrifying Stare", Class = "Oculus", Cost = 30, Cooldown = 3, Range = 4, Root = true, StunChance = 0.25f, Buffs = new[] { (StatKind.Spd, -4, 2) }, Text = "Range 4: rooted, SPD -4, and a 25% chance to stun." },
+        new() { Id = "inner_eye", Name = "Inner Eye", Class = "Oculus", Cost = 35, Cooldown = 4, Target = TargetKind.Ally, Range = 3, Buffs = new[] { (StatKind.Evade, 25, 2), (StatKind.Atk, 2, 2) }, Text = "An ally within 3 sees what's coming: 25% harder to hit and ATK +2 for 2 turns." },
+        // Saint (Howler + Mystic, needs a halo).
+        new() { Id = "benediction", Name = "Benediction", Class = "Saint", Cost = 30, Cooldown = 3, Target = TargetKind.Ally, Range = 0, AroundSelf = true, Radius = 2, Heal = 0.2f, Cleanse = true, Text = "You and allies within 2 recover 20% of max HP and are cleansed." },
+        new() { Id = "radiance", Name = "Radiance", Class = "Saint", Cost = 30, Cooldown = 3, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 2, Power = 0.7f, Buffs = new[] { (StatKind.Evade, -10, 2) }, Text = "The halo blazes: foes within 2 (x0.7), 10% easier to hit for 2 turns." },
+        new() { Id = "sanctuary", Name = "Sanctuary", Class = "Saint", Cost = 35, Cooldown = 4, Target = TargetKind.Ally, Range = 3, Buffs = new[] { (StatKind.Def, 5, 2), (StatKind.Thorns, 2, 2) }, Text = "An ally within 3: DEF +5, and melee attackers take 2, for 2 turns." },
+        // Hexmark (Mystic + Tinker, needs a sigil).
+        new() { Id = "brand", Name = "Brand", Class = "Hexmark", Cost = 30, Cooldown = 3, Range = 4, HitBonus = 15, Buffs = new[] { (StatKind.Def, -4, 3), (StatKind.Evade, -15, 3) }, Text = "Range 4: burn the sigil onto a foe: DEF -4 and 15% easier to hit for 3 turns." },
+        new() { Id = "sigil_burst", Name = "Sigil Burst", Class = "Hexmark", Cost = 30, Cooldown = 3, Target = TargetKind.Area, Range = 4, Radius = 1, Power = 0.9f, Text = "The sigil detonates across a cross at range 4 (x0.9)." },
+        new() { Id = "warding_circle", Name = "Warding Circle", Class = "Hexmark", Cost = 35, Cooldown = 4, Target = TargetKind.Ally, Range = 0, AroundSelf = true, Radius = 1, Buffs = new[] { (StatKind.Def, 4, 2), (StatKind.Evade, 15, 2) }, Text = "You and adjacent allies: DEF +4 and 15% harder to hit for 2 turns." },
     };
 
     public static readonly ClassDef[] Classes =
@@ -467,6 +499,56 @@ public static class ClassBook
             Skills = new[] { "hex_cage", "overcharge", "nova" }, Requires = new[] { ("Mystic", 2), ("Tinker", 2) },
         },
 
+        // Form and aura classes: two base classes mastered, and the shape or the mark for it.
+        new()
+        {
+            Id = "Manyhead", Name = "Manyhead", Blurb = "Every head hungry, every head awake.", Atk = 2, Hp = 6,
+            Skills = new[] { "hydra_snap", "regrow", "chorus_roar" }, Requires = new[] { ("Brawler", 2), ("Howler", 2) },
+            NeedsPart = c => Species.FormOf(c.Species) == Form.Hydra, PartHint = "the hydra's form",
+        },
+        new()
+        {
+            Id = "Stoneguard", Name = "Stoneguard", Blurb = "Perched, watching, as still as the stone.", Def = 3, Hp = 4, Spd = -1,
+            Skills = new[] { "turn_to_stone", "plunge", "grotesque_glare" }, Requires = new[] { ("Guardian", 2), ("Mystic", 2) },
+            NeedsPart = c => Species.FormOf(c.Species) == Form.Gargoyle, PartHint = "the gargoyle's form",
+        },
+        new()
+        {
+            Id = "Coilbinder", Name = "Coilbinder", Blurb = "Holds the eye, then holds the body.", Spd = 2, Atk = 1,
+            Skills = new[] { "constrict", "hypnotic_sway", "serpents_embrace" }, Requires = new[] { ("Rogue", 2), ("Mystic", 2) },
+            NeedsPart = c => Species.FormOf(c.Species) == Form.Naga, PartHint = "the naga's form",
+        },
+        new()
+        {
+            Id = "Venomtail", Name = "Venomtail", Blurb = "The tail curls, and waits.", Atk = 2, Spd = 1,
+            Skills = new[] { "sting", "pincer_grip", "neurotoxin" }, Requires = new[] { ("Alchemist", 2), ("Hunter", 2) },
+            NeedsPart = c => Species.FormOf(c.Species) == Form.Scorpion, PartHint = "the scorpion's form",
+        },
+        new()
+        {
+            Id = "Lurelight", Name = "Lurelight", Blurb = "A small light in the dark, and a mouth behind it.", Atk = 2, Hp = 4,
+            Skills = new[] { "lure", "abyssal_maw", "glow_flash" }, Requires = new[] { ("Hunter", 2), ("Mystic", 2) },
+            NeedsPart = c => Species.FormOf(c.Species) == Form.Angler, PartHint = "the angler's form",
+        },
+        new()
+        {
+            Id = "Oculus", Name = "Oculus", Blurb = "One eye, and it misses nothing.", Atk = 2, Spd = 1,
+            Skills = new[] { "gaze_beam", "petrifying_stare", "inner_eye" }, Requires = new[] { ("Mystic", 2), ("Hunter", 2) },
+            NeedsPart = c => Species.FormOf(c.Species) == Form.Watcher, PartHint = "the watcher's form",
+        },
+        new()
+        {
+            Id = "Saint", Name = "Saint", Blurb = "The halo heals what it lights, and burns the rest.", Hp = 4, Def = 1, Atk = 1,
+            Skills = new[] { "benediction", "radiance", "sanctuary" }, Requires = new[] { ("Howler", 2), ("Mystic", 2) },
+            NeedsPart = c => Species.AuraOf(c.Species) == Aura.Halo, PartHint = "a halo",
+        },
+        new()
+        {
+            Id = "Hexmark", Name = "Hexmark", Blurb = "Its sigil brands whatever it looks at.", Atk = 2, Def = 1,
+            Skills = new[] { "brand", "sigil_burst", "warding_circle" }, Requires = new[] { ("Mystic", 2), ("Tinker", 2) },
+            NeedsPart = c => Species.AuraOf(c.Species) == Aura.Sigil, PartHint = "a sigil",
+        },
+
         // Blood classes: one base class mastered, and the strain in its veins.
         new()
         {
@@ -578,6 +660,23 @@ public static class ClassBook
         new() { Id = "magpie", Name = "Magpie", Class = "Scavenger", ChemBonus = 6, Text = "+6 chem after every battle." },
         new() { Id = "blur", Name = "Blur", Class = "Phantom", Kind = PassiveKind.Reaction, React = ReactionKind.Retreat, ReactAmount = 15, Text = "Hit: slip a tile away and become 15% harder to hit." },
         new() { Id = "riposte", Name = "Riposte", Class = "Champion", Kind = PassiveKind.Reaction, React = ReactionKind.Counter, ReactPower = 0.9f, Text = "Hit in melee: strike back (x0.9)." },
+        // Form and aura classes.
+        new() { Id = "spare_heads", Name = "Spare Heads", Class = "Manyhead", HpPct = 0.15f, Regen = 0.03f, Text = "Max HP +15%; heals 3% of max HP each turn." },
+        new() { Id = "another_head", Name = "Another Head", Class = "Manyhead", Kind = PassiveKind.Reaction, React = ReactionKind.Counter, ReactPower = 0.6f, Text = "Hit in melee: another head bites back (x0.6)." },
+        new() { Id = "stone_skin", Name = "Stone Skin", Class = "Stoneguard", Def = 2, NoStun = true, Text = "DEF +2; can't be stunned." },
+        new() { Id = "harden", Name = "Harden", Class = "Stoneguard", Kind = PassiveKind.Reaction, React = ReactionKind.Brace, ReactAmount = 4, Text = "Hit: DEF +4 until its next turn." },
+        new() { Id = "scaled_coils", Name = "Scaled Coils", Class = "Coilbinder", Evade = 10, Unstoppable = true, Text = "10% harder to hit; no knockback, no roots." },
+        new() { Id = "slither", Name = "Slither", Class = "Coilbinder", Kind = PassiveKind.Reaction, React = ReactionKind.Retreat, ReactAmount = 10, Text = "Hit: slither a tile away and become 10% harder to hit." },
+        new() { Id = "venom_proof", Name = "Venom-proof", Class = "Venomtail", NoPoison = true, Atk = 1, Text = "Immune to poison; ATK +1." },
+        new() { Id = "tail_flick", Name = "Tail Flick", Class = "Venomtail", Kind = PassiveKind.Reaction, React = ReactionKind.DirtyRetort, ReactChance = 0.35f, Text = "Hit in melee: 35% chance to stun the attacker with a flick of the sting." },
+        new() { Id = "deep_hunger", Name = "Deep Hunger", Class = "Lurelight", Predator = 0.25f, Text = "25% more damage to foes under half HP." },
+        new() { Id = "into_the_dark", Name = "Into the Dark", Class = "Lurelight", Kind = PassiveKind.Reaction, React = ReactionKind.Dodge, ReactChance = 0.2f, Text = "A hit that would land: 20% chance it finds only darkness." },
+        new() { Id = "farsight", Name = "Farsight", Class = "Oculus", Hit = 10, RangeBonus = 1, Text = "+10 to hit; ranged skills reach 1 further." },
+        new() { Id = "sees_it_coming", Name = "Sees It Coming", Class = "Oculus", Kind = PassiveKind.Reaction, React = ReactionKind.Dodge, ReactChance = 0.3f, Text = "A hit that would land: 30% chance it doesn't." },
+        new() { Id = "blessed", Name = "Blessed", Class = "Saint", Echo = true, Regen = 0.03f, Text = "Boosts it gives last a turn longer; heals 3% of max HP each turn." },
+        new() { Id = "hearten", Name = "Hearten", Class = "Saint", Kind = PassiveKind.Reaction, React = ReactionKind.RallyCry, ReactAmount = 2, Text = "Hit: allies beside it get ATK +2 for a turn." },
+        new() { Id = "sigil_lore", Name = "Sigil Lore", Class = "Hexmark", SkillPower = 0.15f, Text = "Skills deal 15% more damage." },
+        new() { Id = "ward_sigil", Name = "Ward Sigil", Class = "Hexmark", Kind = PassiveKind.Reaction, React = ReactionKind.Brace, ReactAmount = 3, Text = "Hit: DEF +3 until its next turn." },
     };
 
     static readonly Dictionary<string, PassiveDef> _passives = Passives.ToDictionary(p => p.Id);

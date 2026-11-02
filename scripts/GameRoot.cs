@@ -116,7 +116,7 @@ public partial class GameRoot : Node
                 foreach (var e in battle.Events.OfType<Tactics.StatusEvent>()) foreach (var (id, word) in new[] { ("sidestep", "x"), ("spell_ward", "braced"), ("brace", "braced"), ("adrenal_gland", "adrenaline"), ("rallying_cry", "rallied"), ("protector", "protective"), ("premonition", "foreseen") }) if (e.Text.Contains(word) && word != "x") reacted.Add(id);
             }
             GD.Print($"AI sweep: {used.Count}/{Classes.ClassBook.Skills.Length} skills chosen by the AI in 20 battles; stalls: {stalls}");
-            GD.Print($"reactions seen firing: {reacted.Count}/15 ({string.Join(", ", reacted.OrderBy(x => x))})");
+            GD.Print($"reactions seen firing: {reacted.Count}/{Classes.ClassBook.Passives.Count(p => p.Kind == Classes.PassiveKind.Reaction)} ({string.Join(", ", reacted.OrderBy(x => x))})");
 
             // Then every skill fired once by hand, with a foe and an ally placed right beside the user.
             int fired = 0;

@@ -208,6 +208,7 @@ public partial class RanchScreen : Control
             lines.Add($"Secondary {t.Secondary}: {string.Join(", ", t.Skills.Where(s => ClassBook.Skill(s).Class == t.Secondary).Select(s => ClassBook.Skill(s).Name))}");
         if (t.Innate != null) lines.Add($"Innate: {ClassBook.Skill(t.Innate).Name} ({ClassBook.Skill(t.Innate).Text})");
         if (ClassBook.Passive(t.Passive) is { } eq) lines.Add($"Passive: {eq.Name} ({eq.Text})");
+        if (ClassBook.Passive(t.Reaction) is { } rx) lines.Add($"Reaction: {rx.Name} ({rx.Text})");
         var standings = ClassBook.Classes.Select(k => ClassBook.StandingOf(k, c, t)).ToList();
         lines.Add($"Job tree: {standings.Count(s => s == ClassBook.Standing.Open)} open, {standings.Count(s => s == ClassBook.Standing.Locked)} locked, {standings.Count(s => s == ClassBook.Standing.Never)} never.  J opens it.");
         _training.Text = string.Join("\n", lines);

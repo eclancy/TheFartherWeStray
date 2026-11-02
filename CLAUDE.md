@@ -14,6 +14,11 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   dark and scary, balanced by plenty of natural ones. This is the `Strain` system.
 - The current sprite fidelity (medium creature about Gen 3 size, four tones, selective outlines)
   is what the user wants. Don't shrink it.
+- **Chosen look: "Neon Undercity"** (2026-11-01), the default `ArtStyle`. The user compared five
+  styles (`--style=`, V in the Sprite Lab) and picked this one, as is. Keep the other presets for
+  reference, but don't switch the default.
+- **Perspective: FFTA's.** The camera is above and behind; creatures face the four screen diagonals
+  (the four grid directions), with front and back views. See `docs/classes-design.md` for jobs.
 
 ## Status
 
@@ -24,13 +29,14 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   two-vat breeding (one child per pair; parents rest until the next battle), and the
   ranch-battle-ranch loop. Bred species exist only in the save, so `CreatureRecord` stores the
   whole `Species`.
-- Jobs (`scripts/Classes/Classes.cs`, `docs/classes-design.md`): 24 classes (9 base, 11 part, 4
-  blood), each with three skills and a passive. Every creature has its own job tree from its body
+- Jobs (`scripts/Classes/Classes.cs`, `docs/classes-design.md`): 35 classes (9 base, 22 part or
+  temperament, 4 blood), each with three skills and passives (a support, often a reaction too),
+  mastery stars, and support + reaction slots. Every creature has its own job tree from its body
   plan (favoured and barred classes), parts, size, temperament and strain. FFTA multiclassing: main
   class skills, one secondary class's learned skills, an innate skill, one equipped passive.
   Skills and passives are pure data (`SkillDef`, `PassiveDef`) read by `Battle`, so new ones
   should be new entries, not new code. **The user wants many class options: keep adding.**
-  After changing skills, run `--skilltest`: every skill must fire. The AI uses only some of them;
+  After changing skills or reactions, run `--skilltest`: every skill must fire and every reaction be proven. The AI uses only some of them;
   that's AI tuning, not a bug.
 - The lab (`scripts/Ranch/Lab.cs`, `LabPanel.cs`): chem from battles pays for flesh grafts
   (swap a part for one in the codex, the parts met in battle), machine grafts (brass) and

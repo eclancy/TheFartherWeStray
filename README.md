@@ -69,19 +69,19 @@ for its lineage, parts, gear and stats.
 
 ### Jobs: classes, skills and multiclassing
 
-Classes are training disciplines, like FFTA's jobs. There are **24**, and every creature has its
+Classes are training disciplines, like FFTA's jobs. There are **35**, and every creature has its
 own **job tree**, shaped by its body, its parts and its blood. Press **J** at the ranch to see the
 selected creature's tree: every class is marked open, locked (with what it still needs and how to
 get it), or never possible for that body.
 
 **Learning.** Creatures earn JP for their current class in each battle, more if they're still
-standing and more for a win. They learn the class's three skills in order, then its **passive**.
+standing and more for a win. They learn the class's three skills in order, then its **passives**: a support passive, and for every base class and several advanced ones a **reaction**. Training on past everything earns **mastery** (stars: * skills, ** passives, *** mastered): a permanent +1 to the class's strongest stat (or +5 HP), kept whatever the creature trains as next. Mastering many classes, FFTA-style, makes a creature strong.
 
 **Multiclassing (FFTA-style).** In battle a creature can use:
 - its **class's** learned skills,
 - the learned skills of one **secondary** class it has trained in,
 - its **innate** skill (inherited from a parent, or kept from the wild),
-- one equipped **passive**, from any class it has mastered.
+- one equipped **support** passive and one equipped **reaction**, each from any class it has trained.
 
 Its attitude stays as its innate reaction.
 
@@ -126,7 +126,20 @@ leanings) and a few barred ones. **Tinker** needs hands: a biped, or claws.
 | Trickster | Skirmisher + Mystic, tiny size | Blink, Vanish, Hex Prank |
 | Packleader | Howler + Brawler, loyal or aggressive | Rally, Pack Tactics, Alpha Howl |
 | Deadeye | Hunter + Tinker, a lens visor or extra eyes | Headshot, Mark, Ricochet |
+| Thornstag | Guardian + Skirmisher, antlers | Antler Sweep, Crown of Thorns, Rutting Charge |
+| Lionheart | Howler + Guardian, a mane | Roar of Courage, Challenge Roar, Last Stand |
+| Geomancer | Mystic + Guardian, back crystals | Crystal Lance, Prism Ward, Shardstorm |
+| Bonebreaker | Brawler + Rogue, a club tail | Crushing Blow, Tail Sweep, Skull Crack |
+| Swarmlord | Alchemist + Hunter, insect wings | Sting Volley, Drone, Hive Mind |
+| Seer | Mystic + Hunter, compound eyes | Foresight, True Sight, Omen Bolt |
+| Sunsail | Skirmisher + Howler, a back sail | Tailwind, Heat Shimmer, Solar Flare |
+| Cavalier | Skirmisher + Guardian, hooves | Lance Charge, Stampede, Steadfast |
+| Scavenger | Rogue + Hunter, curious | Snatch, Scrounge, Junk Toss |
+| Phantom | Skirmisher + Rogue, skittish | Fade, Feint, Ghost Step |
+| Champion | Brawler + Howler, proud | Challenge, Duel Stance, Finishing Blow |
 | Hexwarden | Mystic + Tinker | Hex Cage, Overcharge, Nova |
+
+**Reactions** (FFTA's R-abilities) fire when the creature is attacked: Counter (Brawler), Sidestep (Skirmisher), Bodyguard (Guardian), Spell Ward (Mystic), Adrenal Gland (Alchemist), Shock Plating (Tinker), Return Fire (Hunter), Rallying Cry (Howler), Dirty Retort (Rogue), Protector (Lionheart), Shard Burst (Geomancer), Premonition (Seer), Brace (Cavalier), Blur (Phantom), Riposte (Champion).
 
 **Blood classes** (master one base class, and carry the strain):
 
@@ -236,7 +249,7 @@ gear, strain and attitude.
 
 - `--autobattle=N` plays encounter N AI against AI and prints the log.
 - `--autoboard=N` plays every mission on boards 1-N AI against AI, one line each (catches stalls).
-- `--skilltest` fires every skill once by hand and lets the AI use all of them for 20 battles.
+- `--skilltest` fires every skill once by hand, proves every reaction directly, and lets the AI use all skills for 20 battles.
 - `--ranchtest` runs fights, recruiting and breeding headless, then checks the save file round trip.
 - `--breeding=N` writes `.shots/breeding.png`: pairs of parents and four possible children each.
 - `--autoplay` loops ranch and battle on its own (an attract mode).

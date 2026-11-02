@@ -294,7 +294,7 @@ public sealed class Battle
 
     public void Attack(Unit a, Unit t) => Attack(a, t, counter: false);
 
-    void Attack(Unit a, Unit t, bool counter)
+    void Attack(Unit a, Unit t, bool counter, float power = 1f)
     {
         if (!counter) a.Acted = true;
         Events.Add(new StrikeEvent(a, t));
@@ -305,6 +305,9 @@ public sealed class Battle
         {
             var guard = Alive.FirstOrDefault(g => g != t && g.Side == t.Side && g.Attitude == Attitude.Loyal
                 && !g.GuardUsed && Dist(g, g.Pos, t) == 1);
+            // The Bodyguard reaction does the same, by chance.
+            guard ??= Alive.FirstOrDefault(g => g != t && g.Side == t.Side && g.Reaction is { React: ReactionKind.Guard } r
+                && Dist(g, g.Pos, t) == 1 && _rng.Chance(r.ReactChance));
             if (guard != null)
             {
                 guard.GuardUsed = true;
@@ -320,7 +323,12 @@ public sealed class Battle
             AfterHit(a, target, survived: true, counter);
             return;
         }
-        int dealt = Math.Max(1, Mathf.RoundToInt(dmg * _rng.Range(0.9f, 1.1f)));
+        if (Dodges(target))
+        {
+            Events.Add(new DamageEvent(target, 0, Miss: true));
+            return;
+        }
+        int dealt = Math.Max(1, Mathf.RoundToInt(dmg * power * _rng.Range(0.9f, 1.1f)));
         Hurt(target, dealt, a);
         if (a.Passive is { Drain: > 0 } thirst && !a.Gone) HealUnit(a, Mathf.RoundToInt(dealt * thirst.Drain));
 
@@ -340,6 +348,20 @@ public sealed class Battle
         if (by != null && by.Side == Side.Player && u.Side == Side.Wild) u.HitBy.Add(by);
         if (by != null) u.LastAttacker = by;
         if (u.Hp <= 0) Defeat(u);
+        else if (u.Reaction is { React: ReactionKind.Adrenaline } adr && !u.AdrenalineUsed && u.Hp * 2 < u.MaxHp)
+        {
+            u.AdrenalineUsed = true;
+            Status(u, "adrenaline!");
+            HealUnit(u, Mathf.RoundToInt(u.MaxHp * adr.ReactPower));
+        }
+    }
+
+    /// <summary>The Premonition reaction: a hit that would land might not.</summary>
+    bool Dodges(Unit t)
+    {
+        if (t.Reaction is not { React: ReactionKind.Dodge } r || !_rng.Chance(r.ReactChance)) return false;
+        Status(t, "foreseen!");
+        return true;
     }
 
     void Knock(Unit a, Unit t)
@@ -367,14 +389,73 @@ public sealed class Battle
             a.Weathered = target.Gone ? 0 : a.Weathered + 1;
 
         if (!survived || counter || a.Gone) return;
+        bool countered = false;
         switch (target.Attitude)
         {
             case Attitude.Aggressive when InRange(target, target.Pos, a):
                 Log($"{target.Name} counterattacks!");
                 Attack(target, a, counter: true);
+                countered = true;
                 break;
             case Attitude.Skittish:
                 Retreat(target, a);
+                break;
+        }
+        React(a, target, Dist(a, a.Pos, target) == 1, countered);
+    }
+
+    /// <summary>
+    /// The equipped reaction of a creature that was just hit (FFTA's R-abilities), and the Protector
+    /// reaction of any ally beside it. Attitude reactions come first; a creature never counters twice.
+    /// </summary>
+    void React(Unit a, Unit t, bool melee, bool countered = false)
+    {
+        if (t.Gone || a.Gone || t.Side == a.Side) return;
+        foreach (var p in Alive.Where(p => p != t && p.Side == t.Side && Dist(p, p.Pos, t) == 1 && p.Reaction is { React: ReactionKind.Protector }).ToList())
+        {
+            p.Buffs.Add((StatKind.Atk, p.Reaction.ReactAmount, 2));
+            Status(p, $"protective! ATK +{p.Reaction.ReactAmount}");
+        }
+        var r = t.Reaction;
+        if (r == null) return;
+        switch (r.React)
+        {
+            case ReactionKind.Counter when melee && !countered && InRange(t, t.Pos, a):
+                Log($"{t.Name}: {r.Name}!");
+                Attack(t, a, counter: true, r.ReactPower);
+                break;
+            case ReactionKind.ReturnFire when !melee && Dist(t, t.Pos, a) <= 4:
+                Log($"{t.Name}: {r.Name}!");
+                Attack(t, a, counter: true, r.ReactPower);
+                break;
+            case ReactionKind.Retreat:
+                Retreat(t, a);
+                if (r.ReactAmount > 0) t.Buffs.Add((StatKind.Evade, r.ReactAmount, 1));
+                break;
+            case ReactionKind.Brace:
+                t.Buffs.Add((StatKind.Def, r.ReactAmount, 1));
+                Status(t, $"braced, DEF +{r.ReactAmount}");
+                break;
+            case ReactionKind.Burst when melee:
+                Log($"{t.Name}: {r.Name}!");
+                foreach (var e in Alive.Where(e => e.Side != t.Side && Dist(e, e.Pos, t) == 1).ToList()) Hurt(e, r.ReactAmount, t);
+                break;
+            case ReactionKind.Shock when melee:
+                Log($"{t.Name}: {r.Name}!");
+                Hurt(a, r.ReactAmount, t);
+                if (!a.Gone && _rng.Chance(r.ReactChance)) { a.Stunned = true; Status(a, "stunned"); }
+                break;
+            case ReactionKind.RallyCry:
+                foreach (var p in Alive.Where(p => p != t && p.Side == t.Side && Dist(p, p.Pos, t) == 1).ToList())
+                {
+                    p.Buffs.Add((StatKind.Atk, r.ReactAmount, 1));
+                    Status(p, $"rallied, ATK +{r.ReactAmount}");
+                }
+                break;
+            case ReactionKind.DirtyRetort when melee && _rng.Chance(r.ReactChance):
+                Log($"{t.Name}: {r.Name}!");
+                a.Stunned = true;
+                Status(a, "stunned");
                 break;
         }
     }
@@ -541,6 +622,8 @@ public sealed class Battle
         float p = s.Power;
         if (s.HighGround > 0 && FootHeight(u, u.Pos) > FootHeight(t, t.Pos)) p += s.HighGround;
         if (s.Flank > 0 && Alive.Any(o => o != u && o.Side == u.Side && Dist(o, o.Pos, t) == 1)) p += s.Flank;
+        if (s.Desperate > 0 && u.Hp * 2 < u.MaxHp) p += s.Desperate;
+        if (s.Execute > 0 && t.Hp * 10 < t.MaxHp * 4) p += s.Execute;
         return p * (1 + (u.Passive?.SkillPower ?? 0));
     }
 
@@ -658,6 +741,11 @@ public sealed class Battle
                         Events.Add(new DamageEvent(t, 0, Miss: true));
                         continue;
                     }
+                    if (s.Power > 0 && Dodges(t))
+                    {
+                        Events.Add(new DamageEvent(t, 0, Miss: true));
+                        continue;
+                    }
                     if (s.Power > 0)
                     {
                         int dealt = Math.Max(1, Mathf.RoundToInt(dmg * PowerOn(u, s, t) * _rng.Range(0.9f, 1.1f)));
@@ -686,6 +774,7 @@ public sealed class Battle
                 foreach (var b in s.Buffs) Apply(u, t, b);
                 if (s.Pull > 0) Pull(u, t, s.Pull);
                 for (int k = 0; k < s.Knock && !t.Gone; k++) Knock(u, t);
+                if (s.Power > 0) React(u, t, Dist(u, u.Pos, t) == 1);
             }
             else
             {

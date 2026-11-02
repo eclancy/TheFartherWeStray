@@ -90,11 +90,16 @@ public partial class GameRoot : Node
         {
             // Every skill in play: your side gets all of them and the AI fights 20 battles.
             var used = new HashSet<string>();
+            var reacted = new HashSet<string>();
             int stalls = 0;
             for (ulong seed = 1; seed <= 20; seed++)
             {
                 var battle = Tactics.Encounter.Create(seed, null, Tactics.BattleMap.Names[(int)(seed % 5)]);
                 foreach (var u in battle.Units.Where(u => u.Side == Tactics.Side.Player)) u.Skills = Classes.ClassBook.Skills.ToList();
+                // Each player creature also wears a reaction, cycling through all of them across the battles.
+                var reactions = Classes.ClassBook.Passives.Where(p => p.Kind == Classes.PassiveKind.Reaction).ToList();
+                int ri = (int)seed * 3;
+                foreach (var u in battle.Units.Where(u => u.Side == Tactics.Side.Player)) u.Training.Reaction = reactions[ri++ % reactions.Count].Id;
                 // Teleports aren't AI material, so try one by hand.
                 var first = battle.Units[0];
                 var blink = Classes.ClassBook.Skill("blink");
@@ -103,8 +108,11 @@ public partial class GameRoot : Node
                 while (battle.Winner == null && battle.Round <= 30) { var u = battle.NextTurn(); if (u == null) break; battle.AiTurn(u); }
                 if (battle.Winner == null) stalls++;
                 foreach (var e in battle.Events.OfType<Tactics.SkillEvent>()) used.Add(e.Skill.Id);
+                foreach (var e in battle.Events.OfType<Tactics.LogEvent>()) foreach (var r in reactions) if (e.Text.Contains(r.Name)) reacted.Add(r.Id);
+                foreach (var e in battle.Events.OfType<Tactics.StatusEvent>()) foreach (var (id, word) in new[] { ("sidestep", "x"), ("spell_ward", "braced"), ("brace", "braced"), ("adrenal_gland", "adrenaline"), ("rallying_cry", "rallied"), ("protector", "protective"), ("premonition", "foreseen") }) if (e.Text.Contains(word) && word != "x") reacted.Add(id);
             }
             GD.Print($"AI sweep: {used.Count}/{Classes.ClassBook.Skills.Length} skills chosen by the AI in 20 battles; stalls: {stalls}");
+            GD.Print($"reactions seen firing: {reacted.Count}/15 ({string.Join(", ", reacted.OrderBy(x => x))})");
 
             // Then every skill fired once by hand, with a foe and an ally placed right beside the user.
             int fired = 0;
@@ -134,6 +142,65 @@ public partial class GameRoot : Node
                 catch (Exception e) { failed.Add($"{sk.Id} ({e.GetType().Name}: {e.Message})"); }
             }
             GD.Print($"direct: {fired}/{Classes.ClassBook.Skills.Length} skills fired without error; problems: {(failed.Count == 0 ? "none" : string.Join("; ", failed))}");
+
+            // Every reaction, directly: a defender wearing it is attacked up to 30 times until its effect shows.
+            var proven = new List<string>();
+            var unproven = new List<string>();
+            foreach (var rx in Classes.ClassBook.Passives.Where(p => p.Kind == Classes.PassiveKind.Reaction))
+            {
+                var battle = Tactics.Encounter.Create(3);
+                var players = battle.Units.Where(u => u.Side == Tactics.Side.Player && u.Size == 1 && u.Attitude == Attitude.Curious).ToList();
+                var defender = players[0];
+                var friend = players.Count > 1 ? players[1] : battle.Units.First(u => u.Side == Tactics.Side.Player && u != defender && u.Size == 1);
+                var attacker = battle.Units.First(u => u.Side == Tactics.Side.Wild && u.Size == 1);
+                bool ranged = rx.React == Classes.ReactionKind.ReturnFire;
+                // Open, level ground: the defender, a friend beside it, the attacker beside it (or 3 away for Return Fire).
+                var dirs = new[] { Godot.Vector2I.Left, Godot.Vector2I.Right, Godot.Vector2I.Up, Godot.Vector2I.Down };
+                for (int y = 0; y < battle.Map.H; y++)
+                for (int x = 0; x < battle.Map.W; x++)
+                {
+                    var p = new Godot.Vector2I(x, y);
+                    if (!battle.CanStand(defender, p)) continue;
+                    var near = dirs.Select(d => p + d).Where(q => battle.Map.InBounds(q) && battle.CanStand(attacker, q) && battle.Map.HeightAt(q) == battle.Map.HeightAt(p)).ToList();
+                    var far = p + Godot.Vector2I.Right * 3;
+                    if (near.Count < 2 || (ranged && (!battle.Map.InBounds(far) || !battle.CanStand(attacker, far)))) continue;
+                    // Leave room to step back, straight away from the attacker.
+                    var back = p - (near[0] - p);
+                    if (!battle.Map.InBounds(back) || !battle.CanStand(defender, back) || battle.Map.HeightAt(back) != battle.Map.HeightAt(p)) continue;
+                    defender.Pos = p; friend.Pos = near[1]; attacker.Pos = ranged ? far : near[0];
+                    y = battle.Map.H; break;
+                }
+                var wearer = rx.React is Classes.ReactionKind.Protector or Classes.ReactionKind.Guard ? friend : defender;
+                wearer.Training.Reaction = rx.Id;
+                defender.Def = 40; // survive every blow
+                bool seen = false;
+                for (int k = 0; k < 30 && !seen; k++)
+                {
+                    battle.Events.Clear();
+                    defender.Hp = rx.React == Classes.ReactionKind.Adrenaline ? (defender.MaxHp + 1) / 2 : defender.MaxHp;
+                    defender.AdrenalineUsed = false;
+                    defender.Buffs.Clear(); friend.Buffs.Clear(); attacker.Stunned = false; attacker.Hp = attacker.MaxHp;
+                    var start = defender.Pos;
+                    if (ranged) { attacker.Cooldowns.Clear(); battle.UseSkill(attacker, Classes.ClassBook.Skill("hex_bolt"), defender.Pos); }
+                    else battle.Attack(attacker, defender);
+                    seen = rx.React switch
+                    {
+                        Classes.ReactionKind.Counter or Classes.ReactionKind.ReturnFire => battle.Events.OfType<Tactics.StrikeEvent>().Any(e => e.A == defender),
+                        Classes.ReactionKind.Retreat => defender.Pos != start,
+                        Classes.ReactionKind.Brace => defender.Buffs.Any(b => b.stat == Classes.StatKind.Def),
+                        Classes.ReactionKind.Protector or Classes.ReactionKind.RallyCry => friend.Buffs.Any(b => b.stat == Classes.StatKind.Atk),
+                        Classes.ReactionKind.Burst or Classes.ReactionKind.Shock => battle.Events.OfType<Tactics.DamageEvent>().Any(e => e.U == attacker && !e.Miss),
+                        Classes.ReactionKind.Dodge => battle.Events.OfType<Tactics.StatusEvent>().Any(e => e.Text.Contains("foreseen")),
+                        Classes.ReactionKind.Guard => battle.Events.OfType<Tactics.LogEvent>().Any(e => e.Text.Contains("shields")),
+                        Classes.ReactionKind.Adrenaline => battle.Events.OfType<Tactics.StatusEvent>().Any(e => e.Text.Contains("adrenaline")),
+                        Classes.ReactionKind.DirtyRetort => attacker.Stunned,
+                        _ => false,
+                    };
+                    if (defender.Pos != start && rx.React != Classes.ReactionKind.Retreat) defender.Pos = start;
+                }
+                (seen ? proven : unproven).Add(rx.Id);
+            }
+            GD.Print($"reactions proven directly: {proven.Count}/{proven.Count + unproven.Count}; not seen: {(unproven.Count == 0 ? "none" : string.Join(", ", unproven))}");
             GetTree().Quit();
             return;
         }
@@ -193,7 +260,7 @@ public partial class GameRoot : Node
                 if (before.AsSpan().SequenceEqual(after)) same++;
                 else GD.Print($"  MISMATCH after load: {ranch.Get(rec.Id).Species.Name}");
             }
-            int trained = ranch.Creatures.Count(r => { var l = loaded.Record(r.Id).Training; return l.Class == r.Training.Class && l.Secondary == r.Training.Secondary && l.Passive == r.Training.Passive && l.Passives.SequenceEqual(r.Training.Passives) && l.Innate == r.Training.Innate && l.Skills.SequenceEqual(r.Training.Skills) && l.JpIn(l.Class) == r.Training.JpIn(r.Training.Class); });
+            int trained = ranch.Creatures.Count(r => { var l = loaded.Record(r.Id).Training; return l.Class == r.Training.Class && l.Secondary == r.Training.Secondary && l.Passive == r.Training.Passive && l.Reaction == r.Training.Reaction && l.Masteries.SequenceEqual(r.Training.Masteries) && l.Passives.SequenceEqual(r.Training.Passives) && l.Innate == r.Training.Innate && l.Skills.SequenceEqual(r.Training.Skills) && l.JpIn(l.Class) == r.Training.JpIn(r.Training.Class); });
             GD.Print($"training: {trained}/{ranch.Creatures.Count} identical after save and load; " + string.Join("; ", ranch.Creatures.Select(r => $"{ranch.Get(r.Id).Species.Name} {r.Training.Class} [{string.Join(",", r.Training.Skills)}]{(r.Training.Innate != null ? " innate " + r.Training.Innate : "")}")));
             GD.Print($"roundtrip: {same}/{ranch.Creatures.Count} creatures identical after save and load; squad {string.Join(",", loaded.Squad)}; next encounter {loaded.Encounter}");
             GetTree().Quit();

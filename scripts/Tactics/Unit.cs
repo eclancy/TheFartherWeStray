@@ -44,6 +44,8 @@ public sealed class Unit
     public bool Stunned, Rooted;
     public Unit TauntedBy;
     public PassiveDef Passive => ClassBook.Passive(Training?.Passive);
+    public PassiveDef Reaction => ClassBook.Passive(Training?.Reaction);
+    public bool AdrenalineUsed;
 
     public int Mod(StatKind s) => Buffs.Where(b => b.stat == s).Sum(b => b.amount) + (s == StatKind.Evade ? Passive?.Evade ?? 0 : 0);
     public int AtkNow => System.Math.Max(1, Atk + Mod(StatKind.Atk));
@@ -112,6 +114,12 @@ public sealed class Unit
             if (ClassBook.Passive(training.Passive) is { } p)
             {
                 atk += p.Atk; def += p.Def; spd += p.Spd; move += p.Move; hit += p.Hit; hp *= 1 + p.HpPct;
+            }
+            // Mastered classes keep paying out, whatever the creature trains as now.
+            foreach (var m in training.Masteries)
+            {
+                var (ma, md, ms, mh) = ClassBook.MasteryBonus(m);
+                atk += ma; def += md; spd += ms; hp += mh;
             }
         }
         var g = sp.Grafts;

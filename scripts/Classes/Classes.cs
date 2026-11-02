@@ -40,6 +40,8 @@ public sealed class SkillDef
     public int CooldownCut;          // the target's skills cool down this much sooner
     public bool RandomBuff;          // a random strong boost
     public float HealOnKill;         // share of max HP regained if the hit kills
+    public float Desperate;          // extra damage multiplier while the user is below half HP
+    public float Execute;            // extra damage multiplier against a foe below 40% HP
 }
 
 
@@ -47,10 +49,19 @@ public sealed class SkillDef
 /// A passive (FFTA's support abilities): learned as the last lesson of a class, then equipped in
 /// the passive slot, from any class the creature has trained in. Stat bonuses and rule changes.
 /// </summary>
+public enum PassiveKind { Support, Reaction }
+
+/// <summary>What a reaction does when its creature is hit (FFTA's R-abilities).</summary>
+public enum ReactionKind { None, Counter, ReturnFire, Retreat, Brace, Protector, Burst, Dodge, Guard, Adrenaline, Shock, RallyCry, DirtyRetort }
+
 public sealed class PassiveDef
 {
     public string Id, Name, Class, Text;
     public int Cost = 30;
+    public PassiveKind Kind = PassiveKind.Support;
+    public ReactionKind React;
+    public float ReactPower, ReactChance;
+    public int ReactAmount;
     public int Atk, Def, Spd, Move, Evade, Hit, Thorns;
     public float HpPct;              // extra max HP, as a share
     public bool NoPoison, NoStun;    // immunities
@@ -90,7 +101,9 @@ public sealed class Training
     public List<string> Skills = new();
     public string Innate;  // a skill inherited from a parent, usable in any class
     public List<string> Passives = new(); // passives learned (one per class mastered)
-    public string Passive; // the one equipped (FFTA's support slot), from any class trained
+    public List<string> Masteries = new(); // classes trained to three stars
+    public string Passive;  // the support passive equipped, from any class trained
+    public string Reaction; // the reaction equipped (FFTA's R-ability slot)
 
     public int JpIn(string cls) => Jp.TryGetValue(cls, out int v) ? v : 0;
     public int LearnedIn(string cls) => Skills.Count(id => ClassBook.Skill(id).Class == cls);
@@ -117,15 +130,31 @@ public sealed class Training
             Skills.Add(id);
             learned.Add(s.Name);
         }
-        // The last lesson of a class is its passive. The first passive learned is equipped for you.
-        var passive = ClassBook.PassiveOf(Class);
-        if (JpIn(Class) >= spent + passive.Cost && !Passives.Contains(passive.Id))
+        // The last lessons of a class are its passives. The first of each kind learned is equipped for you.
+        foreach (var passive in ClassBook.PassivesOf(Class))
         {
+            spent += passive.Cost;
+            if (JpIn(Class) < spent || Passives.Contains(passive.Id)) continue;
             Passives.Add(passive.Id);
-            Passive ??= passive.Id;
-            learned.Add(passive.Name + " (passive)");
+            if (passive.Kind == PassiveKind.Support) Passive ??= passive.Id; else Reaction ??= passive.Id;
+            learned.Add(passive.Name + (passive.Kind == PassiveKind.Reaction ? " (reaction)" : " (passive)"));
+        }
+        // Training on past everything masters the class: a permanent bonus in any class.
+        if (Stars(Class) == 3 && !Masteries.Contains(Class))
+        {
+            Masteries.Add(Class);
+            learned.Add($"MASTERY of {Class}: {ClassBook.MasteryText(Class)}, for good");
         }
         return learned;
+    }
+
+    /// <summary>Mastery stars: 1 for all three skills, 2 for its passives too, 3 for training on past them.</summary>
+    public int Stars(string cls)
+    {
+        var k = ClassBook.Class(cls);
+        if (k.Skills.Any(s => !Skills.Contains(s))) return 0;
+        if (ClassBook.PassivesOf(cls).Any(p => !Passives.Contains(p.Id))) return 1;
+        return JpIn(cls) >= ClassBook.TotalCost(cls) + ClassBook.MasteryExtra ? 3 : 2;
     }
 
     /// <summary>A starter: in the given class, with its first skill already learned.</summary>
@@ -136,7 +165,7 @@ public sealed class Training
         return t;
     }
 
-    public Training Copy() => new() { Class = Class, Secondary = Secondary, Jp = new(Jp), Skills = new(Skills), Innate = Innate, Passives = new(Passives), Passive = Passive };
+    public Training Copy() => new() { Class = Class, Secondary = Secondary, Jp = new(Jp), Skills = new(Skills), Innate = Innate, Passives = new(Passives), Passive = Passive, Reaction = Reaction, Masteries = new(Masteries) };
 }
 
 /// <summary>Every class and skill. The notes' MVP: six base classes and three unlockable ones, two of which need a part.</summary>
@@ -242,6 +271,50 @@ public static class ClassBook
         new() { Id = "spark_coil", Name = "Spark Coil", Class = "Artificer", Cost = 30, Cooldown = 3, Target = TargetKind.Area, Range = 4, Radius = 1, Power = 0.6f, StunChance = 0.3f, Text = "A coil discharges across a cross at range 4 (x0.6), 30% to stun." },
         new() { Id = "repair", Name = "Repair", Class = "Artificer", Cost = 30, Cooldown = 2, Target = TargetKind.Ally, Range = 2, Heal = 0.45f, Cleanse = true, Text = "An ally within 2: recovers 45% of max HP and is cleansed." },
         new() { Id = "overdrive", Name = "Overdrive", Class = "Artificer", Cost = 35, Cooldown = 4, Target = TargetKind.Ally, Range = 2, Buffs = new[] { (StatKind.Atk, 5, 2), (StatKind.Spd, 5, 2) }, Text = "An ally within 2: ATK +5 and SPD +5 for 2 turns." },
+        // Thornstag (Guardian + Skirmisher, needs antlers).
+        new() { Id = "antler_sweep", Name = "Antler Sweep", Class = "Thornstag", Cost = 30, Cooldown = 3, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 1, Power = 0.9f, Knock = 1, Text = "Rake every adjacent foe (x0.9) and throw them back." },
+        new() { Id = "crown_of_thorns", Name = "Crown of Thorns", Class = "Thornstag", Cost = 30, Cooldown = 4, Target = TargetKind.Self, Range = 0, Buffs = new[] { (StatKind.Thorns, 5, 3), (StatKind.Def, 2, 3) }, Text = "Melee attackers take 5; DEF +2 for 3 turns." },
+        new() { Id = "rutting_charge", Name = "Rutting Charge", Class = "Thornstag", Cost = 35, Cooldown = 3, Range = 4, Leap = true, Power = 1.3f, StunChance = 0.3f, Text = "Charge a foe up to 4 tiles away (x1.3), 30% to stun." },
+        // Lionheart (Howler + Guardian, needs a mane).
+        new() { Id = "roar_of_courage", Name = "Roar of Courage", Class = "Lionheart", Cost = 30, Cooldown = 4, Target = TargetKind.Ally, Range = 0, AroundSelf = true, Radius = 2, Cleanse = true, Buffs = new[] { (StatKind.Atk, 2, 3) }, Text = "You and allies within 2: cleansed, ATK +2 for 3 turns." },
+        new() { Id = "challenge_roar", Name = "Challenge Roar", Class = "Lionheart", Cost = 30, Cooldown = 3, Range = 3, Taunt = true, Buffs = new[] { (StatKind.Atk, -2, 2) }, Text = "Range 3: the foe must come for you, ATK -2." },
+        new() { Id = "last_stand", Name = "Last Stand", Class = "Lionheart", Cost = 35, Cooldown = 3, Power = 1.1f, Desperate = 0.9f, Text = "x1.1, or x2.0 when you're below half HP." },
+        // Geomancer (Mystic + Guardian, needs back crystals).
+        new() { Id = "crystal_lance", Name = "Crystal Lance", Class = "Geomancer", Cost = 30, Cooldown = 2, Range = 4, Straight = true, Power = 1.3f, Text = "A spear of crystal down a straight line, range 4 (x1.3)." },
+        new() { Id = "prism_ward", Name = "Prism Ward", Class = "Geomancer", Cost = 30, Cooldown = 3, Target = TargetKind.Ally, Range = 3, Buffs = new[] { (StatKind.Def, 3, 3), (StatKind.Thorns, 3, 3) }, Text = "An ally within 3: DEF +3, and melee attackers take 3." },
+        new() { Id = "shardstorm", Name = "Shardstorm", Class = "Geomancer", Cost = 35, Cooldown = 4, Target = TargetKind.Area, Range = 4, Radius = 2, Power = 0.6f, Text = "Crystal shards over everything within 2 of a tile at range 4 (x0.6)." },
+        // Bonebreaker (Brawler + Rogue, needs a club tail).
+        new() { Id = "crushing_blow", Name = "Crushing Blow", Class = "Bonebreaker", Cost = 30, Cooldown = 2, Power = 1.3f, Buffs = new[] { (StatKind.Def, -3, 3) }, Text = "x1.3, and DEF -3 for 3 turns." },
+        new() { Id = "tail_sweep", Name = "Tail Sweep", Class = "Bonebreaker", Cost = 30, Cooldown = 3, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 1, Power = 0.7f, Knock = 1, Text = "Every adjacent foe (x0.7), knocked back." },
+        new() { Id = "skull_crack", Name = "Skull Crack", Class = "Bonebreaker", Cost = 35, Cooldown = 3, Power = 1f, StunChance = 0.5f, Text = "x1.0 with a 50% chance to stun." },
+        // Swarmlord (Alchemist + Hunter, needs insect wings).
+        new() { Id = "sting_volley", Name = "Sting Volley", Class = "Swarmlord", Cost = 30, Cooldown = 3, Target = TargetKind.Area, Range = 4, Radius = 1, Power = 0.4f, Poison = 3, PoisonTurns = 3, Text = "Stingers across a cross at range 4 (x0.4): poison 3 a turn." },
+        new() { Id = "drone", Name = "Drone", Class = "Swarmlord", Cost = 30, Cooldown = 3, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 2, Buffs = new[] { (StatKind.Spd, -3, 2), (StatKind.Evade, -10, 2) }, Text = "A maddening buzz: foes within 2 lose SPD 3 and are easier to hit." },
+        new() { Id = "hive_mind", Name = "Hive Mind", Class = "Swarmlord", Cost = 35, Cooldown = 4, Target = TargetKind.Ally, Range = 0, AroundSelf = true, Radius = 2, Buffs = new[] { (StatKind.Spd, 3, 2), (StatKind.Evade, 10, 2) }, Text = "You and allies within 2: SPD +3 and harder to hit for 2 turns." },
+        // Seer (Mystic + Hunter, needs compound eyes).
+        new() { Id = "foresight", Name = "Foresight", Class = "Seer", Cost = 30, Cooldown = 3, Target = TargetKind.Ally, Range = 3, Buffs = new[] { (StatKind.Evade, 30, 2) }, Text = "An ally within 3 sees blows coming: 30% harder to hit for 2 turns." },
+        new() { Id = "true_sight", Name = "True Sight", Class = "Seer", Cost = 30, Cooldown = 3, Range = 5, Buffs = new[] { (StatKind.Evade, -30, 3), (StatKind.Def, -2, 3) }, Text = "Range 5: the foe can't hide: 30% easier to hit, DEF -2." },
+        new() { Id = "omen_bolt", Name = "Omen Bolt", Class = "Seer", Cost = 35, Cooldown = 2, Range = 5, Power = 1.2f, HitBonus = 40, Text = "A bolt that finds its mark, range 5 (x1.2, +40% to hit)." },
+        // Sunsail (Skirmisher + Howler, needs a back sail).
+        new() { Id = "tailwind", Name = "Tailwind", Class = "Sunsail", Cost = 30, Cooldown = 4, Target = TargetKind.Ally, Range = 0, AroundSelf = true, Radius = 2, Buffs = new[] { (StatKind.Move, 2, 2) }, Text = "You and allies within 2: MOVE +2 for 2 turns." },
+        new() { Id = "heat_shimmer", Name = "Heat Shimmer", Class = "Sunsail", Cost = 30, Cooldown = 3, Target = TargetKind.Self, Range = 0, Buffs = new[] { (StatKind.Evade, 20, 3), (StatKind.Spd, 2, 3) }, Text = "Shimmering air: 20% harder to hit, SPD +2 for 3 turns." },
+        new() { Id = "solar_flare", Name = "Solar Flare", Class = "Sunsail", Cost = 35, Cooldown = 4, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 2, Power = 0.6f, StunChance = 0.25f, Text = "A blinding flash: foes within 2 (x0.6), 25% to stun." },
+        // Cavalier (Skirmisher + Guardian, needs hooves).
+        new() { Id = "lance_charge", Name = "Lance Charge", Class = "Cavalier", Cost = 30, Cooldown = 3, Range = 4, Leap = true, Power = 1.5f, Text = "Gallop onto a foe up to 4 tiles away (x1.5)." },
+        new() { Id = "stampede", Name = "Stampede", Class = "Cavalier", Cost = 30, Cooldown = 4, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 1, Power = 0.7f, Knock = 2, Text = "Rear and kick: adjacent foes (x0.7) thrown back 2." },
+        new() { Id = "steadfast", Name = "Steadfast", Class = "Cavalier", Cost = 35, Cooldown = 4, Target = TargetKind.Self, Range = 0, Cleanse = true, Buffs = new[] { (StatKind.Def, 4, 3), (StatKind.Thorns, 2, 3) }, Text = "Cleansed; DEF +4 and thorns 2 for 3 turns." },
+        // Scavenger (Rogue + Hunter, needs a curious temperament).
+        new() { Id = "snatch", Name = "Snatch", Class = "Scavenger", Cost = 30, Cooldown = 3, Range = 2, Power = 0.4f, Steal = true, Pull = 1, Text = "Range 2: grab the foe's boosts (x0.4) and drag it a tile closer." },
+        new() { Id = "scrounge", Name = "Scrounge", Class = "Scavenger", Cost = 30, Cooldown = 4, Target = TargetKind.Self, Range = 0, Heal = 0.3f, Cleanse = true, Text = "Eat something off the floor: recover 30% and cleanse." },
+        new() { Id = "junk_toss", Name = "Junk Toss", Class = "Scavenger", Cost = 35, Cooldown = 2, Range = 3, Power = 0.7f, Buffs = new[] { (StatKind.Spd, -3, 2) }, Text = "Range 3 (x0.7): SPD -3 for 2 turns." },
+        // Phantom (Skirmisher + Rogue, needs a skittish temperament).
+        new() { Id = "fade", Name = "Fade", Class = "Phantom", Cost = 30, Cooldown = 3, Target = TargetKind.Self, Range = 0, Buffs = new[] { (StatKind.Evade, 40, 1), (StatKind.Move, 2, 1) }, Text = "Fade out: 40% harder to hit and MOVE +2 until your next turn." },
+        new() { Id = "feint", Name = "Feint", Class = "Phantom", Cost = 30, Cooldown = 3, Power = 0.6f, StunChance = 0.4f, HitAndRun = true, Text = "A false blow (x0.6), 40% to stun; you may move again." },
+        new() { Id = "ghost_step", Name = "Ghost Step", Class = "Phantom", Cost = 35, Cooldown = 3, Target = TargetKind.Tile, Range = 5, Text = "Vanish and reappear on any free tile within 5." },
+        // Champion (Brawler + Howler, needs a proud temperament).
+        new() { Id = "challenge", Name = "Challenge", Class = "Champion", Cost = 30, Cooldown = 3, Range = 3, Taunt = true, Buffs = new[] { (StatKind.Def, -3, 2) }, Text = "Range 3: the foe must face you, DEF -3." },
+        new() { Id = "duel_stance", Name = "Duel Stance", Class = "Champion", Cost = 30, Cooldown = 4, Target = TargetKind.Self, Range = 0, Buffs = new[] { (StatKind.Atk, 3, 3), (StatKind.Evade, 15, 3) }, Text = "ATK +3 and 15% harder to hit for 3 turns." },
+        new() { Id = "finishing_blow", Name = "Finishing Blow", Class = "Champion", Cost = 35, Cooldown = 3, Power = 1f, Execute = 1.2f, Text = "x1.0, or x2.2 against a foe below 40% HP." },
     };
 
     public static readonly ClassDef[] Classes =
@@ -321,6 +394,72 @@ public static class ClassBook
             Id = "Deadeye", Name = "Deadeye", Blurb = "Never misses what it marks.", Atk = 2, Spd = 1,
             Skills = new[] { "headshot", "mark", "ricochet" }, Requires = new[] { ("Hunter", 2), ("Tinker", 2) },
             NeedsPart = c => c.Species.Grafts.HasFlag(Graft.Visor) || c.Species.Grafts.HasFlag(Graft.ExtraEyes), PartHint = "a lens visor or extra eyes",
+        },
+        new()
+        {
+            Id = "Thornstag", Name = "Thornstag", Blurb = "Antlers like a hedge of blades.", Def = 2, Atk = 1, Hp = 4,
+            Skills = new[] { "antler_sweep", "crown_of_thorns", "rutting_charge" }, Requires = new[] { ("Guardian", 2), ("Skirmisher", 2) },
+            NeedsPart = c => c.Parts.Horns == Horns.Antlers, PartHint = "antlers",
+        },
+        new()
+        {
+            Id = "Lionheart", Name = "Lionheart", Blurb = "A great mane, a greater heart.", Hp = 6, Atk = 1, Def = 1,
+            Skills = new[] { "roar_of_courage", "challenge_roar", "last_stand" }, Requires = new[] { ("Howler", 2), ("Guardian", 2) },
+            NeedsPart = c => c.Parts.Back == Back.Mane, PartHint = "a mane",
+        },
+        new()
+        {
+            Id = "Geomancer", Name = "Geomancer", Blurb = "Sings to the crystal growing from its back.", Atk = 2, Def = 1,
+            Skills = new[] { "crystal_lance", "prism_ward", "shardstorm" }, Requires = new[] { ("Mystic", 2), ("Guardian", 2) },
+            NeedsPart = c => c.Parts.Back == Back.Crystals, PartHint = "back crystals",
+        },
+        new()
+        {
+            Id = "Bonebreaker", Name = "Bonebreaker", Blurb = "Swings its tail like a mace.", Atk = 3,
+            Skills = new[] { "crushing_blow", "tail_sweep", "skull_crack" }, Requires = new[] { ("Brawler", 2), ("Rogue", 2) },
+            NeedsPart = c => c.Parts.Tail == Tail.Club, PartHint = "a club tail",
+        },
+        new()
+        {
+            Id = "Swarmlord", Name = "Swarmlord", Blurb = "Commands a cloud of stinging things.", Spd = 2, Atk = 1,
+            Skills = new[] { "sting_volley", "drone", "hive_mind" }, Requires = new[] { ("Alchemist", 2), ("Hunter", 2) },
+            NeedsPart = c => c.Parts.Wings == Wings.Insect, PartHint = "insect wings",
+        },
+        new()
+        {
+            Id = "Seer", Name = "Seer", Blurb = "Sees the blow before it falls.", Atk = 1, Spd = 2,
+            Skills = new[] { "foresight", "true_sight", "omen_bolt" }, Requires = new[] { ("Mystic", 2), ("Hunter", 2) },
+            NeedsPart = c => c.Parts.Eyes == EyeKind.Compound, PartHint = "compound eyes",
+        },
+        new()
+        {
+            Id = "Sunsail", Name = "Sunsail", Blurb = "Catches wind and light in the sail on its back.", Spd = 2, Move = 1,
+            Skills = new[] { "tailwind", "heat_shimmer", "solar_flare" }, Requires = new[] { ("Skirmisher", 2), ("Howler", 2) },
+            NeedsPart = c => c.Parts.Back == Back.Sail, PartHint = "a back sail",
+        },
+        new()
+        {
+            Id = "Cavalier", Name = "Cavalier", Blurb = "Hooves made for the charge.", Atk = 1, Def = 2, Move = 1,
+            Skills = new[] { "lance_charge", "stampede", "steadfast" }, Requires = new[] { ("Skirmisher", 2), ("Guardian", 2) },
+            NeedsPart = c => c.Parts.Limbs == Limbs.Hooved && c.Species.Plan is BodyPlan.Quadruped or BodyPlan.Biped, PartHint = "hooves",
+        },
+        new()
+        {
+            Id = "Scavenger", Name = "Scavenger", Blurb = "Takes anything not nailed down.", Spd = 2,
+            Skills = new[] { "snatch", "scrounge", "junk_toss" }, Requires = new[] { ("Rogue", 2), ("Hunter", 2) },
+            NeedsPart = c => c.Attitude == Attitude.Curious, PartHint = "a curious temperament",
+        },
+        new()
+        {
+            Id = "Phantom", Name = "Phantom", Blurb = "Never where you struck.", Spd = 3,
+            Skills = new[] { "fade", "feint", "ghost_step" }, Requires = new[] { ("Skirmisher", 2), ("Rogue", 2) },
+            NeedsPart = c => c.Attitude == Attitude.Skittish, PartHint = "a skittish temperament",
+        },
+        new()
+        {
+            Id = "Champion", Name = "Champion", Blurb = "Fights alone, and wins.", Atk = 3, Hp = 4,
+            Skills = new[] { "challenge", "duel_stance", "finishing_blow" }, Requires = new[] { ("Brawler", 2), ("Howler", 2) },
+            NeedsPart = c => c.Attitude == Attitude.Proud, PartHint = "a proud temperament",
         },
         new()
         {
@@ -417,11 +556,56 @@ public static class ClassBook
         new() { Id = "runic_skin", Name = "Runic Skin", Class = "Runeweaver", NoStun = true, Def = 1, Text = "Immune to stun; DEF +1." },
         new() { Id = "bloodthirst", Name = "Bloodthirst", Class = "Voidcaller", Drain = 0.25f, Text = "Basic attacks heal 25% of the damage." },
         new() { Id = "brass_frame", Name = "Brass Frame", Class = "Artificer", Def = 2, NoPoison = true, Text = "DEF +2; immune to poison." },
+        // Reactions (FFTA's R-abilities): one equipped, set off when the creature is hit.
+        new() { Id = "counter", Name = "Counter", Class = "Brawler", Kind = PassiveKind.Reaction, React = ReactionKind.Counter, ReactPower = 0.7f, Text = "Hit in melee: strike back (x0.7)." },
+        new() { Id = "sidestep", Name = "Sidestep", Class = "Skirmisher", Kind = PassiveKind.Reaction, React = ReactionKind.Retreat, Text = "Hit: step a tile away from the attacker." },
+        new() { Id = "bodyguard", Name = "Bodyguard", Class = "Guardian", Kind = PassiveKind.Reaction, React = ReactionKind.Guard, ReactChance = 0.35f, Text = "An adjacent ally is attacked: 35% chance to take the hit instead." },
+        new() { Id = "spell_ward", Name = "Spell Ward", Class = "Mystic", Kind = PassiveKind.Reaction, React = ReactionKind.Brace, ReactAmount = 3, Text = "Hit: DEF +3 until its next turn." },
+        new() { Id = "adrenal_gland", Name = "Adrenal Gland", Class = "Alchemist", Kind = PassiveKind.Reaction, React = ReactionKind.Adrenaline, ReactPower = 0.25f, Text = "First time below half HP: recover 25% at once." },
+        new() { Id = "shock_plating", Name = "Shock Plating", Class = "Tinker", Kind = PassiveKind.Reaction, React = ReactionKind.Shock, ReactAmount = 3, ReactChance = 0.2f, Text = "Hit in melee: the attacker takes 3, 20% chance it's stunned." },
+        new() { Id = "return_fire", Name = "Return Fire", Class = "Hunter", Kind = PassiveKind.Reaction, React = ReactionKind.ReturnFire, ReactPower = 0.6f, Text = "Hit from range (up to 4): shoot back (x0.6)." },
+        new() { Id = "rallying_cry", Name = "Rallying Cry", Class = "Howler", Kind = PassiveKind.Reaction, React = ReactionKind.RallyCry, ReactAmount = 2, Text = "Hit: allies beside it get ATK +2 for a turn." },
+        new() { Id = "dirty_retort", Name = "Dirty Retort", Class = "Rogue", Kind = PassiveKind.Reaction, React = ReactionKind.DirtyRetort, ReactChance = 0.3f, Text = "Hit in melee: 30% chance to stun the attacker." },
+        // New classes' passives.
+        new() { Id = "hedge_of_antlers", Name = "Hedge of Antlers", Class = "Thornstag", Thorns = 2, Def = 1, Text = "Melee attackers take 2; DEF +1." },
+        new() { Id = "protector", Name = "Protector", Class = "Lionheart", Kind = PassiveKind.Reaction, React = ReactionKind.Protector, ReactAmount = 2, Text = "An ally beside it is hit: ATK +2 for 2 turns." },
+        new() { Id = "shard_burst", Name = "Shard Burst", Class = "Geomancer", Kind = PassiveKind.Reaction, React = ReactionKind.Burst, ReactAmount = 3, Text = "Hit in melee: every foe beside it takes 3." },
+        new() { Id = "heavy_swing", Name = "Heavy Swing", Class = "Bonebreaker", Atk = 3, Spd = -1, Text = "ATK +3, SPD -1." },
+        new() { Id = "swarm", Name = "Swarm", Class = "Swarmlord", Evade = 10, Spd = 1, Text = "10% harder to hit; SPD +1." },
+        new() { Id = "premonition", Name = "Premonition", Class = "Seer", Kind = PassiveKind.Reaction, React = ReactionKind.Dodge, ReactChance = 0.25f, Text = "A hit that would land: 25% chance it doesn't." },
+        new() { Id = "sunbask", Name = "Sunbask", Class = "Sunsail", Regen = 0.05f, Spd = 1, Text = "Heals 5% of max HP each turn; SPD +1." },
+        new() { Id = "brace", Name = "Brace", Class = "Cavalier", Kind = PassiveKind.Reaction, React = ReactionKind.Brace, ReactAmount = 4, Text = "Hit: DEF +4 until its next turn." },
+        new() { Id = "magpie", Name = "Magpie", Class = "Scavenger", ChemBonus = 6, Text = "+6 chem after every battle." },
+        new() { Id = "blur", Name = "Blur", Class = "Phantom", Kind = PassiveKind.Reaction, React = ReactionKind.Retreat, ReactAmount = 15, Text = "Hit: slip a tile away and become 15% harder to hit." },
+        new() { Id = "riposte", Name = "Riposte", Class = "Champion", Kind = PassiveKind.Reaction, React = ReactionKind.Counter, ReactPower = 0.9f, Text = "Hit in melee: strike back (x0.9)." },
     };
 
     static readonly Dictionary<string, PassiveDef> _passives = Passives.ToDictionary(p => p.Id);
     public static PassiveDef Passive(string id) => id != null && _passives.TryGetValue(id, out var p) ? p : null;
-    public static PassiveDef PassiveOf(string cls) => Passives.First(p => p.Class == cls);
+    public static List<PassiveDef> PassivesOf(string cls) => Passives.Where(p => p.Class == cls).OrderBy(p => p.Kind).ToList();
+
+    public static int TotalCost(string cls) => Class(cls).Skills.Sum(id => Skill(id).Cost) + PassivesOf(cls).Sum(p => p.Cost);
+
+    /// <summary>JP past everything a class teaches before it's mastered.</summary>
+    public const int MasteryExtra = 60;
+
+    /// <summary>A mastered class's permanent bonus: its strongest leaning, kept in any class.</summary>
+    public static (int atk, int def, int spd, int hp) MasteryBonus(string cls)
+    {
+        var k = Class(cls);
+        int best = Math.Max(Math.Max(k.Atk, k.Def), Math.Max(k.Spd, k.Hp / 3));
+        if (best <= 0) return (0, 0, 0, 5);
+        if (k.Atk == best) return (1, 0, 0, 0);
+        if (k.Def == best) return (0, 1, 0, 0);
+        if (k.Spd == best) return (0, 0, 1, 0);
+        return (0, 0, 0, 5);
+    }
+
+    public static string MasteryText(string cls)
+    {
+        var (atk, def, spd, hp) = MasteryBonus(cls);
+        return atk > 0 ? "ATK +1" : def > 0 ? "DEF +1" : spd > 0 ? "SPD +1" : $"max HP +{hp}";
+    }
 
     static readonly Dictionary<string, SkillDef> _skills = Skills.ToDictionary(s => s.Id);
     static readonly Dictionary<string, ClassDef> _classes = Classes.ToDictionary(c => c.Id);

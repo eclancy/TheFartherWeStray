@@ -46,6 +46,14 @@ public sealed partial class PixelCanvas
     public Camera3 Cam { get; private set; }
     const float SeamDepth = 2.2f;
 
+    /// <summary>
+    /// Moves shapes for one frame of an animation (a breath, a sway, a wingbeat): applied to every
+    /// ellipsoid's centre, so to every sphere of a tube, and to every corner of a membrane. Positions
+    /// kept for patterns are moved back, so markings ride the body instead of swimming over it.
+    /// </summary>
+    public Func<Vector3, Vector3> Warp = NoWarp;
+    public static Vector3 NoWarp(Vector3 p) => p;
+
     public void Begin3D(Camera3 cam)
     {
         Cam = cam;
@@ -60,7 +68,7 @@ public sealed partial class PixelCanvas
 
     void Set3(int i, Mat m, float t, Vector3 p, Vector3 n, int part, float bias, bool flat)
     {
-        _depth[i] = t; _pos[i] = p; _norm[i] = n;
+        _depth[i] = t; _pos[i] = p * 2 - Warp(p); _norm[i] = n;
         _mat[i] = m; _part[i] = part;
         _shade[i] = (flat ? 0.55f : n.Dot(Cam.L)) + bias;
         _nx[i] = n.Dot(Cam.R); _ny[i] = -n.Dot(Cam.U);
@@ -70,6 +78,9 @@ public sealed partial class PixelCanvas
     public void Ellipsoid(Vector3 c, Vector3 ax, Vector3 ay, Vector3 az, Vector3 r, Mat m, int part, float bias = 0, float floor = 0, bool flat = false)
     {
         r = new Vector3(Mathf.Max(r.X, 0.45f), Mathf.Max(r.Y, 0.45f), Mathf.Max(r.Z, 0.45f));
+        var shift = Warp(c) - c;
+        c += shift;
+        floor += shift.Z;
         float ext = Mathf.Max(r.X, Mathf.Max(r.Y, r.Z)) + 1;
         var sc = Cam.Project(c);
         var d = Cam.D;
@@ -150,6 +161,10 @@ public sealed partial class PixelCanvas
     public void Membrane(IReadOnlyList<Vector3> pts, Mat m, int part, float bias = 0, float floor = 0)
     {
         if (pts.Count < 3) return;
+        var flatPts = pts;
+        var moved = new Vector3[pts.Count];
+        for (int k = 0; k < pts.Count; k++) moved[k] = Warp(pts[k]);
+        pts = moved;
         // Newell's normal copes with polygons that aren't quite flat.
         var nrm = Vector3.Zero;
         for (int i = 0; i < pts.Count; i++)
@@ -163,7 +178,7 @@ public sealed partial class PixelCanvas
         float denom = Cam.D.Dot(nrm);
         if (Mathf.Abs(denom) < 0.12f)
         {
-            var rim = new List<Vector3>(pts) { pts[0] };
+            var rim = new List<Vector3>(flatPts) { flatPts[0] };
             Tube(rim, 0.5f, 0.5f, m, part, bias, floor);
             return;
         }
@@ -206,6 +221,7 @@ public sealed partial class PixelCanvas
     /// </summary>
     public bool Visible(Vector3 p, out int x, out int y, float tolerance = 1.6f)
     {
+        p = Warp(p);
         var s = Cam.Project(p);
         x = Mathf.FloorToInt(s.X); y = Mathf.FloorToInt(s.Y);
         if (!Inside(x, y) || _depth == null) return false;

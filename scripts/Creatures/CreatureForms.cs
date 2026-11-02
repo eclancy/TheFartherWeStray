@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace CreatureTactics.Creatures;
@@ -146,6 +147,7 @@ public sealed partial class CreatureSculptor
     {
         _upright = true;
         float hv = 5, g = Girth;
+        _hover = hv * u;
         Loft(new List<(Vector3, float, float)>
         {
             (V(-1, 0, hv + 8), 3.2f * g * u, 2.8f * u),
@@ -153,9 +155,11 @@ public sealed partial class CreatureSculptor
             (V(2.2f, 0, hv + 16.5f), 4.8f * g * u, 3.6f * u),
             (V(4.2f, 0, hv + 19f), 4.0f * g * u, 3.0f * u),
         }, Mat.Main, _bodyPart);
+        _c.Warp = Trail(V(-1, 0, hv + 8), 0.08f);
         _c.Tube(Smooth(new[] { V(-1, 0, hv + 8), V(-2.5f, 0, hv + 3.5f), V(-6, 0, hv + 0.5f), V(-11, 0, hv + 1.5f) }, 5), 3.0f * u, 0.3f * u, Mat.Main, _bodyPart);
         foreach (int side in Sides)
             _c.Tube(Smooth(new[] { V(-1, side * 1.5f, hv + 7), V(-3, side * 3, hv + 2.5f), V(-7.5f, side * 4.5f, hv + 0.5f), V(-10, side * 6, hv + 2.5f) }, 5), 1.9f * u, 0.25f * u, Mat.Main, _bodyPart);
+        _c.Warp = BodyWarp;
         SetHead(V(9.2f, 0, hv + 21), 4.6f, -22);
         Neck(V(5, 0, hv + 19.5f), _headC - _headFwd * _headR * 0.55f, 2.4f, 2.0f, V(0, 0, 1));
         foreach (int side in Sides)
@@ -199,6 +203,7 @@ public sealed partial class CreatureSculptor
     /// <summary>A body as one tube along points, its radius profile given, its points kept as the spine.</summary>
     void SerpentBody(Vector3[] pts, System.Func<float, float> radius)
     {
+        _serpentFront = pts[^1];
         _c.Tube(Smooth(pts, 6), radius, Mat.Main, _bodyPart);
         for (int k = 0; k < pts.Length; k++)
         {
@@ -224,10 +229,28 @@ public sealed partial class CreatureSculptor
     /// <summary>An eastern dragon, swimming through the air in long waves, trailing whiskers.</summary>
     void Lung()
     {
-        float hv = 5, g = Girth, B = BodyMul, rMax = 3.0f * g * u;
-        SerpentBody(new[] { V(-27 * B, 2, hv + 7), V(-21 * B, -2.5f, hv + 2.5f), V(-15 * B, 2, hv + 8), V(-9 * B, -2, hv + 3), V(-3 * B, 1.5f, hv + 8.5f), V(3, -1, hv + 5), V(7.5f, 0, hv + 10) },
-            t => t < 0.25f ? Mathf.Lerp(0.7f * u, rMax, Mathf.SmoothStep(0, 1, t / 0.25f)) : Mathf.Lerp(rMax, rMax * 0.9f, (t - 0.25f) / 0.75f));
-        SetHead(V(10.5f, 0, hv + 11.5f), 4.6f, -6);
+        float hv = 6, g = Girth, B = BodyMul, rMax = 3.3f * g * u;
+        _hover = hv * u;
+        // Great arches through the air, the way it's painted on scrolls: the rise and fall reads from above.
+        SerpentBody(new[] { V(-30 * B, 2.5f, hv + 1), V(-25 * B, -1, hv + 6), V(-19 * B, 1, hv + 12), V(-13 * B, -1.5f, hv + 8), V(-7 * B, 1.5f, hv + 2.5f), V(-1, -1, hv + 5), V(3.5f, 1, hv + 10), V(7.5f, 0, hv + 12) },
+            t => t < 0.22f ? Mathf.Lerp(0.7f * u, rMax, Mathf.SmoothStep(0, 1, t / 0.22f)) : Mathf.Lerp(rMax, rMax * 0.88f, (t - 0.22f) / 0.78f));
+        SetHead(V(10.8f, 0, hv + 12.5f), 5.2f, -8);
+        // A soft mane down the whole spine, so the long body reads as one line.
+        int mane = Part(Zone.Tip);
+        for (int k = 0; k < 14; k++)
+        {
+            float t = Mathf.Lerp(0.12f, 0.96f, k / 13f);
+            var (top, _, _, along) = SpineAt(t);
+            _c.Tube(new[] { top - Z * 0.4f * u, top + Z * (1.6f + 0.8f * (k % 2)) * u - along * 1.8f * u }, 1.0f * u, 0.2f * u, _tuftMat, mane);
+        }
+        // Four small clawed legs, held up under the body as it swims.
+        foreach (float t in new[] { 0.48f, 0.84f })
+        {
+            var (top, w, h, along) = SpineAt(t);
+            var hip = top - Z * h * 1.4f;
+            foreach (int side in Sides)
+                Leg(new[] { hip + Y * side * w * 0.6f, hip + Y * side * (w + 2.5f * u) - Z * 2 * u + along * u, hip + Y * side * (w + 2.2f * u) - Z * 4 * u + along * 2.5f * u }, 0.9f, false, hand: true);
+        }
         int whisker = Part(Zone.Tip);
         foreach (int side in Sides)
         {
@@ -244,25 +267,27 @@ public sealed partial class CreatureSculptor
     {
         _upright = true;
         _wingSize = 1.15f;
-        float lh = 6.5f * LegMul, g = Girth;
+        float lh = 8 * LegMul, g = Girth;
         Loft(new List<(Vector3, float, float)>
         {
-            (V(-4, 0, lh + 3.2f), 3.4f * g * u, 3.0f * u),
-            (V(-0.5f, 0, lh + 8), 4.8f * g * u, 4.6f * u),
-            (V(2.4f, 0, lh + 12.5f), 4.3f * g * u, 4.0f * u),
-            (V(3.2f, 0, lh + 15), 3.2f * g * u, 3.0f * u),
+            (V(-4.6f, 0, lh + 3.5f), 3.9f * g * u, 3.4f * u),
+            (V(-0.6f, 0, lh + 9), 5.4f * g * u, 5.2f * u),
+            (V(2.7f, 0, lh + 14), 4.8f * g * u, 4.5f * u),
+            (V(3.6f, 0, lh + 17), 3.6f * g * u, 3.4f * u),
         }, Mat.Main, _bodyPart);
-        SetHead(V(5.2f, 0, lh + 18.2f), 4.6f, -8);
-        Neck(V(3.2f, 0, lh + 14.5f), _headC - _headFwd * _headR * 0.55f, 2.8f, 2.5f, Vector3.Zero);
+        SetHead(V(5.8f, 0, lh + 20.5f), 5.1f, -8);
+        Neck(V(3.6f, 0, lh + 16.5f), _headC - _headFwd * _headR * 0.55f, 3.1f, 2.8f, Vector3.Zero);
         foreach (int side in Sides)
         {
-            float y = side * 2.4f * g;
-            Leg(new[] { V(0, y, lh + 5), V(1.6f, y, lh + 0.5f), V(2, y, 0) }, 1.5f, Metal(side), hand: true);
+            float y = side * 2.7f * g;
+            // Feathered thighs over scaled shanks.
+            _c.Ellipsoid(V(0.2f, y, lh + 4.5f), new Vector3(0.3f, 0, -1), 3.2f * u, 2.3f * u, 2.3f * u, Mat.Main, _bodyPart);
+            Leg(new[] { V(0.5f, y, lh + 3), V(1.6f, y, lh * 0.45f), V(2, y, 0) }, 1.4f, Metal(side), hand: true);
         }
-        _tailRoot = V(-4.6f, 0, lh + 3);
+        _tailRoot = V(-5.2f, 0, lh + 3.2f);
         _tailDir = new Vector3(-0.7f, 0, -0.7f);
-        _tailR = 2.2f * u;
-        _wingRoot = V(1.8f, 0, lh + 13);
+        _tailR = 2.4f * u;
+        _wingRoot = V(2.0f, 0, lh + 15);
     }
 
     /// <summary>A crane: stilt legs, a long S of a neck, a dagger beak.</summary>
@@ -310,12 +335,14 @@ public sealed partial class CreatureSculptor
             Leg(new[] { V(0, y, lh + 5), V(1.6f, y, lh + 0.5f), V(2, y, 0) }, 1.4f, Metal(side), hand: true);
         }
         int plume = Part(Zone.Tail);
+        _c.Warp = Trail(V(-4, 0, lh + 4), 0.05f);
         for (int k = -1; k <= 1; k++)
         {
             var pts = Smooth(new[] { V(-4, k * 0.8f, lh + 4), V(-10, k * 3, lh + 1.5f), V(-17, k * 5, 1.5f), V(-22, k * 6.5f, 3.5f) }, 5);
             _c.Tube(pts, 1.2f * u, 0.6f * u, _featherMat, plume);
             _c.Sphere(pts[^1], 1.4f * u, Mat.Glow, plume, 0.1f, 0, true);
         }
+        _c.Warp = BodyWarp;
         _tailRoot = V(-4.2f, 0, lh + 3.6f);
         _tailDir = new Vector3(-0.8f, 0, -0.6f);
         _tailR = 2 * u;
@@ -414,6 +441,7 @@ public sealed partial class CreatureSculptor
     void Eel()
     {
         float hv = 4.5f, g = Girth, B = BodyMul, rMax = 4.3f * g * u;
+        _hover = hv * u;
         SerpentBody(new[] { V(-22 * B, 3, hv + 3.5f), V(-15 * B, -3, hv + 5.5f), V(-7 * B, 2.5f, hv + 4.5f), V(0, -1, hv + 6.5f), V(6, 0, hv + 7.2f) },
             t => Mathf.Lerp(0.9f * u, rMax, Mathf.SmoothStep(0, 1, Mathf.Min(1, t / 0.6f))));
         SetHead(V(9.8f, 0, hv + 7.6f), 4.8f, -2);
@@ -429,22 +457,36 @@ public sealed partial class CreatureSculptor
     /// <summary>A manta, gliding: wide flat wings, a whip of a tail.</summary>
     void Ray()
     {
-        float hv = 7.5f, g = Girth;
+        float hv = 8f, g = Girth;
+        _hover = hv * u;
         Loft(new List<(Vector3, float, float)>
         {
-            (V(-8, 0, hv + 4), 2.6f * g * u, 1.8f * u),
-            (V(-2, 0, hv + 4.5f), 5.4f * g * u, 2.8f * u),
-            (V(5, 0, hv + 4.6f), 4.6f * g * u, 2.6f * u),
+            (V(-9, 0, hv + 4), 2.8f * g * u, 2.0f * u),
+            (V(-2, 0, hv + 4.8f), 5.8f * g * u, 3.1f * u),
+            (V(5.5f, 0, hv + 4.8f), 5.0f * g * u, 2.8f * u),
         }, Mat.Main, _bodyPart);
         int wing = Part(Zone.Body);
+        // The wings ripple: tips rise and fall a beat behind the body.
+        _c.Warp = p => BodyWarp(p) + Z * Wave(0.15f) * Mathf.Abs(p.Y) * 0.13f;
         foreach (int side in Sides)
-            _c.Membrane(new[] { V(5, side * 2.5f, hv + 5), V(1, side * 13, hv + 7), V(-3, side * 21, hv + 10), V(-7, side * 14, hv + 5.5f), V(-8, side * 3, hv + 4.5f) }, Mat.Main, wing);
+        {
+            var front = V(5.5f, side * 2.8f, hv + 5.4f);
+            var tip = V(-3.5f, side * 23, hv + 11);
+            _c.Membrane(new[] { front, V(1, side * 14, hv + 7.5f), tip, V(-7.5f, side * 15, hv + 6), V(-9, side * 3, hv + 4.6f) }, Mat.Main, wing);
+            // A pale leading edge and a line of glowing spots, so the wings read from above.
+            _c.Tube(Smooth(new[] { front, V(1, side * 14, hv + 7.5f), tip }, 4), 1.0f * u, 0.35f * u, Mat.Second, wing, 0.05f);
+            for (int k = 0; k < 3; k++)
+                _c.Sphere(V(-1.5f - k * 1.2f, side * (7.5f + 3.8f * k), hv + 6.6f + k * 1.2f), (0.95f - 0.15f * k) * u, Mat.Glow, Part(Zone.Aura), 0.1f, 0, true);
+        }
+        _c.Warp = BodyWarp;
         SetHead(V(7.2f, 0, hv + 4.8f), 3.8f, 0);
         int horns = Part(Zone.Tip);
         foreach (int side in Sides)
             _c.Tube(Smooth(new[] { V(8.5f, side * 2.2f, hv + 4.5f), V(11.5f, side * 3, hv + 4.8f), V(11.8f, side * 2, hv + 6.2f) }, 4), 0.9f * u, 0.3f * u, Mat.Main, horns);
         var tail = Smooth(new[] { V(-8, 0, hv + 4), V(-15, 1, hv + 3.5f), V(-22, -1, hv + 5) }, 5);
+        _c.Warp = Trail(V(-8, 0, hv + 4), 0.07f);
         _c.Tube(tail, 0.9f * u, 0.25f * u, Mat.Main, Part(Zone.Tail));
+        _c.Warp = BodyWarp;
         _bodyIsTail = true;
         _tailRoot = tail[^1];
         _tailDir = new Vector3(-1, 0, 0.3f);
@@ -457,6 +499,7 @@ public sealed partial class CreatureSculptor
     {
         _upright = true;
         float hv = 2.5f, g = Girth;
+        _hover = hv * u;
         var pts = new[] { V(2.5f, 0, hv + 2.5f), V(-1.5f, 0, hv + 0.6f), V(-4, 0, hv + 3.5f), V(-3.2f, 0, hv + 9.5f), V(-0.8f, 0, hv + 15.5f), V(1.8f, 0, hv + 19.5f) };
         SerpentBody(pts, t => t < 0.35f ? Mathf.Lerp(0.5f, 2.2f, t / 0.35f) * u : t < 0.6f ? Mathf.Lerp(2.2f * u, 4.3f * g * u, (t - 0.35f) / 0.25f) : Mathf.Lerp(4.3f * g * u, 2.8f * g * u, (t - 0.6f) / 0.4f));
         SetHead(V(4.4f, 0, hv + 22.5f), 4.2f, -28);
@@ -477,18 +520,27 @@ public sealed partial class CreatureSculptor
     {
         _upright = true;
         float hv = 4, g = Girth;
+        _hover = hv * u;
         Loft(new List<(Vector3, float, float)>
         {
             (V(-0.5f, 0, hv + 5), 4.2f * g * u, 4.0f * u),
             (V(0.5f, 0, hv + 10), 5.4f * g * u, 5.0f * u),
             (V(1.2f, 0, hv + 14), 4.4f * g * u, 4.0f * u),
         }, Mat.Main, _bodyPart);
-        _c.Tube(Smooth(new[] { V(0.5f, 0, hv + 14), V(-3.5f, 0, hv + 19), V(-3, 0, hv + 24), V(-6.5f, 0, hv + 27) }, 5), t => (4.2f - 3.9f * t) * u * g, Mat.Main, _bodyPart);
-        _c.Tube(Smooth(new[] { V(-0.5f, 0, hv + 5), V(-2.5f, 0, hv + 1.5f), V(-6, 0, hv) }, 5), 3.6f * g * u, 0.3f * u, Mat.Main, _bodyPart);
+        // The crown burns: the body's colour at the root, light from halfway up.
+        _c.Warp = Trail(V(0.5f, 0, hv + 14), 0.1f);
+        var crown = Smooth(new[] { V(0.5f, 0, hv + 14), V(-3.5f, 0, hv + 19), V(-3, 0, hv + 24), V(-6.5f, 0, hv + 27.5f) }, 6);
+        _c.Tube(crown.Take(crown.Count / 2 + 1).ToList(), t => (4.2f - 1.6f * t) * u * g, Mat.Main, _bodyPart);
+        _c.Tube(crown.Skip(crown.Count / 2 - 1).ToList(), t => (2.7f - 2.4f * t) * u * g, Mat.Glow, Part(Zone.Aura), 0.1f, 0, true);
+        _c.Warp = Trail(V(-0.5f, 0, hv + 5), 0.1f);
+        var wisp = Smooth(new[] { V(-0.5f, 0, hv + 5), V(-2.5f, 0, hv + 1.5f), V(-6.5f, 0, hv) }, 6);
+        _c.Tube(wisp, t => (3.6f - 3.0f * t) * g * u, Mat.Main, _bodyPart);
+        _c.Sphere(wisp[^1], 0.9f * u, Mat.Glow, Part(Zone.Aura), 0.1f, 0, true);
+        _c.Warp = BodyWarp;
         SetHead(V(3.4f, 0, hv + 12.5f), 4.6f, -4);
         foreach (int side in Sides)
-            Leg(new[] { V(1, side * 4.6f, hv + 10), V(3.2f, side * 6.6f, hv + 7), V(5.6f, side * 5.6f, hv + 6) }, 1.2f, Metal(side), hand: true);
-        _c.Sphere(V(3.6f, -2.4f, hv + 7.5f), 1.4f * u, Mat.Glow, _bodyPart, 0.1f, 0, true);
+            Leg(new[] { V(0.8f, side * 4.8f, hv + 10.5f), V(2.6f, side * 7.6f, hv + 7.5f), V(5.6f, side * 7.0f, hv + 6) }, 0.95f, Metal(side), hand: true);
+        _c.Sphere(V(3.6f, -2.2f, hv + 7.6f), 2.0f * u, Mat.Glow, _bodyPart, 0.15f, 0, true);
         _tailRoot = V(-6, 0, hv);
         _tailDir = new Vector3(-1, 0, 0);
         _tailR = 1 * u;
@@ -498,24 +550,30 @@ public sealed partial class CreatureSculptor
     /// <summary>A drifting bell with a face, trailing tendrils to the ground.</summary>
     void Jelly()
     {
-        float g = Girth, bz = 23;
-        _c.Ellipsoid(V(0, 0, bz), X, 7.5f * g * u, 7.5f * g * u, 6.2f * u, Mat.Main, _bodyPart, 0, (bz - 1.5f) * u);
+        float g = Girth, bz = 25;
+        _hover = 1;
+        _faceOnBody = true;
+        _c.Ellipsoid(V(0, 0, bz), X, 8.2f * g * u, 8.2f * g * u, 7.0f * u, Mat.Main, _bodyPart, 0, (bz - 1.5f) * u);
         var rim = new List<Vector3>();
-        for (int k = 0; k <= 24; k++) rim.Add(V(Mathf.Cos(k / 24f * Mathf.Tau) * 7.2f * g, Mathf.Sin(k / 24f * Mathf.Tau) * 7.2f * g, bz - 1.5f));
+        for (int k = 0; k <= 24; k++) rim.Add(V(Mathf.Cos(k / 24f * Mathf.Tau) * 7.9f * g, Mathf.Sin(k / 24f * Mathf.Tau) * 7.9f * g, bz - 1.5f));
         _c.Tube(rim, 0.8f * u, 0.8f * u, Mat.Second, _bodyPart);
+        _c.Warp = Trail(V(0, 0, bz), 0.06f);
         for (int k = 0; k < 7; k++)
         {
             float a = k / 7f * Mathf.Tau;
-            var b = V(Mathf.Cos(a) * 6.2f * g, Mathf.Sin(a) * 6.2f * g, bz - 1.8f);
-            var pts = new[] { b, b + V(-1.5f + Mathf.Sin(k) * 1, Mathf.Cos(k * 1.7f) * 1.5f, -7), b + V(-3, Mathf.Cos(k) * 2, -14), b + V(-4, Mathf.Sin(k * 2.3f) * 2.5f, -bz + 3.5f) };
-            _c.Tube(Smooth(pts, 4), 0.75f * u, 0.3f * u, k % 2 == 0 ? Mat.Membrane : Mat.Second, Part(Zone.Tail));
+            var b = V(Mathf.Cos(a) * 6.8f * g, Mathf.Sin(a) * 6.8f * g, bz - 1.8f);
+            var pts = Smooth(new[] { b, b + V(-1.5f + Mathf.Sin(k) * 1, Mathf.Cos(k * 1.7f) * 1.5f, -7), b + V(-3, Mathf.Cos(k) * 2, -14), b + V(-4, Mathf.Sin(k * 2.3f) * 2.5f, -bz + 3.5f) }, 4);
+            int tendril = Part(Zone.Tail);
+            _c.Tube(pts, 0.8f * u, 0.3f * u, k % 2 == 0 ? Mat.Membrane : Mat.Second, tendril);
+            _c.Sphere(pts[^1], 0.7f * u, Mat.Glow, tendril, 0.1f, 0, true);
         }
         foreach (int side in Sides)
             _c.Tube(Smooth(new[] { V(1, side * 1.5f, bz - 2), V(0.5f, side * 2.5f, bz - 9), V(-1, side * 2, bz - 16) }, 4), 1.6f * u, 0.6f * u, Mat.Second, Part(Zone.Tail));
-        _spine.Add((V(-3.5f, 0, bz), 6 * g * u, 5 * u));
-        _spine.Add((V(0, 0, bz), 7 * g * u, 6 * u));
-        _spine.Add((V(3.5f, 0, bz), 6 * g * u, 5 * u));
-        SetHead(V(4.2f, 0, bz + 1.2f), 4.6f, -10);
+        _c.Warp = BodyWarp;
+        _spine.Add((V(-3.5f, 0, bz), 6.5f * g * u, 6 * u));
+        _spine.Add((V(0, 0, bz), 7.5f * g * u, 6.8f * u));
+        _spine.Add((V(3.5f, 0, bz), 6.5f * g * u, 6 * u));
+        SetHead(V(0.5f, 0, bz + 0.5f), 7.6f, -12);
         _tailRoot = V(-6, 0, bz - 1);
         _tailDir = new Vector3(-1, 0, -0.5f);
         _tailR = 1 * u;
@@ -527,23 +585,24 @@ public sealed partial class CreatureSculptor
     {
         _upright = true;
         float g = Girth;
-        _c.Ellipsoid(V(-1, 0, 0), X, 9.5f * g * u, 8.5f * g * u, 2.4f * u, Mat.Main, _bodyPart);
+        _c.Ellipsoid(V(-1, 0, 0), X, 10.5f * g * u, 9.5f * g * u, 1.8f * u, Mat.Main, _bodyPart);
         Loft(new List<(Vector3, float, float)>
         {
-            (V(-1.5f, 0, 3.5f), 6.4f * g * u, 6.0f * u),
-            (V(-0.8f, 0, 8), 4.8f * g * u, 4.4f * u),
-            (V(0.8f, 0, 13), 4.0f * g * u, 3.6f * u),
-            (V(2.4f, 0, 17), 3.6f * g * u, 3.2f * u),
+            (V(-1.5f, 0, 3), 6.2f * g * u, 5.8f * u),
+            (V(-0.8f, 0, 9), 4.6f * g * u, 4.3f * u),
+            (V(0.8f, 0, 15), 4.2f * g * u, 3.8f * u),
+            (V(2.6f, 0, 20.5f), 3.8f * g * u, 3.4f * u),
         }, Mat.Main, _bodyPart);
-        SetHead(V(4.8f, 0, 20.5f), 5f, -12);
-        Neck(V(2.4f, 0, 17), _headC - _headFwd * _headR * 0.55f, 3.2f, 2.8f, Vector3.Zero);
+        SetHead(V(5.2f, 0, 24.5f), 5.6f, -14);
+        Neck(V(2.6f, 0, 20.5f), _headC - _headFwd * _headR * 0.55f, 3.3f, 3.0f, Vector3.Zero);
         foreach (int side in Sides)
         {
-            var hand = V(4.6f, side * 6.4f, 6);
-            Leg(new[] { V(1.4f, side * 4.2f, 14), V(3.2f, side * 6.8f, 10), hand }, 1.7f, Metal(side), hand: true);
-            _c.Tube(new[] { hand - Z * u, hand - Z * 4 * u }, 0.8f * u, 0.4f * u, Mat.Main, _bodyPart);
+            // Long arms melting off the shoulders, a drip hanging from each hand.
+            var hand = V(5.2f, side * 7.2f, 7);
+            Leg(new[] { V(1.8f, side * 4.4f, 18), V(3.4f, side * 7.6f, 13), hand }, 1.5f, Metal(side), hand: true);
+            _c.Tube(new[] { hand - Z * u, hand - Z * 3.5f * u }, 0.7f * u, 0.45f * u, Mat.Main, _bodyPart);
         }
-        _c.Sphere(V(1.2f, -3.6f, 9), 1.5f * u, Mat.Glow, _bodyPart, 0.1f, 0, true);
+        _c.Sphere(V(2.0f, -3.2f, 12), 2.0f * u, Mat.Glow, _bodyPart, 0.15f, 0, true);
         _tailRoot = V(-4, 0, 4);
         _tailDir = new Vector3(-1, 0, 0.3f);
         _tailR = 1.6f * u;

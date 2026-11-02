@@ -45,13 +45,22 @@ public sealed partial class CreatureSculptor
     int _bodyPart, _headPart;
     (Vector3 front, Vector3 back)? _mouth;
     Vector3 _tailEnd;                // the far end of whatever tail was drawn
+    float _hover;                    // floaters: how high it hangs (they bob instead of breathing)
+    bool _faceOnBody;                // no head: the face is on the body (jellies)
+    Vector3? _serpentFront;          // bodies that are all tail: where the wave down them starts
+
+    // The idle loop: phase runs 0 to 1 through one breath; negative means a still pose.
+    readonly float _phase;
+    readonly bool _blink;
+    bool _tailSway;
+    Vector3 _tailAxis, _tailSide;
 
     static readonly Vector3 X = new(1, 0, 0), Y = new(0, 1, 0), Z = new(0, 0, 1);
 
     /// <summary>The sprite for one view, and where the creature's ground point (its feet) lands in it.</summary>
-    public static (Image img, Vector2I anchor) Render(Creature creature, bool fourColor, View view)
+    public static (Image img, Vector2I anchor) Render(Creature creature, bool fourColor, View view, float phase = -1, bool blink = false)
     {
-        var s = new CreatureSculptor(creature, view);
+        var s = new CreatureSculptor(creature, view, phase, blink);
         s.Build();
         var img = s._c.Resolve(creature.Palette, fourColor);
         var used = img.GetUsedRect();
@@ -60,8 +69,10 @@ public sealed partial class CreatureSculptor
         return (img.GetRegion(used), new Vector2I(Mathf.RoundToInt(origin.X) - used.Position.X, Mathf.RoundToInt(origin.Y) - used.Position.Y));
     }
 
-    CreatureSculptor(Creature cr, View view)
+    CreatureSculptor(Creature cr, View view, float phase, bool blink)
     {
+        _phase = phase;
+        _blink = blink;
         _cr = cr;
         _sp = cr.Species;
         _p = cr.Parts;
@@ -78,20 +89,98 @@ public sealed partial class CreatureSculptor
 
     void Build()
     {
+        _c.Warp = BodyWarp;
         BuildForm();
+        // From here on, anything behind the tail root sways with the tail.
+        _tailAxis = _tailDir.Normalized();
+        _tailSide = Z.Cross(_tailAxis).Normalized();
+        _tailSway = !_bodyIsTail && _p.Tail != Tail.None;
+        _c.Warp = BodyWarp;
         Head();
         EarsPart();
         HornsPart();
         BackPart();
         TailPart();
+        _c.Warp = WingWarp;
         WingsPart();
+        _c.Warp = BodyWarp;
         Grafts();
         Motif();
+        _c.Warp = AuraWarp;
         AuraPart();
+        _c.Warp = BodyWarp;
         ApplyPattern();
         Face();
         SurfaceGrafts();
     }
+
+    // ---------------------------------------------------------------- idle motion
+
+    bool Animate => _phase >= 0;
+    float Wave(float lag = 0, float speed = 1) => Animate ? Mathf.Sin(Mathf.Tau * (_phase * speed - lag)) : 0;
+    /// <summary>0 at rest, 1 at the top of the breath.</summary>
+    float Rise => Animate ? 0.5f - 0.5f * Mathf.Cos(Mathf.Tau * _phase) : 0;
+
+    /// <summary>
+    /// The body's idle: it lifts a pixel on its legs while the feet stay planted (floaters drift
+    /// instead), the head nods a beat behind, a tail sways in a wave running to its tip, and a
+    /// serpent's whole length ripples.
+    /// </summary>
+    Vector3 BodyWarp(Vector3 p)
+    {
+        if (!Animate) return p;
+        float lift = _hover > 0 ? 1 : Mathf.Clamp((p.Z - 2 * u) / (9 * u), 0, 1);
+        var o = p + Z * (_hover > 0 ? 1.6f : 1.0f) * u * Rise * lift;
+        if (_headR > 0)
+        {
+            float w = Mathf.Clamp(1 - ((p - _headC).Length() - _headR * 1.1f) / _headR, 0, 1);
+            o += Z * 0.7f * u * Wave(0.2f) * w;
+        }
+        if (_tailSway)
+        {
+            var rel = p - _tailRoot;
+            float along = rel.Dot(_tailAxis);
+            if (along > 0)
+            {
+                float perp = (rel - _tailAxis * along).Length();
+                float w = Mathf.Clamp(1 - (perp - 7 * u) / (5 * u), 0, 1);
+                o += _tailSide * Wave(0.1f + along / (28 * u)) * along * 0.075f * w;
+            }
+        }
+        if (_serpentFront is { } front)
+        {
+            float d = (p - front).Length();
+            o += Y * 1.2f * u * Wave(d / (24 * u)) * Mathf.Clamp((d - 3 * u) / (10 * u), 0, 1);
+        }
+        return o;
+    }
+
+    /// <summary>Trailing things (tatters, plumes, tendrils, flame crowns) sway more the further they reach.</summary>
+    Func<Vector3, Vector3> Trail(Vector3 root, float amount = 0.07f) => p =>
+    {
+        var b = BodyWarp(p);
+        if (!Animate) return b;
+        var rel = p - root;
+        float d = new Vector2(rel.X, rel.Y).Length() + Mathf.Abs(rel.Z) * 0.6f;
+        return b + Y * Wave(0.05f + d / (26 * u)) * d * amount;
+    };
+
+    /// <summary>Wings beat about the shoulders: a slow fold-and-lift when folded, a full stroke when spread.</summary>
+    Vector3 WingWarp(Vector3 p)
+    {
+        var b = BodyWarp(p);
+        if (!Animate) return b;
+        var rel = p - _wingRoot;
+        float side = rel.Y >= 0 ? 1 : -1;
+        float amp = _p.Wings == Wings.Insect ? 0.32f : _sp.WingsFolded ? 0.05f : 0.2f;
+        float th = amp * Wave(0.1f, _p.Wings == Wings.Insect ? 2 : 1) * side;
+        float cs = Mathf.Cos(th), sn = Mathf.Sin(th);
+        var turned = new Vector3(rel.X, rel.Y * cs - rel.Z * sn, rel.Y * sn + rel.Z * cs);
+        return b + (turned - rel);
+    }
+
+    /// <summary>Halos, shards and wisps float on their own slower beat.</summary>
+    Vector3 AuraWarp(Vector3 p) => BodyWarp(p) + Z * 1.2f * u * Wave(0.35f);
 
     // ---------------------------------------------------------------- helpers
 
@@ -247,6 +336,13 @@ public sealed partial class CreatureSculptor
 
     void Head()
     {
+        if (_faceOnBody)
+        {
+            // No skull: the eyes and mouth sit on the body itself.
+            _headPart = _bodyPart;
+            _mouth = (H(0.92f, -0.22f, -0.42f), H(0.45f, -0.72f, -0.45f));
+            return;
+        }
         int part = _headPart = Part(Zone.Head);
         float r = _headR;
         var (hf, hs, hu) = HeadFrame;
@@ -454,7 +550,14 @@ public sealed partial class CreatureSculptor
                     var up = UpAt(t);
                     var c0 = pt - up * ph * (_upright ? 0.4f : 0.62f);
                     float floor = _upright ? 0 : c0.Z - ph * 0.15f;
-                    _c.Ellipsoid(c0 + pa * u * (k - 1), pa, len * 0.26f + 1.5f * u, pw * 1.28f, ph * 0.9f, _shellMat, Part(Zone.Body), 0.04f * k, floor);
+                    int plate = Part(Zone.Body);
+                    var pc = c0 + pa * u * (k - 1);
+                    // A dark rim under each plate, the plate, and a row of knobs down its crest.
+                    _c.Ellipsoid(pc - up * 0.5f * u, pa, len * 0.27f + 1.7f * u, pw * 1.2f, ph * 0.72f, Mat.Accent, plate, -0.3f, floor);
+                    _c.Ellipsoid(pc, pa, len * 0.24f + 1.4f * u, pw * 1.12f, ph * 0.74f, _shellMat, plate, 0.04f * k, floor);
+                    var crest = pc + up * ph * 0.74f;
+                    foreach (float s2 in new[] { -0.35f, 0.35f })
+                        _c.Tube(new[] { crest + pa * len * 0.12f * s2 - up * 0.3f * u, crest + pa * len * 0.12f * s2 + up * 1.6f * u - pa * 0.5f * u }, 0.9f * u, 0.15f * u, Mat.Accent, Part(Zone.Tip));
                 }
                 break;
             }
@@ -702,33 +805,39 @@ public sealed partial class CreatureSculptor
                 case Wings.Tiny:
                     if (folded)
                     {
-                        var leaf = new[] { b, b - X * span * 0.35f + Z * span * 0.1f + o * span * 0.12f, b - X * span * 0.68f - Z * span * 0.04f + o * span * 0.1f, b - X * span * 0.32f - Z * span * 0.18f + o * span * 0.13f };
-                        _c.Membrane(leaf, _featherMat, skin);
-                        _c.Membrane(new[] { b, leaf[1].Lerp(b, 0.4f), leaf[3].Lerp(b, 0.4f) + Z * u }, Mat.Main, bone, 0.1f);
+                        // Three tracts laid over each other, each its own part so the edges show:
+                        // short coverts on the shoulder, the secondaries, and the long primaries to a point.
+                        float f = span * 0.72f;
+                        _c.Membrane(new[] { b + o * 0.6f * u, b - X * f * 0.3f + Z * f * 0.08f + o * f * 0.15f, b - X * f * 0.45f - Z * f * 0.04f + o * f * 0.16f, b - X * f * 0.12f - Z * f * 0.16f + o * f * 0.16f }, Mat.Main, Part(Zone.Wing), 0.06f);
+                        _c.Membrane(new[] { b - X * f * 0.12f + o * f * 0.1f, b - X * f * 0.58f + Z * f * 0.05f + o * f * 0.12f, b - X * f * 0.78f - Z * f * 0.07f + o * f * 0.11f, b - X * f * 0.32f - Z * f * 0.2f + o * f * 0.13f }, _featherMat, skin);
+                        _c.Membrane(new[] { b - X * f * 0.42f + o * f * 0.06f, b - X * f * 0.85f + Z * f * 0.02f + o * f * 0.07f, b - X * f * 1.08f - Z * f * 0.06f + o * f * 0.04f, b - X * f * 0.72f - Z * f * 0.12f + o * f * 0.09f }, _featherMat, Part(Zone.Wing), -0.12f);
                         break;
                     }
                     {
-                        var wr = b + o * span * 0.48f + Z * span * 0.55f;
-                        var tip = b + o * span * 1.0f + Z * span * 0.42f - X * span * 0.3f;
-                        var trail = new[]
+                        // Spread: an arm of bone and coverts, then every flight feather on its own,
+                        // secondaries trailing back from the arm and primaries fanned from the wrist.
+                        var elbowF = b + o * span * 0.22f + Z * span * 0.3f - X * span * 0.04f;
+                        var wr = b + o * span * 0.46f + Z * span * 0.55f + X * span * 0.02f;
+                        _c.Tube(Smooth(new[] { b, elbowF, wr }, 3), 1.1f * u, 0.8f * u, Mat.Main, bone);
+                        var plane = (wr - b).Cross(-X).Normalized();
+                        void Feather(Vector3 root, Vector3 dir, float len, float wid, float bias)
                         {
-                            b, wr, tip,
-                            b + o * span * 0.85f + Z * span * 0.2f - X * span * 0.5f,
-                            b + o * span * 0.66f + Z * span * 0.12f - X * span * 0.56f,
-                            b + o * span * 0.46f + Z * span * 0.04f - X * span * 0.55f,
-                            b + o * span * 0.26f - X * span * 0.46f,
-                            b - X * span * 0.28f,
-                        };
-                        _c.Membrane(trail, _featherMat, skin);
-                        // Primaries: long feathers fanned along the trailing edge, each its own part.
+                            dir = dir.Normalized();
+                            var side = dir.Cross(plane).Normalized();
+                            _c.Membrane(new[] { root, root + dir * len * 0.35f + side * wid, root + dir * len, root + dir * len * 0.4f - side * wid * 0.55f }, _featherMat, Part(Zone.Wing), bias);
+                        }
                         for (int k = 0; k < 5; k++)
                         {
-                            var quill = wr.Lerp(tip, 0.2f + 0.16f * k);
-                            var end = trail[Math.Min(2 + k, trail.Length - 1)].Lerp(quill, -0.25f);
-                            _c.Tube(new[] { quill, end }, 0.9f * u, 0.35f * u, _featherMat, Part(Zone.Wing), -0.04f * k);
+                            var quillAt = b.Lerp(wr, 0.12f + 0.19f * k);
+                            Feather(quillAt, -X + o * 0.12f * k - Z * 0.1f, span * (0.36f + 0.025f * k), span * 0.07f, k % 2 == 0 ? 0.04f : -0.04f);
                         }
-                        // Coverts: the short feathers over the arm, a shade lighter.
-                        _c.Membrane(new[] { b + Z * 0.3f * u, wr + Z * 0.3f * u, b + o * span * 0.6f + Z * span * 0.35f - X * span * 0.22f, b + o * span * 0.2f - X * span * 0.22f + Z * span * 0.12f }, Mat.Main, bone, 0.08f);
+                        for (int k = 0; k < 6; k++)
+                        {
+                            float a = Mathf.Lerp(0.55f, 1.45f, k / 5f);
+                            var quillAt = wr + o * span * 0.03f * k - X * span * 0.01f * k;
+                            Feather(quillAt, -X * Mathf.Cos(a) + o * Mathf.Sin(a) + Z * 0.08f, span * (0.42f + 0.05f * k), span * 0.06f, k % 2 == 0 ? -0.02f : 0.06f);
+                        }
+                        _c.Membrane(new[] { b + Z * 0.4f * u, elbowF + Z * 0.4f * u, wr + Z * 0.4f * u, wr - X * span * 0.16f + Z * 0.2f * u, b - X * span * 0.2f }, Mat.Main, bone, 0.08f);
                     }
                     break;
                 case Wings.Insect:
@@ -898,9 +1007,12 @@ public sealed partial class CreatureSculptor
     void Flame(Vector3 at, float size)
     {
         int part = Part(Zone.Aura);
+        var before = _c.Warp;
+        _c.Warp = p => before(p) + Y * 0.8f * size * u * Wave(0, 2) * Mathf.Clamp((p.Z - at.Z) / (7.5f * size * u), 0, 1);
         var pts = Smooth(new[] { at, at + Z * 2.5f * size * u + X * 0.6f * u, at + Z * 5f * size * u - X * 1.2f * u, at + Z * 7.5f * size * u - X * 0.4f * u }, 4);
         _c.Tube(pts, t => (2.2f - 2.0f * t) * size * u, Mat.Glow, part, 0.1f, -100, true);
         _c.Tube(pts.Take(pts.Count / 2).ToList(), t => (1.1f - 0.8f * t) * size * u, Mat.Glow, part, 0.5f, -100, true);
+        _c.Warp = before;
     }
 
     // ---------------------------------------------------------------- aura
@@ -955,6 +1067,19 @@ public sealed partial class CreatureSculptor
 
     void ApplyPattern()
     {
+        if (_form == Form.Jelly)
+        {
+            // Four glowing lobes in the bell, seen through the top.
+            var top = _spine.Count > 1 ? _spine[1].p : _headC;
+            float rad = _spine.Count > 1 ? _spine[1].w : _headR;
+            _c.Recolor((x, y) =>
+            {
+                if (_c.PartAt(x, y) != _bodyPart || _c.MatAt(x, y) != Mat.Main || _c.Normal3At(x, y).Z < 0.45f) return false;
+                var rel = _c.PosAt(x, y) - top;
+                float d = new Vector2(rel.X, rel.Y).Length() / rad, a = Mathf.Atan2(rel.Y, rel.X);
+                return d > 0.12f && d < 0.62f && Mathf.Cos(4 * a + 0.4f) > 0.3f;
+            }, Mat.Glow, -0.1f);
+        }
         bool Main(int x, int y) => _c.MatAt(x, y) == Mat.Main;
         float unit = u;
         switch (_p.Pattern)
@@ -1073,6 +1198,12 @@ public sealed partial class CreatureSculptor
     {
         var att = _cr.Attitude;
         void Px(int x, int y, Mat m, int tone = 1) { if (Skin(x, y)) _c.Plot(x, y, m, _headPart, tone); }
+        if (_blink)
+        {
+            // Lids shut: a line where the eye was.
+            for (int x = ex - Math.Max(1, e); x <= ex + Math.Max(1, e); x++) Px(x, ey, Mat.Line);
+            return;
+        }
         int top, half;
         if (far || e <= 1)
         {

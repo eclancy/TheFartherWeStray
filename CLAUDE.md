@@ -30,6 +30,11 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   the body, set the anchors (head, spine, tail root, wing root); the shared parts do the rest.
   **The user approved this look as built ("the creatures all look great", 2026-11-02): refine
   and extend it, don't replace it.**
+- **Idle animation** (2026-11-02): every frame is a re-render of the model with `PixelCanvas.Warp`
+  moving shapes: a breath on planted feet (floaters bob), a head nod a beat behind, tails and
+  serpent bodies swaying in a wave, wingbeats, floating auras, flickering flames, a blink every
+  fourth breath. 8 frames at 8 fps; `UnitView` renders them on a worker thread and swaps them in.
+  New forms' trailing parts (tatters, plumes, tendrils) want a `Trail` warp.
 - **Readability (2026-11-01):** icons and shorthand over sentences, after WizardSurvivors'
   stat glyphs. `scripts/UI/`: `Glyphs` (12x12 art, outlined, drawn at 2x+), `SkillIcons` (every
   skill gets a framed glyph: frame colour = attack/heal/boost/control/move, corner marks = shape and
@@ -82,7 +87,9 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   that saves, so the user's `user://ranch.json` is never touched.
 - **Sprites:** `"$GODOT_BIN" --headless --path . -- --forms --medium` (every form, front and back,
   on board tiles; `--scale=4` for close-ups) or `--views=N` (sheet N), then look at `.shots/`.
-  `--export=.shots/x.png --sheet=1` still writes the front views.
+  `--export=.shots/x.png --sheet=1` still writes the front views. `--only=Lung,Jelly` narrows
+  `--forms`; adding `--idle=NAME` writes the idle loop as frames to `.shots/idle/NAME/` (make a GIF
+  with ffmpeg: `-framerate 8 -i f%02d.png`).
 - **Screens:** `"$GODOT_BIN" --path . -- --shot=40` (add `--autoplay` for mid-battle, `--battle=3 --aim --shot=900`
   for the aimed-skill panel, `--lab` for
   the Lab) writes `.shots/shot.png`. It opens a window briefly.

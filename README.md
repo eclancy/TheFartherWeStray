@@ -257,7 +257,8 @@ gear, strain and attitude.
 - `--battle=N --map="Sump Marsh"` runs a one-off battle without the ranch.
 - `--shot=N` saves frame N to `.shots/shot.png`.
 - `--export` renders a sheet without a window; `--forms` one creature of every form, front and
-  back on board tiles; `--views=N` sheet N the same way; `--icons` every skill icon.
+  back on board tiles (`--only=Lung,Jelly` for some, `--idle=NAME` for their idle loop as
+  frames); `--views=N` sheet N the same way; `--icons` every skill icon.
 
 The full list is in `scripts/GameRoot.cs`.
 

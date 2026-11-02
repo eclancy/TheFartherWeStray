@@ -298,7 +298,9 @@ public partial class GameRoot : Node
         {
             // One creature of every form (the first species of that plan from seed N on), front and
             // back, standing on board tiles: the check on silhouettes. --views does the same for a sheet.
+            // --only=Lung,Jelly keeps just those forms, picked exactly as in the full sheet.
             ulong start = ulong.TryParse(formsArg, out var fs) ? fs : 1;
+            var only = args.TryGetValue("only", out var onlyArg) ? onlyArg.Split(',').Select(n => n.Trim().ToLowerInvariant()).ToHashSet() : null;
             var list = new List<Creature>();
             foreach (var form in Enum.GetValues<Form>().Where(f => f != Form.Auto))
             {
@@ -310,14 +312,27 @@ public partial class GameRoot : Node
                     fsp.Form = form;
                     var fc = Creature.Specimen(fsp, 0);
                     if (args.ContainsKey("medium")) fc.Size = SizeClass.Medium;
-                    list.Add(fc);
+                    if (only == null || only.Contains(form.ToString().ToLowerInvariant())) list.Add(fc);
                     start = seed + 1;
                     break;
                 }
             }
+            if (args.TryGetValue("idle", out var idleName))
+            {
+                // The idle loop as numbered frames, for a GIF: .shots/idle/NAME/f00.png onward.
+                string dir = ProjectSettings.GlobalizePath($"res://.shots/idle/{(idleName == "" ? "loop" : idleName)}");
+                System.IO.Directory.CreateDirectory(dir);
+                var frames = CreatureSheet.ComposeIdle(list, args.TryGetValue("scale", out var isc) && int.TryParse(isc, out var isv) ? isv : 3,
+                    args.TryGetValue("columns", out var icol) && int.TryParse(icol, out var icv) ? icv : 4);
+                for (int fi = 0; fi < frames.Count; fi++) frames[fi].SavePng($"{dir}/f{fi:00}.png");
+                GD.Print($"wrote {frames.Count} frames to {dir}");
+                GetTree().Quit();
+                return;
+            }
             string fpath = ProjectSettings.GlobalizePath("res://.shots/forms.png");
             System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(fpath)!);
-            CreatureSheet.ComposeViews(list, four, args.TryGetValue("scale", out var fsc) && int.TryParse(fsc, out var fsv) ? fsv : 2, 6).SavePng(fpath);
+            CreatureSheet.ComposeViews(list, four, args.TryGetValue("scale", out var fsc) && int.TryParse(fsc, out var fsv) ? fsv : 2,
+                args.TryGetValue("columns", out var fcol) && int.TryParse(fcol, out var fcv) ? fcv : 6).SavePng(fpath);
             GD.Print($"wrote {fpath}: " + string.Join(", ", list.Select(c => $"{c.Species.Form} {c.Species.Name}")));
             GetTree().Quit();
             return;

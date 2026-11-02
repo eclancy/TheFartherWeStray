@@ -854,6 +854,16 @@ public partial class UnitView : Node2D
     bool _showBack, _flip;
     float _baseY;
 
+    // The idle loop: frames of a breath for each view, then a blink. They're rendered on a worker
+    // thread and swapped in as they arrive; until then the still pose shows.
+    const int IdleFrames = 8;
+    const float IdleFps = 8;
+    readonly (Texture2D tex, Vector2I anchor)[][] _idle = { new (Texture2D, Vector2I)[IdleFrames + 1], new (Texture2D, Vector2I)[IdleFrames + 1] };
+    readonly System.Collections.Concurrent.ConcurrentQueue<(int view, int frame, Image img, Vector2I anchor)> _rendered = new();
+    double _clock;
+    int _beatOffset;
+    (Texture2D tex, Vector2I anchor, bool flip) _shown;
+
     public void Setup(Unit u, BattleScreen screen)
     {
         Unit = u;
@@ -869,6 +879,20 @@ public partial class UnitView : Node2D
         _sprite = new Sprite2D { Centered = false };
         AddChild(_sprite);
         SetFacing(u.Side == Side.Wild, false);
+
+        // Each creature breathes on its own beat.
+        _beatOffset = (int)(u.Creature.Seed % IdleFrames);
+        var creature = u.Creature;
+        Task.Run(() =>
+        {
+            foreach (int view in new[] { 0, 1 })
+                for (int f = 0; f <= IdleFrames; f++)
+                {
+                    bool blink = f == IdleFrames;
+                    var (img, anchor) = CreatureSculptor.Render(creature, false, view == 0 ? View.Front : View.Back, blink ? 7f / IdleFrames : f / (float)IdleFrames, blink);
+                    _rendered.Enqueue((view, f, img, anchor));
+                }
+        });
     }
 
     /// <summary>Shows the front or back view, mirrored or not, with its feet on this node.</summary>
@@ -876,12 +900,25 @@ public partial class UnitView : Node2D
     {
         _showBack = back;
         _flip = flip;
-        var tex = back ? _back : Texture;
-        var a = back ? _backAnchor : _frontAnchor;
+        ShowFrame();
+    }
+
+    /// <summary>The idle frame for now in the view it faces, or its still pose until that has rendered.</summary>
+    void ShowFrame()
+    {
+        int view = _showBack ? 1 : 0;
+        long beat = (long)(_clock * IdleFps) + _beatOffset;
+        int f = (int)(beat % IdleFrames);
+        // Every fourth breath ends in a blink.
+        if (f == IdleFrames - 1 && beat / IdleFrames % 4 == 3 && _idle[view][IdleFrames].tex != null) f = IdleFrames;
+        var (tex, a) = _idle[view][f];
+        if (tex == null) (tex, a) = _showBack ? (_back, _backAnchor) : (Texture, _frontAnchor);
+        if (_shown == (tex, a, _flip)) return;
+        _shown = (tex, a, _flip);
         _sprite.Texture = tex;
-        _sprite.FlipH = flip;
+        _sprite.FlipH = _flip;
         _baseY = -a.Y + 2;
-        _sprite.Position = new Vector2(flip ? -(tex.GetWidth() - a.X) : -a.X, _baseY);
+        _sprite.Position = new Vector2(_flip ? -(tex.GetWidth() - a.X) : -a.X, _baseY);
     }
 
     /// <summary>Turns to face along a screen direction, snapped to the nearest diagonal.</summary>
@@ -903,8 +940,9 @@ public partial class UnitView : Node2D
     public override void _Process(double delta)
     {
         if (_flash > 0) { _flash = Mathf.Max(0, _flash - (float)delta * 4); _sprite.Modulate = Colors.White.Lerp(new Color(1, 0.3f, 0.3f), _flash); }
-        bool active = _screen.ActiveUnit == Unit;
-        _sprite.Position = new Vector2(_sprite.Position.X, _baseY + (active ? Mathf.Round(Mathf.Sin(Time.GetTicksMsec() / 160f)) : 0));
+        while (_rendered.TryDequeue(out var r)) _idle[r.view][r.frame] = (ImageTexture.CreateFromImage(r.img), r.anchor);
+        _clock += delta;
+        ShowFrame();
         QueueRedraw();
     }
 

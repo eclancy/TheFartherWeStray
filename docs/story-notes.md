@@ -25,6 +25,27 @@ at the user's request. Nothing beyond what's marked as the user's direction is d
   city above; mechanical and chemical augments (neon and metal, chemical and weapon-like attacks)
   belong with the undercity. See `design-notes.md`, Traits and augments.
 
+## Built so far: the machinery, not the story (2026-11-02)
+
+Everything below is placeholder wording for the story to replace; the mechanics are real.
+- **Standing** with the city above and the undercity (`World/Standing.cs`, -100 to 100 each):
+  contracts, regular jobs, main missions and dispatches raise standing with whoever the place's
+  work is for (the wilds are nobody's); fitting an augment raises the undercity's, breeding the
+  city's; coliseum cups the city's. At 50 a side's shops take 15% off.
+- **Choices**: after each main mission, a choice of who hears first and gets the credit (the city,
+  the undercity, or both across one table), shifting standing and setting a flag
+  (`main_foundry:city`). The prompt is generic: the story will give each its own.
+- **Story flags** (`Ranch.Flags`): choices and catches; nothing reads them yet but the rumours.
+- **The three endings** (`end_justice` at the Brass Bridges, `end_chaos` at the Foundry,
+  `end_peace` at Hexlight Hollow): once the last road is open and 15 contracts are won, the one
+  your standing leans to appears. Justice wants 60 with the city and 30 over the undercity; chaos
+  the same the other way; peace 40 with both and neither 30 ahead. Winning one records the ending
+  (`Ranch.Ending`); you can play on.
+- **Rumoured creatures** (the user's narrative-gated monsters): a rare creature per path, heard of
+  at a place once standing allows and gone once caught: a prize-bred beast in the Gardens (city
+  50), a lab escapee in the Sump (undercity 50), a creature of both worlds in the Hollow
+  (balanced, 30 with both).
+
 ## The goal
 
 A story with the animation, cutscenes and depth of FFTA. Battles and the ranch should feel like

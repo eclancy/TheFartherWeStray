@@ -150,6 +150,7 @@ public partial class RanchScreen : Control
         if (Ranch.Report.Count > 0) _notes.Text = string.Join("\n", Ranch.Report);
         Select(Ranch.Creatures.FirstOrDefault(r => r.Name == StartOn)?.Id ?? Ranch.Squad.FirstOrDefault(Ranch.Creatures[0].Id));
         Rebuild();
+        AskPending();
         if (StartInLab) SetPanel(Panel.Lab);
         if (StartOnJobs) SetPanel(Panel.Jobs);
         if (StartOnParty) SetPanel(Panel.Party);
@@ -180,6 +181,45 @@ public partial class RanchScreen : Control
     }
 
     void Flash(string text) => _status.Text = text;
+
+    /// <summary>The choice after a main mission, over everything until it's made: who hears first and gets the credit.</summary>
+    void AskPending()
+    {
+        if (Ranch.Pending == null || World.StoryBook.Get(Ranch.Pending) is not { } main) return;
+        if (AutoFight) { Flash(Ranch.Decide("both")); return; } // the attract loop shares the credit and plays on
+        var shade = new ColorRect { Color = new Color(0.02f, 0.01f, 0.05f, 0.75f), MouseFilter = MouseFilterEnum.Stop };
+        shade.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        AddChild(shade);
+        var panel = new PanelContainer { Position = new Vector2(560, 320), CustomMinimumSize = new Vector2(800, 0) };
+        var box = new StyleBoxFlat { BgColor = new Color(0.08f, 0.06f, 0.13f), BorderColor = Gold };
+        box.SetBorderWidthAll(2);
+        box.SetCornerRadiusAll(8);
+        box.SetContentMarginAll(18);
+        panel.AddThemeStyleboxOverride("panel", box);
+        shade.AddChild(panel);
+        var col = new VBoxContainer();
+        col.AddThemeConstantOverride("separation", 10);
+        panel.AddChild(col);
+        col.AddChild(Ui.Text(main.Title.ToUpperInvariant(), 18, Gold));
+        var prompt = Ui.Text(World.StoryBook.Prompt(main), 18, Ink, 4);
+        prompt.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        prompt.CustomMinimumSize = new Vector2(760, 0);
+        col.AddChild(prompt);
+        foreach (var choice in World.StoryBook.ChoicesAfter(main))
+        {
+            var b = new Button { Text = $"{choice.Text}   ({(choice.City >= 0 ? "+" : "")}{choice.City} city, {(choice.Under >= 0 ? "+" : "")}{choice.Under} undercity)", FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(760, 44), Alignment = HorizontalAlignment.Left };
+            b.AddThemeFontSizeOverride("font_size", 16);
+            string id = choice.Id;
+            b.Pressed += () =>
+            {
+                Flash(Ranch.Decide(id));
+                Ranch.Save();
+                shade.QueueFree();
+                Rebuild();
+            };
+            col.AddChild(b);
+        }
+    }
 
     void StartNaming(int id)
     {
@@ -218,6 +258,8 @@ public partial class RanchScreen : Control
             new Chip("fist", $"{Ranch.Squad.Count}/{Ranch.SquadSize}", Ranch.Squad.Count == 0 ? Ui.Bad : Ink, "squad: three creatures for each tamer leading (P)"),
             new Chip("flask", Ranch.Chem.ToString(), Gold, "chem, for the lab"),
             new Chip("mountain", "#" + Ranch.Encounter, Ink, "next encounter"),
+            new Chip("sun", Ranch.CityStanding.ToString(), Gold, "standing with the city above"),
+            new Chip("moon", Ranch.UnderStanding.ToString(), Magenta, "standing with the undercity"),
         }, 22, 2, 22);
         _headerChips.Position = new Vector2(230, 20);
         _headerChips.Size = new Vector2(1100, 40);

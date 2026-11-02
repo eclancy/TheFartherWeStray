@@ -31,6 +31,8 @@ public sealed class Mission
     public string Cup;            // a coliseum cup's round...
     public int Round;             // ...and which (1 to 3)
     public int Roamer;            // a roaming pack (its id; 0: none)
+    public string Rumour;         // a rumoured creature's capture (its id)
+    public Creature Special;      // a creature that's in the pack for sure (a rumour's), and the capture target
     public string FaunaMap;       // whose region the pack comes from, if not the map it's fought on
     int _sightingIndex = -1;
 
@@ -162,9 +164,10 @@ public sealed class Mission
             chosen.Add(rng.Weighted(options));
         }
         var pack = chosen.Select(i => Creature.Specimen(cands[i], 0)).ToList();
+        if (Special != null) pack[0] = Special;
 
         Creature target = null;
-        if (Goal == Objective.Capture) target = _sightingIndex >= 0 ? pack[0] : pack[rng.Int(pack.Count)];
+        if (Goal == Objective.Capture) target = _sightingIndex >= 0 || Special != null ? pack[0] : pack[rng.Int(pack.Count)];
         if (Goal == Objective.Hunt)
         {
             // The alpha: the biggest of the pack, grown a size bigger still.

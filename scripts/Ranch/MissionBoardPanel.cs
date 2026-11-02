@@ -146,11 +146,22 @@ public partial class MissionCard : Control
         string line = m.Dispatch != null ? $"No battle: one creature goes, and is away {m.Dispatch.Days} {(m.Dispatch.Days == 1 ? "day" : "days")}."
             : m.Flavor ?? m.Rival?.Ideal ?? BattleMap.ByName(m.MapName).Blurb;
         DrawString(font, new Vector2(x, 114), line, HorizontalAlignment.Left, w, 14, dim);
+        // Whose work it is, in the corner: the city's or the undercity's (the wilds are nobody's).
+        if (m.Location != null && World.Standing.ClientOf(m.Location) is { } client && m.Dispatch == null)
+            DrawString(font, new Vector2(x, 32), client == World.Side.City ? "for the city" : "for the undercity", HorizontalAlignment.Right, w, 13,
+                Color.FromHtml(client == World.Side.City ? "#f2c14e" : "#ff4f9a"));
         if (m.Story is { } story)
         {
-            // A main mission: what it opens on the country map.
+            // A main mission: what it opens on the country map, or the ending it is.
+            var main = World.StoryBook.Get(story);
             DrawTexture(Glyphs.Get("star", 2), new Vector2(x - 4, 128));
-            DrawString(font, new Vector2(x + 26, 150), $"Main mission  ·  opens {World.Country.Get(World.StoryBook.Get(story).Opens).Name}", HorizontalAlignment.Left, w - 26, 15, gold);
+            string what = main.Ending != null ? $"An ending  ·  {main.Ending}" : $"Main mission  ·  opens {World.Country.Get(main.Opens).Name}";
+            DrawString(font, new Vector2(x + 26, 150), what, HorizontalAlignment.Left, w - 26, 15, gold);
+        }
+        else if (m.Rumour != null)
+        {
+            DrawTexture(Glyphs.Get("eye", 2), new Vector2(x - 4, 128));
+            DrawString(font, new Vector2(x + 26, 150), "Rumour  ·  a rare creature, heard of on your path only", HorizontalAlignment.Left, w - 26, 15, Color.FromHtml("#c79bff"));
         }
         else if (m.Roamer != 0)
         {

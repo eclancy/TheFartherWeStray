@@ -111,6 +111,18 @@ fields up to two and fills their three slots each; battles apply the boosts befo
   lost every rival duel, so the main mission wanting a rival win stayed shut. Rivals may want
   easing, or that milestone a softer form.
 
+## Story flags and standing (the user's pick, 2026-11-02; built as machinery)
+
+Built: standing with the two sides, choices after main missions, story flags, the three endings
+gated by where standing leans, rumoured creatures per path, and shop discounts. The details and
+the numbers are in `story-notes.md` ("Built so far"). All wording is placeholder for the story.
+
+**Open:**
+- [ ] Standing rises quickly (a side reaches 100 within about 40 battles if you favour it): fine,
+  or halve the per-contract amount?
+- [ ] Should the far side react to low standing (dearer shops, a side's contracts drying up,
+  rival tamers taking sides)?
+
 ## Traits, augments and names (the user's direction, 2026-11-02; built)
 
 **Decided by the user:**

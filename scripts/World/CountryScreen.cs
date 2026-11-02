@@ -238,7 +238,8 @@ public partial class CountryScreen : Control
             text.CustomMinimumSize = new Vector2(440, 0);
             words.AddChild(text);
             row.AddChild(words);
-            var buy = new Button { Text = $"Buy  {ware.Price}", FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(120, 40), Disabled = !here || Ranch.Chem < ware.Price };
+            int price = ShopBook.PriceAt(Ranch, ware, place);
+            var buy = new Button { Text = price < ware.Price ? $"Buy  {price} (-15%)" : $"Buy  {price}", FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(150, 40), Disabled = !here || Ranch.Chem < price };
             var w = ware;
             buy.Pressed += () => { _status.Text = Ranch.Buy(w); Ranch.Save(); Audio.Sound.Play("confirm"); OpenShop(place); };
             row.AddChild(buy);
@@ -366,6 +367,18 @@ public partial class CountryScreen : Control
         DrawString(font, new Vector2(40, 52), "THE COUNTRY", HorizontalAlignment.Left, 400, 30, Gold);
         DrawTexture(Glyphs.Get("flask", 2), new Vector2(290, 30));
         DrawString(font, new Vector2(318, 50), $"{Ranch.Chem}", HorizontalAlignment.Left, 120, 20, Gold);
+        // Standing with each side: a bar from -100 to 100, and the number.
+        void Bar(float x0, string glyph, string label, int value, Color color)
+        {
+            DrawTexture(Glyphs.Get(glyph, 2), new Vector2(x0, 30));
+            DrawRect(new Rect2(x0 + 30, 38, 120, 10), new Color(0.15f, 0.12f, 0.22f));
+            DrawRect(new Rect2(x0 + 90, 36, 1, 14), Dim);
+            float f = value / 100f;
+            DrawRect(f >= 0 ? new Rect2(x0 + 90, 38, 60 * f, 10) : new Rect2(x0 + 90 + 60 * f, 38, -60 * f, 10), color);
+            DrawString(font, new Vector2(x0 + 158, 50), $"{label} {value}", HorizontalAlignment.Left, 160, 16, color);
+        }
+        Bar(400, "sun", "city", Ranch.CityStanding, Gold);
+        Bar(640, "moon", "undercity", Ranch.UnderStanding, Pink);
         DrawString(font, new Vector2(40, 84), NextLine(), HorizontalAlignment.Left, 1100, 16, Dim);
         var tex = CountryArt.Texture;
         DrawTextureRect(tex, new Rect2(MapAt, tex.GetSize() * Scale), false);
@@ -458,7 +471,9 @@ public partial class CountryScreen : Control
         var ready = StoryBook.Ready(Ranch).ToList();
         string away = (Ranch.Away.Count > 0 ? $"   ·   {Ranch.Away.Count} away on dispatches" : "")
             + (Ranch.Wanderers.Count > 0 ? $"   ·   {Ranch.Wanderers.Count} {(Ranch.Wanderers.Count == 1 ? "pack" : "packs")} roaming" : "");
-        if (ready.Count > 0) return $"Main mission ready at {Country.Get(ready[0].Location).Name}: the road to {Country.Get(ready[0].Opens).Name}{(ready.Count > 1 ? $" (and {ready.Count - 1} more)" : "")}.{away}";
+        string what(MainMission m) => m.Ending != null ? $"the ending, {m.Ending}" : $"the road to {Country.Get(m.Opens).Name}";
+        if (Ranch.Ending is { } ended) return $"Ending reached: {StoryBook.Get(ended).Ending}. Play on as long as you like.{away}";
+        if (ready.Count > 0) return $"Main mission ready at {Country.Get(ready[0].Location).Name}: {what(ready[0])}{(ready.Count > 1 ? $" (and {ready.Count - 1} more)" : "")}.{away}";
         if (StoryBook.Next(Ranch) is not { } next) return "Every road is open. (The story is still to come.)" + away;
         var at = Country.Get(next.Location);
         return $"Next main mission, at {at.Name}, waits for: " + string.Join(", ", StoryBook.Needs(Ranch, next).Where(n => !n.met).Select(n => n.text)) + "." + away;

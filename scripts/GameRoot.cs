@@ -151,6 +151,8 @@ public partial class GameRoot : Node
             // save keeps where you are. --trace=N prints battle N's log.
             Ranching.Ranch.SavePath = "user://country_test.json";
             int battles = int.TryParse(countryArg, out var cbn) ? cbn : 30, countryStalls = 0;
+            // --path=city|undercity|peace: the choices made after main missions, and whose contracts come first.
+            string path = args.GetValueOrDefault("path", "peace");
             var ranch = Ranching.Ranch.New();
             int codexAll = Ranching.Lab.Slots.Sum(sl => System.Enum.GetNames(sl.Type).Count(n => n != "None"));
             GD.Print($"codex: {World.StoryBook.Progress(ranch, World.Milestone.CodexParts)} of {codexAll} parts at the start");
@@ -165,7 +167,13 @@ public partial class GameRoot : Node
                 bool wantsDuel = World.StoryBook.Next(ranch) is { } next && next.Needs.Any(n => n.kind == World.Milestone.RivalWins && World.StoryBook.Progress(ranch, n.kind) < n.count);
                 var m = fights.FirstOrDefault(x => x.Story != null) ?? (wantsDuel ? fights.FirstOrDefault(x => x.Rival != null && x.Cup == null) : null)
                     ?? fights.FirstOrDefault(x => x.Cup != null)
-                    ?? fights.Where(x => x.Rival == null).OrderBy(x => World.Country.Days(ranch, x.Location)).ThenBy(x => x.Stars).First();
+                    ?? fights.Where(x => x.Rival == null).OrderBy(x => Favour(x)).ThenBy(x => World.Country.Days(ranch, x.Location)).ThenBy(x => x.Stars).First();
+                int Favour(Tactics.Mission x) => World.Standing.ClientOf(x.Location ?? "") switch
+                {
+                    World.Side.City => path == "city" || path == "peace" && i % 2 == 0 ? 0 : 1,
+                    World.Side.Undercity => path == "undercity" || path == "peace" && i % 2 == 1 ? 0 : 1,
+                    _ => 2,
+                };
                 if (ranch.TravelTo(m.Location) is { } met)
                 {
                     if (met.Id != m.Roamer) GD.Print($"    ambushed at {met.At} by a roaming pack of {met.Size}");
@@ -191,10 +199,11 @@ public partial class GameRoot : Node
                     if (battle.Target is { } target) GD.Print($"    target {target.Name}: {battle.RecruitHint(target)}, {target.Hp} HP, gone {target.Gone}");
                 }
                 ranch.AfterBattle(battle, m);
-                foreach (var line in ranch.Report.Where(l => l.Contains("is back from") || l.Contains("Champion") || l.Contains("Out of the"))) GD.Print("    " + line);
+                foreach (var line in ranch.Report.Where(l => l.Contains("is back from") || l.Contains("Champion") || l.Contains("Out of the") || l.Contains("Ending") || l.Contains("rumour"))) GD.Print("    " + line);
+                if (ranch.Pending != null) GD.Print("    chose: " + ranch.Decide(path == "peace" ? "both" : path));
                 foreach (var rec in ranch.Creatures) if (!ranch.Squad.Contains(rec.Id)) ranch.AddToSquad(rec.Id);
                 string result = battle.Winner == Tactics.Side.Player ? "won" : battle.Winner == null ? "STALLED" : "lost";
-                GD.Print($"{i + 1,2}. day {ranch.Day,3}  {m.Location,-10} {m.Title,-36} {result,-7} | contracts {ranch.ContractsWon,2}  creatures {ranch.Creatures.Count,2}  codex {World.StoryBook.Progress(ranch, World.Milestone.CodexParts),2}  rival wins {ranch.Rivals.Values.Sum()}  | open: {string.Join(", ", World.Country.Open(ranch).Select(l => l.Id))}");
+                GD.Print($"{i + 1,2}. day {ranch.Day,3}  {m.Location,-10} {m.Title,-36} {result,-7} | contracts {ranch.ContractsWon,2}  creatures {ranch.Creatures.Count,2}  rival wins {ranch.Rivals.Values.Sum()}  city {ranch.CityStanding,3} under {ranch.UnderStanding,3} | open: {string.Join(", ", World.Country.Open(ranch).Select(l => l.Id))}");
             }
             ranch.Save();
             var back = Ranching.Ranch.Load();
@@ -202,6 +211,45 @@ public partial class GameRoot : Node
                 && back.Cups.SetEquals(ranch.Cups) && back.Wanderers.Count == ranch.Wanderers.Count
                 && back.Wanderers.All(w => ranch.Wanderers.Any(x => x.Id == w.Id && x.At == w.At && x.Seed == w.Seed)) && back.Away.Count == ranch.Away.Count && back.Away.All(kv => ranch.Away.TryGetValue(kv.Key, out var a) && a.Job == kv.Value.Job && a.BackOn == kv.Value.BackOn);
             GD.Print($"country: {(kept ? "kept" : "DIFFERENT")} after save and load (at {back.Location}, day {back.Day}, main missions won: {string.Join(", ", back.Story)}; cups: {string.Join(", ", back.Cups)}; away: {back.Away.Count}; packs roaming: {string.Join(", ", back.Wanderers.Select(w => w.At))}); stalled: {countryStalls}");
+            GetTree().Quit();
+            return;
+        }
+
+        if (args.ContainsKey("endings"))
+        {
+            // Standing and the endings without a screen: a choice after a main mission sets a flag and
+            // shifts standing; with the last road open, each way standing can lean opens exactly one
+            // ending (and its path's rumoured creature); an ending won is the ending reached; all saved.
+            Ranching.Ranch.SavePath = "user://endings_test.json";
+            var ranch = Ranching.Ranch.New();
+            ranch.Pending = "main_foundry";
+            GD.Print("choice: " + ranch.Decide("city") + $"; flags {string.Join(", ", ranch.Flags)}");
+            foreach (var m in World.StoryBook.All.Where(m => m.Ending == null)) ranch.Story.Add(m.Id);
+            ranch.ContractsWon = 15;
+            foreach (var (city, under) in new[] { (70, 10), (10, 70), (50, 45), (20, 20) })
+            {
+                ranch.CityStanding = city;
+                ranch.UnderStanding = under;
+                var ready = World.StoryBook.Ready(ranch).Where(m => m.Ending != null).Select(m => m.Ending).ToList();
+                var heard = World.StoryBook.Heard(ranch).Select(x => x.Id).ToList();
+                GD.Print($"city {city,3}, undercity {under,3} (leans {World.Standing.Lean(ranch),-9}): endings open: {(ready.Count == 0 ? "none" : string.Join(", ", ready))}; rumours: {(heard.Count == 0 ? "none" : string.Join(", ", heard))}");
+            }
+            ranch.CityStanding = 50; ranch.UnderStanding = 45;
+            var peace = World.StoryBook.ToMission(World.StoryBook.Get("end_peace"));
+            var rumour = World.StoryBook.RumourMission(World.StoryBook.Rumours.First(x => x.Id == "rumour_peace"));
+            var rb = rumour.CreateBattle(ranch.SquadCreatures());
+            GD.Print($"rumour battle: target {rb.Target?.Name} ({rb.Target?.Creature.Species.Strain}, {rb.Target?.Creature.Size}, traits {string.Join(", ", rb.Target?.Creature.Traits ?? new List<string>())})");
+            ranch.TravelTo("hollow");
+            var battle = peace.CreateBattle(ranch.SquadCreatures());
+            ranch.LeadUnits(battle);
+            foreach (var u in battle.Units.Where(u => u.Side == Tactics.Side.Wild)) u.Hp = 1; // a sure win, to see the ending land
+            while (battle.Winner == null && battle.Round <= 30) { var u = battle.NextTurn(); if (u == null) break; battle.AiTurn(u); }
+            ranch.AfterBattle(battle, peace);
+            foreach (var line in ranch.Report.Take(3)) GD.Print("  " + line);
+            GD.Print($"after: ending {ranch.Ending}; endings still open: {World.StoryBook.Ready(ranch).Count(m => m.Ending != null)}");
+            var back = Ranching.Ranch.Load();
+            bool kept = back.CityStanding == ranch.CityStanding && back.UnderStanding == ranch.UnderStanding && back.Flags.SetEquals(ranch.Flags) && back.Ending == ranch.Ending && back.Pending == ranch.Pending;
+            GD.Print($"story: {(kept ? "kept" : "DIFFERENT")} after save and load (city {back.CityStanding}, undercity {back.UnderStanding}, flags {string.Join(", ", back.Flags)}, ending {back.Ending})");
             GetTree().Quit();
             return;
         }
@@ -902,6 +950,8 @@ public partial class GameRoot : Node
         // The game proper: the ranch, battles from it, and back.
         if (args.TryGetValue("save", out var saveName) && saveName != "") Ranching.Ranch.SavePath = $"user://{saveName}.json";
         _ranch = args.ContainsKey("newranch") ? Ranching.Ranch.New() : Ranching.Ranch.Load();
+        // --choicedemo: a main mission's choice waiting (screenshots; use it with --save=NAME).
+        if (args.ContainsKey("choicedemo")) _ranch.Pending ??= "main_foundry";
         // --encounter=E jumps the ranch ahead (for looking at later boards; use it with --save=NAME).
         if (args.TryGetValue("encounter", out var encounterArg) && ulong.TryParse(encounterArg, out var encounterAt)) _ranch.Encounter = encounterAt;
         bool vatDemo = args.ContainsKey("vatdemo");

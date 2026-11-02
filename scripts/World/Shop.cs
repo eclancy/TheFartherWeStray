@@ -65,6 +65,10 @@ public static class ShopBook
         new() { Id = "steam_pistons", Price = 95, At = new[] { "foundry" }, OpenedBy = "main_sump" },
     };
 
+    /// <summary>A ware's price at a place: 15% off where that side thinks well of you.</summary>
+    public static int PriceAt(Ranch r, Ware ware, string place) =>
+        ware.Price * (100 - Standing.Discount(r, Country.Get(place)?.Side ?? Side.Wilds)) / 100;
+
     /// <summary>What a place sells now.</summary>
     public static List<Ware> At(Ranch r, string place) => Stock.Where(w => w.At.Contains(place)
         && (w.OpenedBy == null || r.Story.Contains(w.OpenedBy)) && (w.Cup == null || r.Cups.Contains(w.Cup))).ToList();

@@ -181,6 +181,16 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   parents with `ToCreature(augmented: false)`, so augments never pass down. Old saves get their
   traits rolled in `Tidy`. `--traits` checks the odds, the inheritance and the save;
   `--select=NAME` opens the ranch on a creature.
+- **Story flags and standing (2026-11-02, built as machinery; wording is placeholder):**
+  `World/Standing.cs` holds standing with the city and the undercity (`Ranch.CityStanding`,
+  `UnderStanding`) and every amount that moves it (work for a place's side, augments, breeding,
+  cups) plus shop discounts. `StoryBook` adds `ChoicesAfter` (who gets the credit after a main
+  mission: `Ranch.Pending`, `Ranch.Decide`, a flag in `Ranch.Flags`), the three endings
+  (`MainMission.Ending` and `Leans`, gated on standing; `Ranch.Ending`) and `Rumours` (rare
+  creatures per path, `Mission.Special`). The ranch shows a pending choice over everything; the
+  map shows both standings. `--endings` checks the gates and the save; `--country=N --path=city|
+  undercity|peace` plays a path; `--choicedemo` shows a choice. Story content is the user's: the
+  prompts, rumours and ending missions are placeholders to replace, not to extend.
 - **Sound (begun 2026-11-02):** `scripts/Audio/`. Every sound is made in code like the sprites:
   `SfxSynth` sums voices (square, triangle, saw, sine, noise; pitch slides, envelopes, low-pass,
   vibrato, tremolo) into 22 kHz mono, and `SoundBook` holds the 40 sounds as data (menus, steps,
@@ -199,8 +209,8 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   match can't be replayed from its commands. `BattleScreen.TurnSeconds` is the turn timer
   (`--timer=N`).
 - Not built yet: story and cutscenes (themes and three endings set by the user, in
-  `docs/story-notes.md`), story flags and standing with the two sides, music, and the network
-  side of PvP. The
+  `docs/story-notes.md`; the flags, standing and endings machinery is built), music, and the
+  network side of PvP. The
   user's direction and a suggested build order are in `docs/design-notes.md`.
 
 ## Build and check

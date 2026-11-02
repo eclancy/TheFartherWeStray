@@ -149,6 +149,7 @@ public static class Country
             list.Add(duel);
         }
         list.AddRange(StoryBook.Ready(r).Select(StoryBook.ToMission));
+        list.AddRange(StoryBook.Heard(r).Select(StoryBook.RumourMission));
         list.AddRange(r.Wanderers.Where(w => Roaming.Roams(r, w.At)).Select(Roaming.Battle));
         return list;
     }

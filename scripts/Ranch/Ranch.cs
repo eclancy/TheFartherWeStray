@@ -98,6 +98,11 @@ public sealed class Ranch
     public HashSet<string> Cups = new();             // coliseum cups won
     public List<World.Wanderer> Wanderers = new();   // wild packs roaming the country
     public Dictionary<string, int> Items = new();    // the bag: gear not worn, items, extra glowberries
+    // The story so far: standing with the two sides, flags set by choices and catches, a choice waiting, the ending reached.
+    public int CityStanding, UnderStanding;
+    public HashSet<string> Flags = new();
+    public string Pending;   // a main mission whose choice is still to be made
+    public string Ending;
     public int NextWanderer = 1;
 
     readonly Dictionary<int, Creature> _cache = new();
@@ -243,14 +248,25 @@ public sealed class Ranch
         battle.Pack(Items);
     }
 
-    /// <summary>Buys a ware at the shop where you stand. Returns what happened.</summary>
+    /// <summary>Buys a ware at the shop where you stand (cheaper where you're well thought of). Returns what happened.</summary>
     public string Buy(World.Ware ware)
     {
         if (!ware.At.Contains(Location)) return $"{World.ShopBook.Name(ware.Id)} is sold at {string.Join(" or ", ware.At.Select(a => World.Country.Get(a).Name))}.";
-        if (Chem < ware.Price) return $"Not enough chem: {World.ShopBook.Name(ware.Id)} costs {ware.Price}.";
-        Chem -= ware.Price;
+        int price = World.ShopBook.PriceAt(this, ware, Location);
+        if (Chem < price) return $"Not enough chem: {World.ShopBook.Name(ware.Id)} costs {price}.";
+        Chem -= price;
         Items[ware.Id] = Items.GetValueOrDefault(ware.Id) + 1;
-        return $"Bought {World.ShopBook.Name(ware.Id)} for {ware.Price} chem ({Items[ware.Id]} in the bag).";
+        return $"Bought {World.ShopBook.Name(ware.Id)} for {price} chem ({Items[ware.Id]} in the bag).";
+    }
+
+    /// <summary>Makes the choice waiting after a main mission: standing shifts, and a flag remembers it.</summary>
+    public string Decide(string choice)
+    {
+        if (World.StoryBook.Get(Pending) is not { } main) return "";
+        var c = World.StoryBook.ChoicesAfter(main).First(x => x.Id == choice);
+        Flags.Add($"{main.Id}:{c.Id}");
+        Pending = null;
+        return $"{c.Text} ({World.Standing.Shift(this, c.City, c.Under)})";
     }
 
     /// <summary>Puts gear from the bag on a creature (null: takes it off); what it wore goes back in the bag.</summary>
@@ -278,7 +294,9 @@ public sealed class Ranch
         if (--Items[augment] == 0) Items.Remove(augment);
         Refresh(id);
         var skill = Classes.ClassBook.Skill(aug.Skill);
-        return $"{rec.Name} has {an} {aug.Name} bolted on: it can use {skill.Name}.{(scrapped != null ? $" The {scrapped} is scrapped." : "")}";
+        // Undercity work: the undercity takes note.
+        string moved = World.Standing.Shift(this, 0, World.Standing.Augment);
+        return $"{rec.Name} has {an} {aug.Name} bolted on: it can use {skill.Name}.{(scrapped != null ? $" The {scrapped} is scrapped." : "")} ({moved})";
     }
 
     /// <summary>Sends a creature off on a dispatch (out of the squad, if it was in it).</summary>
@@ -303,7 +321,8 @@ public sealed class Ranch
             var training = Record(id).Training;
             training.Earn(well ? 25 : 10);
             if (well) Chem += job.Reward;
-            lines.Add($"{Record(id).Name} is back from \"{job.Title}\": {(well ? job.Success : job.Failure)}{(well ? $" +{job.Reward} chem." : "")}");
+            string moved = well && job.Location != null ? World.Standing.ForWork(this, job.Location, World.Standing.Dispatch) : "";
+            lines.Add($"{Record(id).Name} is back from \"{job.Title}\": {(well ? job.Success : job.Failure)}{(well ? $" +{job.Reward} chem{(moved != "" ? $"; {moved}" : "")}." : "")}");
         }
         return lines;
     }
@@ -359,6 +378,7 @@ public sealed class Ranch
         var result = Breeding.Breed(Record(a).ToCreature(augmented: false), Record(b).ToCreature(augmented: false), SeededRng.Derive(Encounter * 7919UL + (ulong)Bred, (ulong)(a * 131 + b)));
         Bred++;
         Record(a).Rested = Record(b).Rested = false;
+        World.Standing.Shift(this, World.Standing.Breeding, 0); // breeding is the city's way
         // Siblings of the same pair splice to the same name, so later ones get numbered.
         string name = result.Child.Species.Name;
         for (int n = 2; Creatures.Any(r => r.Species.Name == result.Child.Species.Name); n++)
@@ -410,18 +430,40 @@ public sealed class Ranch
         {
             bool won = battle.Winner == Tactics.Side.Player;
             if (won) Chem += mission.Reward;
-            Report.Add(won ? $"Mission complete: {mission.Title}. +{mission.Reward} chem." : $"Mission failed: {mission.Title}.");
+            // Work for a side raises your standing with it.
+            int work = mission.Story != null ? World.Standing.MainMission : mission.Repeatable ? World.Standing.Regular
+                : mission.Cup == null && mission.Roamer == 0 && mission.Rival == null ? World.Standing.Contract : 0;
+            string moved = won && mission.Location != null ? World.Standing.ForWork(this, mission.Location, work) : "";
+            Report.Add(won ? $"Mission complete: {mission.Title}. +{mission.Reward} chem{(moved != "" ? $"; {moved}" : "")}." : $"Mission failed: {mission.Title}.");
             if (won && mission.Story is { } story)
             {
                 Story.Add(story);
-                var opened = World.Country.Get(World.StoryBook.Get(story).Opens);
-                Report.Add($"Main mission won: the road to {opened.Name} is open.");
+                var main = World.StoryBook.Get(story);
+                if (main.Ending != null)
+                {
+                    Ending = story;
+                    Report.Add($"Ending reached: {main.Ending}. (The story to tell it is still to come; you can play on.)");
+                }
+                else
+                {
+                    Report.Add($"Main mission won: the road to {World.Country.Get(main.Opens).Name} is open.");
+                    Pending = story;
+                }
             }
-            else if (won && mission.Cup == null && mission.Roamer == 0) ContractsWon++;
+            else if (won && mission.Cup == null && mission.Roamer == 0 && mission.Rumour == null) ContractsWon++;
+            if (mission.Rumour is { } rumour && battle.Target is { Side: Tactics.Side.Player })
+            {
+                Flags.Add($"caught:{rumour}");
+                Report.Add($"The rumour was true: {battle.Target.Name} is yours.");
+            }
             if (mission.Cup is { } cupId)
             {
                 var cup = World.CupBook.Get(cupId);
-                if (won && mission.Round == 3) { Cups.Add(cupId); Report.Add($"Champion of the {cup.Name}!"); }
+                if (won && mission.Round == 3)
+                {
+                    Cups.Add(cupId);
+                    Report.Add($"Champion of the {cup.Name}! {World.Standing.Shift(this, World.Standing.Cup, 0)}.");
+                }
                 else if (!won) Report.Add($"Out of the {cup.Name} in round {mission.Round}.");
             }
             else if (mission.Rival is { } rival)

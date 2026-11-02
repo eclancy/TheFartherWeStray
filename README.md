@@ -207,6 +207,14 @@ soothing chimes to stop one moving, tonics, smelling salts and extra glowberries
 sells its own stock, priced in chem; you buy where you stand (S on the map). Put gear on at the
 ranch (Gear); items appear in the battle's command bar with their counts.
 
+**Standing.** The city above and the undercity hate each other, and both notice who you work
+for: contracts at a city place raise your standing with the city, at an undercity place with the
+undercity; fitting augments pleases the undercity, breeding the city. After each main mission you
+choose who gets the credit. Where your standing leans decides which of three endings opens:
+justice for the undercity, chaos in the city above, or peace between them. Each path also has a
+rare creature that's only rumoured to those who walk it. Both standings show on the map and the
+ranch; at 50 a side's shops take 15% off.
+
 **Roaming packs** wander the country, a few at a time, moving on most days. Each shows on the
 map as its leader. Travel goes a road a day, and arriving where a pack is means fighting it first;
 or go after one on purpose for its creatures.

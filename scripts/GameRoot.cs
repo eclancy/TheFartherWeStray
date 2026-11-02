@@ -758,6 +758,11 @@ public partial class GameRoot : Node
             GD.Print($"duel: {duel.Title} -> {duelBattle.Winner}; {string.Join(" ", ranch.Report.Where(l => l.Contains(duel.Rival.Name) || l.Contains("codex")))}");
             ranch.Rivals["huntress"] = 2;
             ranch.RivalLosses["occultist"] = 2;
+            // Rival prizes: every one in the Brass Baron's hoard (eggs too), and the odds of a draw over 1000 wins.
+            foreach (var prize in Party.RivalBook.All[0].Prizes) GD.Print("  " + ranch.Award(Party.RivalBook.All[0], prize, 0xE99 + (ulong)ranch.NextId));
+            var drawn = new Dictionary<Party.Rarity, int>();
+            for (ulong k = 0; k < 1000; k++) { var p = Party.RivalBook.Draw(Party.RivalBook.All[2], ranch.Titles, k); drawn[p.Rarity] = drawn.GetValueOrDefault(p.Rarity) + 1; }
+            GD.Print($"  prize odds over 1000 wins against {Party.RivalBook.All[2].Name}: {string.Join(", ", Enum.GetValues<Party.Rarity>().Select(r => $"{Party.RivalBook.Word(r)} {drawn.GetValueOrDefault(r) / 10f:0.#}%"))}");
             GD.Print("  " + ranch.Rename(tank, "  Gearjaw the Unbelievably Long  "));
 
             ranch.Save();
@@ -777,6 +782,9 @@ public partial class GameRoot : Node
             bool rivalsKept = ranch.Rivals.Count == loaded.Rivals.Count && ranch.Rivals.All(kv => loaded.Rivals.GetValueOrDefault(kv.Key) == kv.Value)
                 && ranch.RivalLosses.Count == loaded.RivalLosses.Count && ranch.RivalLosses.All(kv => loaded.RivalLosses.GetValueOrDefault(kv.Key) == kv.Value);
             GD.Print($"rivals: {(rivalsKept ? "identical" : "DIFFERENT")} after save and load; {string.Join(", ", loaded.Rivals.Select(kv => $"{kv.Key} beaten {kv.Value}x").Concat(loaded.RivalLosses.Select(kv => $"{kv.Key} lost to {kv.Value}x running")))}");
+            bool prizesKept = loaded.Titles.SetEquals(ranch.Titles) && loaded.Items.Count == ranch.Items.Count && ranch.Items.All(kv => loaded.Items.GetValueOrDefault(kv.Key) == kv.Value)
+                && loaded.Creatures.Count(r => r.Shiny) == ranch.Creatures.Count(r => r.Shiny);
+            GD.Print($"prizes: {(prizesKept ? "identical" : "DIFFERENT")} after save and load; titles {string.Join(", ", loaded.Titles)}; bag {string.Join(", ", loaded.Items.Select(kv => $"{kv.Key} x{kv.Value}"))}; shiny {loaded.Creatures.Count(r => r.Shiny)}");
             bool party = ranch.Fielded.SequenceEqual(loaded.Fielded) && ranch.Squad.All(id => ranch.LeaderOf(id)?.Id == loaded.LeaderOf(id)?.Id);
             GD.Print($"tamers: {(party ? "identical" : "DIFFERENT")} after save and load; fielded {string.Join(", ", loaded.Fielded)}; "
                 + string.Join("; ", loaded.Fielded.Select(w => $"{w} leads {string.Join(", ", loaded.Squad.Where(id => loaded.LeaderOf(id)?.Id == w).Select(id => loaded.Get(id).Species.Name))}")));

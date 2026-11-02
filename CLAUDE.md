@@ -128,7 +128,14 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   your squad's average JP); each win you have against them (`Ranch.Rivals`, saved) trains them
   harder and fits their grafts to one more creature. **Eased 2026-11-02 (the user's pick):** each
   duel lost to a rival in a row makes them cocky: they bring one creature fewer, then two
-  (`RivalBook.Fewer`, `Ranch.RivalLosses`, saved; never under two; a win resets it). Their
+  (`RivalBook.Fewer`, `Ranch.RivalLosses`, saved; never under two; a win resets it). **Prizes
+  (the user's pick, 2026-11-02): every win draws one by rarity** from `RivalDef.Prizes`
+  (`RivalBook.Draw`: common 55%, uncommon 30, rare 12, very rare 3, then a prize of that rarity):
+  items or chem (common); their signature gear (in `GearBook.Gear`, never sold), their augments,
+  a title (once, `Ranch.Titles`, saved; names are placeholders) (uncommon); an egg from their line
+  (rare; shiny, very rare): `RivalBook.Egg` breeds two species to their taste, given their blood,
+  and adds a trait if none passed (no grafts). `Ranch.Award` grants and reports it; the duel card
+  hints at it (`PrizeHint`). New prizes are entries. Their
   creatures are `Side.Wild` with a `Tamer`, so they fight as trained and can't be recruited: use
   `Unit.Free` for anything about wild tempers or recruiting. A duel still undecided after
   `Battle.DuelRounds` (20) goes to the side with the larger share of its HP left. `--rivals=N`

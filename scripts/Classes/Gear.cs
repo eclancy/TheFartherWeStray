@@ -33,6 +33,12 @@ public static class GearBook
         new() { Id = "sun_goggles", Name = "Sun Goggles", Class = "Gear", Hit = 8, Evade = 5, Text = "+8% to hit; 5% harder to hit." },
         new() { Id = "shell_bracer", Name = "Shell Bracer", Class = "Gear", Def = 2, Thorns = 1, Text = "DEF +2; melee attackers take 1." },
         new() { Id = "ember_charm", Name = "Ember Charm", Class = "Gear", Atk = 1, Regen = 0.05f, Text = "ATK +1; heals 5% of max HP each turn." },
+        // Won from rival tamers (Party.RivalBook), never sold: a little better than shop gear.
+        new() { Id = "brass_gorget", Name = "Brass Gorget", Class = "Gear", Def = 2, Hit = 8, Text = "DEF +2; +8% to hit." },
+        new() { Id = "witchs_phial", Name = "Witch's Phial", Class = "Gear", SkillPower = 0.15f, NoPoison = true, Text = "Skills hit 15% harder; immune to poison." },
+        new() { Id = "fang_necklace", Name = "Fang Necklace", Class = "Gear", Atk = 2, Spd = 1, Text = "ATK +2; SPD +1." },
+        new() { Id = "occult_sigil", Name = "Occult Sigil", Class = "Gear", SkillPower = 0.1f, Evade = 8, Text = "Skills hit 10% harder; 8% harder to hit." },
+        new() { Id = "wyrmscale_mantle", Name = "Wyrmscale Mantle", Class = "Gear", HpPct = 0.15f, Def = 1, Text = "Max HP +15%; DEF +1." },
     };
 
     public static readonly SkillDef[] Items =

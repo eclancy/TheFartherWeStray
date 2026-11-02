@@ -201,10 +201,28 @@ first version, and is open to change.
   to a rival in a row, they bring one creature fewer next time, then two (never under two). Your
   first win resets it. The card shows "cocky: 1 fewer". Coliseum contenders are built the same
   way, so cups train at 10 JP per level too (they don't get cocky: a cup is three rounds and out).
+- **Prizes (the user's pick, 2026-11-02):** asked whether the prize should be an egg, a graft or a
+  title, the user chose all of them in a list with rarity, and a random prize on every win (repeat
+  wins still pay chem as before). Each rival has a hoard (`RivalDef.Prizes`); a win draws a rarity
+  (common 55%, uncommon 30%, rare 12%, very rare 3%), then one of its prizes:
+  - common: items for the bag (tonics, smelling salts, snare nets, chimes, glowberries) or a purse
+    of chem;
+  - uncommon: their signature gear (Brass Gorget, Witch's Phial, Fang Necklace, Occult Sigil,
+    Wyrmscale Mantle: a little better than shop gear, never sold), one of their augments (the
+    Baron's Rivet Gun or Lens Visor, the Witch's Acid Canister or Drip Feed, the Occultist's
+    Hextech Core or Strobe Tips; the Huntress and the Wyrm Lord give items instead), or a title
+    (won once, shown on the ranch: Gearbreaker, Witchbane, Apex Tamer, Sigilbreaker, Wyrmtamer,
+    placeholders for the story);
+  - rare: an egg from their line: two species to their taste, given their blood, bred together,
+    born with a trait or two (machine grafts never pass down, so the Baron's eggs aren't
+    clockwork);
+  - very rare: the same egg, shiny.
+  The duel card lists what's still to be won.
 
 **Open:**
 - [ ] Who the rivals are (names, looks, why they breed what they breed): the story.
-- [ ] Should beating a rival give something unique (an egg from their line, a graft, a title)?
+- [x] Should beating a rival give something unique? Yes: a random prize every win, by rarity (above).
+- [ ] Prize odds and hoards are defaulted: is the egg (12%, 3% shiny) too rare or too common?
 - [ ] How often they come back (now: every other board, taking turns), and whether you can refuse.
 - [ ] The round limit and its tie-break (defaulted, for duels and later PvP).
 

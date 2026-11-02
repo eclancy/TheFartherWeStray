@@ -253,7 +253,7 @@ public partial class RanchScreen : Control
         }
         _header.Text = "THE RANCH";
         _headerChips?.QueueFree();
-        _headerChips = Ui.Chips(new[]
+        var chips = new List<Chip>
         {
             new Chip("paw", Ranch.Creatures.Count.ToString(), Ink, "creatures"),
             new Chip("fist", $"{Ranch.Squad.Count}/{Ranch.SquadSize}", Ranch.Squad.Count == 0 ? Ui.Bad : Ink, "squad: three creatures for each tamer leading (P)"),
@@ -261,7 +261,10 @@ public partial class RanchScreen : Control
             new Chip("mountain", "#" + Ranch.Encounter, Ink, "next encounter"),
             new Chip("sun", Ranch.CityStanding.ToString(), Gold, "standing with the city above"),
             new Chip("moon", Ranch.UnderStanding.ToString(), Magenta, "standing with the undercity"),
-        }, 22, 2, 22);
+        };
+        // Titles won from rival tamers.
+        if (Ranch.Titles.Count > 0) chips.Add(new Chip("sparkle", Ranch.Titles.Count.ToString(), Gold, "titles: " + string.Join(", ", Ranch.Titles)));
+        _headerChips = Ui.Chips(chips, 22, 2, 22);
         _headerChips.Position = new Vector2(230, 20);
         _headerChips.Size = new Vector2(1100, 40);
         AddChild(_headerChips);

@@ -185,6 +185,9 @@ public partial class MissionCard : Control
             string record = (m.RivalWins > 0 ? $"beaten {m.RivalWins}x  ·  " : "")
                 + (Party.RivalBook.Fewer(m.RivalLosses) is > 0 and var fewer ? $"cocky: {fewer} fewer  ·  " : "");
             DrawString(font, new Vector2(x + 26, 150), $"{record}{rival.Tamer.Text}", HorizontalAlignment.Left, w - 26, 15, Color.FromHtml("#ff7aa8"));
+            // What beating them can win: a prize every time, drawn by rarity.
+            DrawTexture(Glyphs.Get("sparkle", 2), new Vector2(x - 4, 156));
+            DrawString(font, new Vector2(x + 26, 176), Party.RivalBook.PrizeHint(rival, Board.Ranch.Titles), HorizontalAlignment.Left, w - 26, 14, gold);
         }
         else if (m.Repeatable)
         {

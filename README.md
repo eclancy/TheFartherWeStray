@@ -227,7 +227,10 @@ or go after one on purpose for its creatures.
 
 **Rival tamers** challenge you on some boards: the Brass Baron, the Chem Witch, the Huntress,
 the Occultist and the Wyrm Lord, each breeding toward their own ideal creature and leading it with
-a boost of their own. Every win against one makes their next squad train harder.
+a boost of their own. Every win against one makes their next squad train harder, and wins you a
+prize drawn by rarity: tonics, nets or a purse of chem (common); their signature gear, one of their
+augments or a title (uncommon); an egg from their line (rare), a young creature bred toward their
+ideal with their blood and a trait; or the very rare shiny egg. The duel card says what's on offer.
 
 Some cards carry a **sighting**: a part your codex lacks (wings, horns, a shell...), promised on a
 creature in that pack. Meeting it adds the part to the codex for the lab, and recruiting it

@@ -90,6 +90,7 @@ public sealed class Ranch
     public HashSet<string> Codex = new();          // parts met in battle, graftable at the lab ("Wings.Bat")
     public Dictionary<string, int> Rivals = new();  // times you've beaten each rival tamer (their squads grow)
     public Dictionary<string, int> RivalLosses = new();  // duels lost to each in a row since (they bring fewer)
+    public HashSet<string> Titles = new();         // titles won from rivals
     // The country: where your party is, the day, contracts won (a story milestone), main missions won.
     public string Location = World.Country.Home;
     public int Day = 1;
@@ -380,10 +381,7 @@ public sealed class Ranch
         Bred++;
         Record(a).Rested = Record(b).Rested = false;
         World.Standing.Shift(this, World.Standing.Breeding, 0); // breeding is the city's way
-        // Siblings of the same pair splice to the same name, so later ones get numbered.
-        string name = result.Child.Species.Name;
-        for (int n = 2; Creatures.Any(r => r.Species.Name == result.Child.Species.Name); n++)
-            result.Child.Species.Name = $"{name} {Roman(n)}";
+        Number(result.Child.Species);
         int id = Add(result.Child, rested: false);
 
         // The child is born knowing one skill from a parent (the notes' MVP: "a part mix plus 1 skill").
@@ -413,6 +411,42 @@ public sealed class Ranch
         // Never a class the body bars or can't open yet (a tinker needs hands): fall back to its first favoured class.
         var t = new Training();
         return ClassBook.StandingOf(ClassBook.Class(pick), c, t) == ClassBook.Standing.Open ? pick : ClassBook.Affinity[c.Species.Plan].favoured[0];
+    }
+
+    /// <summary>Siblings of the same pair splice to the same name, so later ones get numbered.</summary>
+    void Number(Species species)
+    {
+        string name = species.Name;
+        for (int n = 2; Creatures.Any(r => r.Species.Name == species.Name); n++) species.Name = $"{name} {Roman(n)}";
+    }
+
+    /// <summary>Takes a prize won from a rival: into the bag or the purse, a title, or an egg that hatches at the ranch. Returns the report line.</summary>
+    public string Award(RivalDef rival, Prize prize, ulong seed)
+    {
+        string won = $"Prize from {rival.Name} ({RivalBook.Word(prize.Rarity)})";
+        if (prize.Egg)
+        {
+            var c = RivalBook.Egg(rival, seed, prize.Shiny);
+            Number(c.Species);
+            int id = Add(c);
+            Record(id).Training = new Training { Class = DefaultClass(c), Innate = ClassBook.WildSkill(c) };
+            Lab.Learn(this, c);
+            string traits = string.Join(" and ", c.Traits.Select(t => ClassBook.Passive(t).Name));
+            string what = $"{c.Species.Strain} {Species.FormOf(c.Species)}".ToLowerInvariant();
+            return $"{won}: an egg from their line hatches{(c.Shiny ? ", shiny" : "")}! {c.Name}, {("aeiou".Contains(what[0]) ? "an" : "a")} {what}, born with {traits}.";
+        }
+        if (prize.Title != null)
+        {
+            Titles.Add(prize.Title);
+            return $"{won}: the title \"{prize.Title}\".";
+        }
+        if (prize.Chem > 0)
+        {
+            Chem += prize.Chem;
+            return $"{won}: a purse of {prize.Chem} chem.";
+        }
+        Items[prize.Item] = Items.GetValueOrDefault(prize.Item) + prize.Count;
+        return $"{won}: {(prize.Count > 1 ? $"{prize.Count} x " : "")}{World.ShopBook.Name(prize.Item)}, into the bag.";
     }
 
     static string Roman(int n) => n switch { 2 => "II", 3 => "III", 4 => "IV", 5 => "V", 6 => "VI", 7 => "VII", 8 => "VIII", 9 => "IX", _ => n.ToString() };
@@ -475,6 +509,9 @@ public sealed class Ranch
                 int fewer = RivalBook.Fewer(RivalLosses.GetValueOrDefault(rival.Id));
                 Report.Add(won ? $"{rival.Name} is beaten ({wins} {(wins == 1 ? "win" : "wins")}); they'll train harder for next time."
                     : $"{rival.Name} wins this time, and grows cocky: they'll bring {(fewer == 1 ? "one creature" : "two creatures")} fewer next time.");
+                // Every win draws a prize from their hoard, by rarity.
+                ulong roll = SeededRng.Derive(SeededRng.Hash(rival.Id) ^ Encounter, (ulong)wins);
+                if (won) Report.Add(Award(rival, RivalBook.Draw(rival, Titles, roll), roll));
             }
         }
         // Items used come out of the bag; glowberries only past the three every battle brings.

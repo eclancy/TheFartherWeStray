@@ -109,6 +109,45 @@ public sealed partial class PixelCanvas
         }
     }
 
+    /// <summary>An upright box, centre <paramref name="c"/>, half-sizes <paramref name="half"/> (crates, walls, plinths).</summary>
+    public void Box(Vector3 c, Vector3 half, Mat m, int part, float bias = 0, bool flat = false)
+    {
+        c = Warp(c);
+        float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+        for (int k = 0; k < 8; k++)
+        {
+            var corner = c + new Vector3((k & 1) == 0 ? -half.X : half.X, (k & 2) == 0 ? -half.Y : half.Y, (k & 4) == 0 ? -half.Z : half.Z);
+            var s = Cam.Project(corner);
+            minX = Mathf.Min(minX, s.X); maxX = Mathf.Max(maxX, s.X); minY = Mathf.Min(minY, s.Y); maxY = Mathf.Max(maxY, s.Y);
+        }
+        var d = Cam.D;
+        for (int y = Mathf.FloorToInt(minY); y <= Mathf.CeilToInt(maxY); y++)
+        for (int x = Mathf.FloorToInt(minX); x <= Mathf.CeilToInt(maxX); x++)
+        {
+            if (!Inside(x, y)) continue;
+            var o = Cam.Ray(x + 0.5f, y + 0.5f);
+            float tmin = float.MinValue, tmax = float.MaxValue;
+            int axis = 0;
+            bool miss = false;
+            for (int a = 0; a < 3 && !miss; a++)
+            {
+                float lo = c[a] - half[a], hi = c[a] + half[a];
+                if (Mathf.Abs(d[a]) < 1e-6f) { if (o[a] < lo || o[a] > hi) miss = true; continue; }
+                float t1 = (lo - o[a]) / d[a], t2 = (hi - o[a]) / d[a];
+                if (t1 > t2) (t1, t2) = (t2, t1);
+                if (t1 > tmin) { tmin = t1; axis = a; }
+                tmax = Mathf.Min(tmax, t2);
+                if (tmax < tmin) miss = true;
+            }
+            if (miss) continue;
+            int i = y * W + x;
+            if (tmin >= _depth[i]) continue;
+            var n = Vector3.Zero;
+            n[axis] = d[axis] > 0 ? -1 : 1;
+            Set3(i, m, tmin, o + d * tmin, n, part, bias, flat);
+        }
+    }
+
     /// <summary>An ellipsoid stretched along <paramref name="fwd"/>: rl along it, rw across, rh up.</summary>
     public void Ellipsoid(Vector3 c, Vector3 fwd, float rl, float rw, float rh, Mat m, int part, float bias = 0, float floor = 0, bool flat = false)
     {

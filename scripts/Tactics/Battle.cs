@@ -163,6 +163,9 @@ public sealed class Battle
         (Terrain.Chem, MoveType.Fly) => 1,
         (Terrain.Chem, MoveType.Swim) => 1,
         (Terrain.Chem, _) => -1,
+        (Terrain.Water, MoveType.Fly) => 1,
+        (Terrain.Water, MoveType.Swim) => 1,
+        (Terrain.Water, _) => -1,
         (_, MoveType.Swim) => 2, // swimmers are slow on land
         _ => 1,
     };
@@ -178,7 +181,7 @@ public sealed class Battle
         int lo = int.MaxValue, hi = int.MinValue;
         foreach (var t in u.TilesAt(p))
         {
-            if (!Map.InBounds(t) || TileCost(Map.TerrainAt(t), u) < 0 || OccupantOf(t, u) != null) return false;
+            if (!Map.InBounds(t) || Map.Blocked(t) || TileCost(Map.TerrainAt(t), u) < 0 || OccupantOf(t, u) != null) return false;
             lo = Math.Min(lo, Map.HeightAt(t)); hi = Math.Max(hi, Map.HeightAt(t));
         }
         return hi - lo <= 1;
@@ -199,7 +202,7 @@ public sealed class Battle
         int worst = 0;
         foreach (var t in u.TilesAt(to))
         {
-            if (!Map.InBounds(t)) return -1;
+            if (!Map.InBounds(t) || Map.Blocked(t) && u.MoveType != MoveType.Fly) return -1; // fliers pass over props, but can't land on them
             int c = TileCost(Map.TerrainAt(t), u);
             if (c < 0) return -1;
             var occ = OccupantOf(t, u);
@@ -873,7 +876,7 @@ public sealed class Battle
         foreach (var d in new[] { Vector2I.Left, Vector2I.Right, Vector2I.Up, Vector2I.Down })
         {
             var p = t + d;
-            if (Map.InBounds(p) && Map.TerrainAt(p) is not (Terrain.Pit or Terrain.Chem) && OccupantOf(p) == null
+            if (Map.InBounds(p) && Map.TerrainAt(p) is not (Terrain.Pit or Terrain.Chem or Terrain.Water) && !Map.Blocked(p) && OccupantOf(p) == null
                 && !BerryTiles.Contains(p) && !spots.Contains(p)) spots.Add(p);
         }
         return spots;

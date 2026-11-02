@@ -77,8 +77,13 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   animation, and will set the themes first. `docs/story-notes.md` holds the goal, the open
   questions and a suggested first iteration. Don't invent the story's themes; ask.
 - Missions (`Tactics/Mission.cs`): a board of four contracts per encounter (Rout, Capture, Hunt,
-  Hold out) on five handmade regions (`BattleMap.cs`), each with a look (`Look` in `IsoArt.cs`) and
-  fauna odds. Sightings promise a codex-missing part. After touching maps or AI, run
+  Hold out) on seven handmade maps (`BattleMap.cs`, about 16x13 since 2026-11-02 when the user
+  asked for larger maps), each with a look (`Look` in `IsoArt.cs`) and fauna odds. Maps have three
+  grids: terrain (now with roofs, boards, dirt and water), heights, and props. Buildings are roof
+  tiles on house-front walls (FFTA towns: fliers and climbers stand on roofs). Props
+  (`Props.cs`: 22 kinds, trees to neon signs, built like creatures and coloured per region) block
+  their tile except reeds and banners; fliers pass over them. Small ground details (tufts, cracks,
+  fungus) are painted per tile. `--props` writes every prop in every region's colours. Sightings promise a codex-missing part. After touching maps or AI, run
   `--autoboard=6`: no mission may stall. Your side's AI plays the objective (`PlayerPlan` in
   `Battle.cs`): hunts focus the alpha, hold-outs keep together and out of reach, captures never
   land the knockout and play to the target's temper (a champion duels the proud, the squad rings

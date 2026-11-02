@@ -113,6 +113,19 @@ public sealed class IsoArt
         }
 
         var (sideL, sideR) = Sides(terrain);
+        if (terrain == Terrain.Roof)
+        {
+            // A building: its walls are house fronts, with timbers, windows and sometimes a door.
+            Fill(img, new[] { L, B, B + down, L + down }, (x, y, u, v) => Facade(t, x, y, L, B, h, sideL, 0));
+            Fill(img, new[] { B, R, R + down, B + down }, (x, y, u, v) => Facade(t, x, y, B, R, h, sideR, 1));
+            Fill(img, new[] { top, R, B, L }, (x, y, u, v) => TopColor(terrain, x, y, u, v));
+            Line(img, top, L, TopColor(terrain, 0, 0, 0.5f, 0.5f).Lightened(0.28f));
+            Line(img, top, R, TopColor(terrain, 0, 0, 0.5f, 0.5f).Lightened(0.15f));
+            Line(img, L, B, sideL.Darkened(0.45f));
+            Line(img, B, R, sideR.Darkened(0.45f));
+            Line(img, B, B + down, sideR.Darkened(0.55f));
+            return;
+        }
         // Left face is lit, right face in shadow; a darker band where block meets block.
         Fill(img, new[] { L, B, B + down, L + down }, (x, y, u, v) =>
         {
@@ -136,6 +149,110 @@ public sealed class IsoArt
         Line(img, L, B, sideL.Darkened(0.35f));
         Line(img, B, R, sideR.Darkened(0.35f));
         Line(img, B, B + down, sideR.Darkened(0.45f));
+        Decorate(img, t, top, terrain);
+    }
+
+    /// <summary>
+    /// A house front on one wall of a building tile: plaster, a timber at each storey, a window a
+    /// storey (most lit), and on some, a door at street level. <paramref name="face"/> 0 is the left
+    /// wall, 1 the right; a and b are the wall's top corners.
+    /// </summary>
+    Color Facade(Vector2I t, int x, int y, Vector2 a, Vector2 b, int h, Color wall, int face)
+    {
+        float along = (x + 0.5f - a.X) / (b.X - a.X);
+        float below = y + 0.5f - (a.Y + along * (b.Y - a.Y));
+        int storey = (int)(below / HS), inStorey = (int)below % HS;
+        int storeys = h; // walls rise h storeys above the ground; the rest is foundation
+        var timber = _look.Timber;
+        if (below < 1.5f || inStorey == 0) return timber;
+        if (along < 0.09f || along > 0.91f) return timber;
+        if (storey >= storeys) return wall.Darkened(0.25f); // the foundation below street level
+        bool door = storey == storeys - 1 && Hash(t.X, t.Y, 40 + face) % 3 == 0;
+        if (door)
+        {
+            if (along > 0.36f && along < 0.64f && inStorey >= 3)
+                return along > 0.56f && inStorey == 7 ? C("#e8c060") : _look.Door;
+            return wall;
+        }
+        if (along > 0.32f && along < 0.68f && inStorey >= 3 && inStorey <= 8)
+        {
+            bool edge = along < 0.36f || along > 0.64f || inStorey == 3 || inStorey == 8;
+            if (edge) return timber;
+            uint lit = Hash(t.X * 3 + face, t.Y * 5 + storey, 41);
+            if (lit % 4 == 0) return C("#1a1a2a");
+            var glass = _look.Windows[lit % (uint)_look.Windows.Length];
+            return inStorey == 4 && along < 0.5f ? glass.Lightened(0.35f) : glass;
+        }
+        return Hash(x, y, 42) % 23 == 0 ? wall.Darkened(0.12f) : wall;
+    }
+
+    /// <summary>
+    /// Small things painted on a tile's top: tufts and flowers on grass, cracks, pebbles and moss
+    /// on stone, scrap in the foundry, fallen leaves in the ruins, glowing fungus in the cavern.
+    /// They don't block anything; the props that do stand on tiles are drawn as sprites.
+    /// </summary>
+    void Decorate(Image img, Vector2I t, Vector2 top, Terrain terrain)
+    {
+        if (_map.Blocked(t)) return;
+        uint seed = Hash(t.X, t.Y, 99);
+        int count = (int)(seed % 4);
+        for (int k = 0; k < count; k++)
+        {
+            uint r = Hash(t.X * 7 + k, t.Y * 13 + k, 101);
+            float u = 0.22f + (r % 100) / 100f * 0.56f, v = 0.22f + (r / 100 % 100) / 100f * 0.56f;
+            var at = top + new Vector2((u - v) * TW / 2f, (u + v) * TH / 2f);
+            string[] stamp = null;
+            Color a = default, b = default, c = default;
+            switch (terrain)
+            {
+                case Terrain.Grass:
+                    if (r % 5 == 0 && _map.Theme != "Cavern") { stamp = Flower; a = C("#f2e07a"); c = _look.Flowers[r / 7 % (uint)_look.Flowers.Length]; b = _look.GrassDark; }
+                    else if (r % 5 == 1 && _map.Theme == "Ruins") { stamp = Leaves; c = C("#c4682f"); }
+                    else if (r % 5 == 1 && _map.Theme == "Cavern") { stamp = Fungus; c = C("#7fd8ff"); b = _look.GrassDark; }
+                    else { stamp = Tuft; a = _look.GrassLight; b = _look.GrassDark; }
+                    break;
+                case Terrain.Stone:
+                    if (r % 4 == 0) { stamp = Crack; b = _look.StoneJoint; }
+                    else if (r % 4 == 1 && _map.Theme is "Undercity" or "Sump") { stamp = Moss; a = _look.GrassLight; }
+                    else if (r % 4 == 1 && _map.Theme == "Cavern") { stamp = Fungus; c = C("#b9a2ff"); b = _look.StoneJoint; }
+                    else if (r % 4 == 2 && _map.Theme == "Undercity") { stamp = Scrap; a = C("#c79a45"); b = C("#6e5220"); }
+                    else { stamp = Pebble; a = _look.StoneLight; b = _look.StoneJoint; }
+                    break;
+                case Terrain.Dirt:
+                    stamp = r % 3 == 0 ? Puddle : Pebble;
+                    a = r % 3 == 0 ? C("#5f8fb0") : C("#9a8064"); b = C("#4a3828"); c = a;
+                    break;
+                case Terrain.Wood:
+                    if (r % 3 == 0) { stamp = Nail; a = C("#b8b0a0"); }
+                    break;
+            }
+            if (stamp != null) Stamp(img, stamp, at, a, b, c);
+        }
+    }
+
+    // Tiny stamps: 'a' light, 'b' dark, 'c' accent; '.' empty.
+    static readonly string[] Tuft = { "a..a", ".ab.", ".bb." };
+    static readonly string[] Flower = { ".c.", "cac", ".b." };
+    static readonly string[] Leaves = { "c..", ".c.", "..c" };
+    static readonly string[] Fungus = { "c.c", "b.b" };
+    static readonly string[] Crack = { "b...", ".b..", ".bb.", "...b" };
+    static readonly string[] Moss = { "a.a", ".aa" };
+    static readonly string[] Scrap = { ".a.", "aba", ".a." };
+    static readonly string[] Pebble = { "a.", "bb" };
+    static readonly string[] Puddle = { ".aa.", "aaaa", ".aa." };
+    static readonly string[] Nail = { "a" };
+
+    void Stamp(Image img, string[] stamp, Vector2 at, Color a, Color b, Color c)
+    {
+        int x0 = Mathf.FloorToInt(at.X) - stamp[0].Length / 2, y0 = Mathf.FloorToInt(at.Y) - stamp.Length / 2;
+        for (int y = 0; y < stamp.Length; y++)
+        for (int x = 0; x < stamp[y].Length; x++)
+        {
+            Color? px = stamp[y][x] switch { 'a' => a, 'b' => b, 'c' => c, _ => null };
+            int ix = x0 + x, iy = y0 + y;
+            if (px == null || ix < 0 || iy < 0 || ix >= Width || iy >= Height || img.GetPixel(ix, iy).A == 0) continue;
+            img.SetPixel(ix, iy, px.Value);
+        }
     }
 
     (Color left, Color right) Sides(Terrain t) => t switch
@@ -145,6 +262,10 @@ public sealed class IsoArt
         Terrain.Crystal => (C("#3b2a73"), C("#281c52")),
         Terrain.Brass => (C("#8d6a2a"), C("#5c4320")),
         Terrain.Chem => (C("#1e4a3e"), C("#14302c")),
+        Terrain.Roof => (_look.WallL, _look.WallR),
+        Terrain.Wood => (C("#6b4a2e"), C("#4a3220")),
+        Terrain.Dirt => (C("#6a5038"), C("#4a3828")),
+        Terrain.Water => (C("#1e3a5a"), C("#142a40")),
         _ => (C("#222"), C("#111")),
     };
 
@@ -178,6 +299,32 @@ public sealed class IsoArt
                 float band = (u * 3 - v * 2 + 10) % 1f;
                 if (n % 29 == 0) return C("#f0e8ff");
                 return band < 0.18f ? C("#b9a2ff") : band < 0.45f ? C("#8466e8") : C("#6a4bd1");
+            }
+            case Terrain.Roof:
+            {
+                // Shingles in staggered rows, lit along their lower edges.
+                float rows = v * 4, off = (Mathf.FloorToInt(rows) % 2) * 0.5f, a = u * 4 + off;
+                float fr = rows - Mathf.Floor(rows);
+                if (fr < 0.16f || a - Mathf.Floor(a) < 0.07f) return _look.RoofDark;
+                if (fr > 0.8f) return _look.RoofLight;
+                return n % 17 == 0 ? _look.RoofLight : _look.Roof;
+            }
+            case Terrain.Wood:
+            {
+                // Planks with dark joints and a little grain.
+                float p = v * 4;
+                if (p - Mathf.Floor(p) < 0.12f) return C("#4a3220");
+                if ((u * 2 + Mathf.Floor(p) * 0.37f) % 1f < 0.04f) return C("#5a3d26");
+                return n % 7 == 0 ? C("#9a7048") : n % 5 == 0 ? C("#7a5636") : C("#8a6240");
+            }
+            case Terrain.Dirt:
+                return n % 9 == 0 ? C("#9a8064") : n % 5 == 0 ? C("#6a5038") : n % 23 == 0 ? C("#b8a080") : C("#7f6246");
+            case Terrain.Water:
+            {
+                float r = (u * 2.2f + v * 1.4f + ((x * 5 + y * 3) % 5) * 0.01f) % 1f;
+                if (r < 0.07f) return C("#cfe8ff");
+                if (r < 0.18f) return C("#7fb8e8");
+                return n % 13 == 0 ? C("#5fa0d8") : C("#3a78b8");
             }
             case Terrain.Chem:
             {
@@ -291,6 +438,11 @@ public sealed class Look
     public Color Stone, StoneLight, StoneMid, StoneJoint, StoneSideL, StoneSideR;
     public Color SkyTop, SkyMid, SkyBottom, FarBody, NearBody, Haze;
     public Color[] FarLights, NearLights;
+    // Buildings: roofs, walls (lit and shaded), timbers, doors, window glass; and garden flowers.
+    public Color Roof = C("#3d4a5a"), RoofLight = C("#55667a"), RoofDark = C("#26303c");
+    public Color WallL = C("#5a5068"), WallR = C("#3e3850"), Timber = C("#241c2c"), Door = C("#3a2418");
+    public Color[] Windows = { C("#ffd27a"), C("#ff4fb8"), C("#4fe3ff") };
+    public Color[] Flowers = { C("#ff6f9f"), C("#ffd25a"), C("#b98cff") };
 
     static Color C(string hex) => Color.FromHtml(hex);
 
@@ -348,6 +500,27 @@ public sealed class Look
             new[] { "#07060d", "#120d22", "#06050b" },
             new[] { "#151022", "#b9a2ff", "#7fd8ff" }, new[] { "#0e0a18", "#b9a2ff", "#e6dcff" }, "#6a4bd1"),
     };
+
+    static Look()
+    {
+        // The city above: cream plaster, terracotta roofs, warm windows.
+        var p = Looks["Piltover"];
+        (p.Roof, p.RoofLight, p.RoofDark) = (C("#a8553a"), C("#c46c4a"), C("#74382a"));
+        (p.WallL, p.WallR, p.Timber, p.Door) = (C("#d9c9a8"), C("#b0a080"), C("#6a4a32"), C("#4a2e1e"));
+        p.Windows = new[] { C("#ffe3a8"), C("#ffd27a"), C("#9fd8e8") };
+        p.Flowers = new[] { C("#ff5f6f"), C("#ffffff"), C("#ffd25a"), C("#c08aff") };
+        // The sump: rusted tin roofs on plank shacks, chem-lit windows.
+        var s = Looks["Sump"];
+        (s.Roof, s.RoofLight, s.RoofDark) = (C("#7a5a3a"), C("#8f6a45"), C("#4f3a26"));
+        (s.WallL, s.WallR, s.Timber, s.Door) = (C("#5a4632"), C("#3e3024"), C("#2a2018"), C("#1e1610"));
+        s.Windows = new[] { C("#4ff0a0"), C("#9fffc8") };
+        // The ruins: weathered stone walls, broken slate.
+        var r = Looks["Ruins"];
+        (r.Roof, r.RoofLight, r.RoofDark) = (C("#5a5048"), C("#706458"), C("#3a332e"));
+        (r.WallL, r.WallR, r.Timber, r.Door) = (C("#8a7f72"), C("#6e6458"), C("#4f483f"), C("#2e2620"));
+        r.Windows = new[] { C("#ffb04f"), C("#1a1a2a") };
+        r.Flowers = new[] { C("#ffb04f"), C("#ff7a4f") };
+    }
 
     public static Look Get(string name) => Looks.TryGetValue(name ?? "", out var l) ? l : Looks["Undercity"];
 }

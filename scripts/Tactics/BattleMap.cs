@@ -4,12 +4,14 @@ using Godot;
 
 namespace CreatureTactics.Tactics;
 
-public enum Terrain { Grass, Stone, Brass, Chem, Pit, Crystal }
+public enum Terrain { Grass, Stone, Brass, Chem, Pit, Crystal, Roof, Wood, Dirt, Water }
 
 /// <summary>
-/// An isometric battle map: a grid of tiles, each with a terrain and a height (FFTA-style), plus the
-/// region it belongs to: its look and the fauna that lives there. Maps are handmade; the creatures
-/// on them are generated (game-ideas.md, MVP scope).
+/// An isometric battle map: a grid of tiles, each with a terrain and a height (FFTA-style), the props
+/// standing on it (trees, lamps, crates, statues), and the region it belongs to: its look and the
+/// fauna that lives there. Maps are handmade; the creatures on them are generated (game-ideas.md,
+/// MVP scope). Buildings are tiles too: roofs raised on walls, which walkers go round and fliers
+/// and climbers can stand on, as in FFTA's towns.
 /// </summary>
 public sealed class BattleMap
 {
@@ -22,12 +24,16 @@ public sealed class BattleMap
     public string Theme = "Undercity";
     public Vector2I PlayerAnchor, WildAnchor;
 
+    /// <summary>What stands on the map, tile by tile, and which tiles that fills.</summary>
+    public readonly List<(Vector2I tile, Prop prop)> Props = new();
+    readonly HashSet<Vector2I> _blocked = new();
+
     // Region fauna: multipliers on the odds of each body plan, strain and element turning up here.
     public Dictionary<BodyPlan, float> Plans = new();
     public Dictionary<Strain, float> Strains = new();
     public Dictionary<Element, float> Elements = new();
 
-    BattleMap(string name, string[] terrain, string[] heights)
+    BattleMap(string name, string[] terrain, string[] heights, string[] props = null)
     {
         Name = name;
         H = terrain.Length;
@@ -35,31 +41,47 @@ public sealed class BattleMap
         _terrain = new Terrain[W * H];
         _height = new int[W * H];
         for (int y = 0; y < H; y++)
-        for (int x = 0; x < W; x++)
         {
-            _terrain[y * W + x] = terrain[y][x] switch
+            if (terrain[y].Length != W || heights[y].Length != W || props != null && props[y].Length != W)
+                throw new System.ArgumentException($"{name}: row {y} isn't {W} wide");
+            for (int x = 0; x < W; x++)
             {
-                ',' => Terrain.Stone,
-                'b' => Terrain.Brass,
-                '~' => Terrain.Chem,
-                ' ' => Terrain.Pit,
-                'x' => Terrain.Crystal,
-                _ => Terrain.Grass,
-            };
-            _height[y * W + x] = heights[y][x] - '0';
+                _terrain[y * W + x] = terrain[y][x] switch
+                {
+                    ',' => Terrain.Stone,
+                    'b' => Terrain.Brass,
+                    '~' => Terrain.Chem,
+                    ' ' => Terrain.Pit,
+                    'x' => Terrain.Crystal,
+                    'h' => Terrain.Roof,
+                    'w' => Terrain.Wood,
+                    '-' => Terrain.Dirt,
+                    '=' => Terrain.Water,
+                    _ => Terrain.Grass,
+                };
+                _height[y * W + x] = heights[y][x] - '0';
+                if (props != null && PropArt.FromChar(props[y][x]) is { } prop)
+                {
+                    var t = new Vector2I(x, y);
+                    Props.Add((t, prop));
+                    if (PropArt.Blocks(prop)) _blocked.Add(t);
+                }
+            }
         }
     }
 
     public bool InBounds(Vector2I p) => p.X >= 0 && p.Y >= 0 && p.X < W && p.Y < H;
     public Terrain TerrainAt(Vector2I p) => _terrain[p.Y * W + p.X];
     public int HeightAt(Vector2I p) => _height[p.Y * W + p.X];
+    /// <summary>A tree, a crate, a statue: nothing can stand here.</summary>
+    public bool Blocked(Vector2I p) => _blocked.Contains(p);
 
     /// <summary>How well a species fits this region (the odds multiplier for it turning up here).</summary>
     public float Fit(Species s) =>
         (Plans.TryGetValue(s.Plan, out float p) ? p : 1f) * (Strains.TryGetValue(s.Strain, out float st) ? st : 1f)
         * (Elements.TryGetValue(s.Element, out float e) ? e : 1f);
 
-    public static readonly string[] Names = { "Undercity Foundry", "Brass Bridges", "Sump Marsh", "Clocktower Ruins", "Hexlight Hollow" };
+    public static readonly string[] Names = { "Undercity Foundry", "Brass Bridges", "Sump Marsh", "Clocktower Ruins", "Hexlight Hollow", "Lantern Row", "Gilded Gardens" };
 
     public static BattleMap ByName(string name) => name switch
     {
@@ -67,180 +89,433 @@ public sealed class BattleMap
         "Sump Marsh" => Sump(),
         "Clocktower Ruins" => Clocktower(),
         "Hexlight Hollow" => Hollow(),
+        "Lantern Row" => LanternRow(),
+        "Gilded Gardens" => Gardens(),
         _ => Foundry(),
     };
 
-    // Map legend: '.' moss/grass, ',' stone, 'b' brass, '~' chem, ' ' pit, 'x' crystal.
+    // Terrain: '.' moss/grass, ',' stone, 'b' brass, '~' chem, ' ' pit, 'x' crystal, 'h' roof,
+    //          'w' wooden boards, '-' dirt, '=' water.
+    // Props:   'T' tree, 'P' pine, 'D' dead tree, 'u' bush, 'M' mushroom, 'C' crystals, 'o' rock,
+    //          'L' lamp, 'N' neon sign, 'c' crate, 'B' barrel, 'K' chem tank, 'G' gear works,
+    //          'S' statue, 'F' fountain, 'I' pillar, 'm' market stall, 'f' banner, 'r' reeds,
+    //          'g' grave, 'e' hedge, 'H' chimney (on a roof). Reeds and banners don't block.
     // x runs down-right on screen, y down-left; the wild pack starts at the back.
 
-    /// <summary>A foundry yard in the undercity: cobbles, moss, raised brass, a chem canal, a pit.</summary>
+    /// <summary>A foundry yard in the undercity: works and sheds, a chem canal with a footbridge, a pit.</summary>
     public static BattleMap Foundry() => new("Undercity Foundry",
         new[]
         {
-            ",,,,bb..,,",
-            ",..,bb..,,",
-            "..~~~~....",
-            "..~~~~..,,",
-            ",,..,,..,,",
-            "..,,  ,,..",
-            ".bb,  ,,..",
-            ".bb,,,....",
-            "..,,,,..,.",
+            ",,,,hhhh,,bb..,,",
+            ",..,hhhh,,bb..,,",
+            ",..,hhhh,,,,..,,",
+            "..,,,,,,,,..,,,,",
+            "~~~~~~ww~~~~~~,,",
+            "~~~~~~ww~~~~~~,,",
+            ",,..,,,,..,,,,..",
+            ",,..,,  ,,..bb..",
+            ".bb.,,  ,,..bb..",
+            ".bb.,,,,,,,,,,hh",
+            "..,,,,..,,,,,,hh",
+            "..,,hhh,,,..,,hh",
+            "..,,hhh,,,..,,,,",
         },
         new[]
         {
-            "1111220011",
-            "1001220011",
-            "0000000000",
-            "0000000011",
-            "0000110011",
-            "0011001100",
-            "0220001100",
-            "0220000000",
-            "0000000010",
+            "1111333311220011",
+            "1001333311220011",
+            "1001333311110011",
+            "0011111111000011",
+            "0000000000000011",
+            "0000000000000011",
+            "0000000000000000",
+            "0000000000000000",
+            "0220000000001100",
+            "0220000000001133",
+            "0000000000000033",
+            "0000333000000033",
+            "0000333000000000",
+        },
+        new[]
+        {
+            "....H...c.....L.",
+            ".c............B.",
+            ".B.......K......",
+            "L.....N......o..",
+            "................",
+            "................",
+            ".L....c....G....",
+            "...........B.L..",
+            "........c.......",
+            "....L.........H.",
+            ".c...B.....N....",
+            ".....H..........",
+            "L.........c.....",
         })
     {
-        Blurb = "A foundry yard in the undercity. Brass platforms, a canal of chem.",
-        WildAnchor = new Vector2I(2, 0), PlayerAnchor = new Vector2I(7, 7),
+        Blurb = "A foundry yard in the undercity. Brass platforms, works and sheds, a canal of chem.",
+        WildAnchor = new Vector2I(12, 1), PlayerAnchor = new Vector2I(9, 11),
     };
 
     /// <summary>Plazas of the city above, joined by brass bridges over a chasm: fliers rule here.</summary>
     public static BattleMap Bridges() => new("Brass Bridges",
         new[]
         {
-            ",,,,  ,,,,",
-            ",bb,  ,..,",
-            ",bb,  ,..,",
-            ",,,,bb,,,,",
-            ",,..bb..,,",
-            ",,,,bb,,,,",
-            ",..,  ,bb,",
-            ",..,  ,bb,",
-            ",,,,  ,,,,",
+            ",,,,,,    ,,,,,,",
+            ",hhh,,    ,..,,,",
+            ",hhh,,    ,..,,,",
+            ",,,,,,bbbb,,,,,,",
+            ",..,,,    ,,,hh,",
+            ",..,,,    ,,,hh,",
+            ",,,,,,bbbb,,,,,,",
+            ",,,,,,    ,,,,,,",
+            ",hh,..    ..,,,,",
+            ",hh,..    ..,hhh",
+            ",,,,,,bbbb,,,hhh",
+            ",..,,,    ,,,,,,",
+            ",,,,,,    ,,,,,,",
         },
         new[]
         {
-            "1111001111",
-            "1221001111",
-            "1221001111",
-            "1111111111",
-            "1111111111",
-            "1111111111",
-            "1111001221",
-            "1111001221",
-            "1111001111",
+            "1111110000111111",
+            "1333110000111111",
+            "1333110000111111",
+            "1111111111111111",
+            "1111110000111441",
+            "1111110000111441",
+            "1111111111111111",
+            "1111110000111111",
+            "1331110000111111",
+            "1331110000111444",
+            "1111111111111444",
+            "1111110000111111",
+            "1111110000111111",
+        },
+        new[]
+        {
+            "L....L....L....L",
+            "..H...........S.",
+            ".....e....F.....",
+            "................",
+            ".T...f..........",
+            "..u.............",
+            "................",
+            "S..............e",
+            "....T.......c...",
+            ".H..........m...",
+            "e...............",
+            ".u..L.....L.....",
+            "................",
         })
     {
         Blurb = "Marble plazas of the city above, bridged over a chasm. Fliers own the gaps.",
         Theme = "Piltover",
-        WildAnchor = new Vector2I(1, 0), PlayerAnchor = new Vector2I(8, 8),
+        WildAnchor = new Vector2I(2, 0), PlayerAnchor = new Vector2I(12, 12),
         Plans = { [BodyPlan.Avian] = 3f, [BodyPlan.Insectoid] = 1.5f, [BodyPlan.Aquatic] = 0.2f },
         Strains = { [Strain.Clockwork] = 3f, [Strain.Abyssal] = 0.4f },
         Elements = { [Element.Spark] = 2f, [Element.Stone] = 1.5f },
     };
 
-    /// <summary>A chem-flooded sump below the city: islands and causeways, swimmers' ground.</summary>
+    /// <summary>A sump below the city: islands, boardwalks and stilt shacks over water and chem.</summary>
     public static BattleMap Sump() => new("Sump Marsh",
         new[]
         {
-            "..~~..,,..",
-            "..~~..,,..",
-            "..,,..~~~~",
-            "~~,,~~~~..",
-            "..,,......",
-            "..~~~~,,~~",
-            "~~..~~,,..",
-            "......,,..",
-            "..b...~~..",
+            "..==..,,..~~~~..",
+            "..==..,,..~~~~..",
+            "..,,wwww..==..hh",
+            "==,,..==..==..hh",
+            "==..........ww..",
+            "..~~~~,,~~==ww..",
+            "..~~~~,,~~==....",
+            "hh..==..ww....==",
+            "hh..==..ww..,,==",
+            "....~~~~....,,..",
+            "..ww~~~~ww..~~..",
+            "..ww....ww..~~..",
+            "........==,,....",
+            "..b.....==,,....",
         },
         new[]
         {
-            "0000001100",
-            "0000001100",
-            "0011000000",
-            "0011000011",
-            "0000000011",
-            "0000001100",
-            "0011001100",
-            "0000000000",
-            "0100000000",
+            "0000001100000000",
+            "0000001100000000",
+            "0011000000000022",
+            "0011000000000022",
+            "0000000000000000",
+            "0000001100000000",
+            "0000001100000000",
+            "2200000000000000",
+            "2200000000110000",
+            "0000000000110000",
+            "0000000000000000",
+            "0000000000000000",
+            "0000000000110000",
+            "0010000000110000",
+        },
+        new[]
+        {
+            ".r..D.....r.....",
+            "....r..........u",
+            "D...........r...",
+            "..B............H",
+            "...r....u.......",
+            "................",
+            "..............D.",
+            "......r.........",
+            ".H..........L...",
+            ".D............r.",
+            "................",
+            "....r.....u.....",
+            ".u..D...........",
+            "............L...",
         })
     {
-        Blurb = "Islands in a sump of glowing chem. Swimmers and mutants thrive.",
+        Blurb = "Islands in a sump of glowing chem, strung with boardwalks. Swimmers and mutants thrive.",
         Theme = "Sump",
-        WildAnchor = new Vector2I(7, 0), PlayerAnchor = new Vector2I(1, 8),
+        WildAnchor = new Vector2I(8, 1), PlayerAnchor = new Vector2I(2, 12),
         Plans = { [BodyPlan.Aquatic] = 3f, [BodyPlan.Serpent] = 2f, [BodyPlan.Blob] = 2f, [BodyPlan.Avian] = 0.5f },
         Strains = { [Strain.Chemtech] = 3f, [Strain.Clockwork] = 0.5f },
         Elements = { [Element.Venom] = 2.5f, [Element.Tide] = 2f, [Element.Leaf] = 1.5f },
     };
 
-    /// <summary>A fallen clocktower: steep tiers of stone and brass. The high ground decides it.</summary>
+    /// <summary>A fallen clocktower: steep tiers of stone and brass among graves. The high ground decides it.</summary>
     public static BattleMap Clocktower() => new("Clocktower Ruins",
         new[]
         {
-            ",,,,bbb,,,",
-            ",,..bbb..,",
-            "..,,,,,,..",
-            "..,,  ,,..",
-            "..,,  ,,..",
-            "..,,,,,,..",
-            ",..,bb,..,",
-            ",..,bb,...",
-            ",,,,,,,,,,",
+            ",,,,,,bbbb,,,,,,",
+            ",,..,,bbbb,,..,,",
+            ",,..,,,,,,,,..,,",
+            "..,,,,,,,,,,,,..",
+            "..,,,,  ,,,,,,..",
+            "..,,,,  ,,hh,,..",
+            "....,,,,,,hh,...",
+            ",,..,,..,,,,,,,,",
+            ",,..,,..,,bb,,,,",
+            "......,,,,bb....",
+            "hh....,,,,,,....",
+            "hh..,,,,..,,..,,",
+            "....,,,,..,,..,,",
+            ",,,,,,,,,,,,,,,,",
         },
         new[]
         {
-            "2222333222",
-            "2211333112",
-            "1111222111",
-            "0011002110",
-            "0011002110",
-            "0011111100",
-            "0001221000",
-            "0001221000",
-            "0000000000",
+            "3333334444333333",
+            "3322334444332233",
+            "2222333333332222",
+            "1122222222222211",
+            "1122220022222211",
+            "1122220022442211",
+            "1111222222441111",
+            "1111111111111111",
+            "0011111111221100",
+            "0000001111220000",
+            "3300000111100000",
+            "3300000000000000",
+            "0000000000000000",
+            "0000000000000000",
+        },
+        new[]
+        {
+            "I..........G...I",
+            "..D..........D..",
+            "....I......o....",
+            ".g............g.",
+            "...o......I.....",
+            "................",
+            "..g.........u...",
+            "......I.........",
+            "..o...........I.",
+            "T.............T.",
+            "..........o.....",
+            ".H....g.........",
+            "..u..........o..",
+            "I..............I",
         })
     {
-        Blurb = "The tiers of a fallen clocktower. Whoever holds the top hits hardest.",
+        Blurb = "The tiers of a fallen clocktower, broken pillars and old graves. Whoever holds the top hits hardest.",
         Theme = "Ruins",
-        WildAnchor = new Vector2I(5, 0), PlayerAnchor = new Vector2I(4, 8),
+        WildAnchor = new Vector2I(8, 1), PlayerAnchor = new Vector2I(8, 13),
         Plans = { [BodyPlan.Biped] = 2f, [BodyPlan.Quadruped] = 2f, [BodyPlan.Aquatic] = 0.3f },
         Strains = { [Strain.Clockwork] = 1.5f, [Strain.Arcane] = 1.5f },
         Elements = { [Element.Stone] = 2f, [Element.Ember] = 1.5f },
     };
 
-    /// <summary>A cavern lit by hextech crystals growing out of the rock. Arcane things nest here.</summary>
+    /// <summary>A cavern lit by hextech crystals and glowing fungus. Arcane things nest here.</summary>
     public static BattleMap Hollow() => new("Hexlight Hollow",
         new[]
         {
-            ",,xx,,,,..",
-            ",xxx,,..,,",
-            ",,,,~~,,,,",
-            "..,,~~,xx,",
-            "..,,,,,xx,",
-            ",,,,..,,,,",
-            ",xx,..~~,,",
-            ",xx,,,~~,.",
-            ",,,,..,,..",
+            ",,xxx,,,,..,,,,,",
+            ",xxxx,,..,,,,xx,",
+            ",,,,,,~~~,,,,xx,",
+            "..,,,,~~~,,..,,,",
+            "..,,,,,,,,,..,,,",
+            ",,,,..,,,,,,,,xx",
+            ",xx,..,,~~,,,,xx",
+            ",xx,,,,,~~,,..,,",
+            ",,,,..,,,,,,..,,",
+            "..,,..,,xx,,,,,,",
+            "..,,,,,,xx,,~~,,",
+            ",,,,..,,,,,,~~,,",
+            ",,..,,,,..,,,,,,",
         },
         new[]
         {
-            "1122111100",
-            "1222110011",
-            "1111001111",
-            "0011001221",
-            "0011111221",
-            "0000110000",
-            "0220110000",
-            "0220000000",
-            "0000000000",
+            "1122211111001111",
+            "1222211001111221",
+            "1111110001111221",
+            "0011110001100111",
+            "0011111111100111",
+            "0000001111111122",
+            "0220001100111122",
+            "0220000000110000",
+            "0000000000110000",
+            "0000000022000000",
+            "0000000022000000",
+            "0000000000000000",
+            "0000000000000000",
+        },
+        new[]
+        {
+            "C......M.....o..",
+            ".....M.....o....",
+            "..o..........C..",
+            "M..........M....",
+            "....C..........M",
+            "..M.....o.......",
+            "......M.....C...",
+            "....o.....M.....",
+            "..C.........M...",
+            ".M.....o......C.",
+            "....M...........",
+            "..o.......M.....",
+            "......C.....M...",
         })
     {
-        Blurb = "A cavern lit by raw hextech crystal. Arcane and abyssal things nest in the dark.",
+        Blurb = "A cavern lit by raw hextech crystal and glowing fungus. Arcane and abyssal things nest in the dark.",
         Theme = "Cavern",
-        WildAnchor = new Vector2I(2, 0), PlayerAnchor = new Vector2I(7, 8),
+        WildAnchor = new Vector2I(8, 1), PlayerAnchor = new Vector2I(8, 12),
         Plans = { [BodyPlan.Insectoid] = 2f, [BodyPlan.Blob] = 1.5f, [BodyPlan.Serpent] = 1.5f, [BodyPlan.Avian] = 0.5f },
         Strains = { [Strain.Arcane] = 3f, [Strain.Abyssal] = 2.5f, [Strain.Natural] = 0.6f },
         Elements = { [Element.Shade] = 2f, [Element.Frost] = 1.5f, [Element.Venom] = 1.5f },
+    };
+
+    /// <summary>An undercity street of narrow houses, market stalls and neon, round a little green.</summary>
+    public static BattleMap LanternRow() => new("Lantern Row",
+        new[]
+        {
+            "hhh,,hhhh,,hhh,,",
+            "hhh,,hhhh,,hhh,,",
+            ",,,,,,,,,,,,,,,,",
+            ",,,,--------,,,,",
+            "hh,,--------,,hh",
+            "hh,,,,,,,,,,,,hh",
+            ",,,,,,..,,,,,,,,",
+            "hhh,,,..,,,,hhhh",
+            "hhh,,,,,,,,,hhhh",
+            ",,,,,,,,,,,,,,,,",
+            ",,----,,----,,,,",
+            "hh,,,,,,,,,,,hhh",
+            "hh,,,,hhh,,,,hhh",
+            ",,,,,,hhh,,,,,,,",
+        },
+        new[]
+        {
+            "3330033330033300",
+            "3330033330033300",
+            "0000000000000000",
+            "0000000000000000",
+            "2200000000000022",
+            "2200000000000022",
+            "0000000000000000",
+            "3330000000003333",
+            "3330000000003333",
+            "0000000000000000",
+            "0000000000000000",
+            "2200000000000222",
+            "2200003330000222",
+            "0000003330000000",
+        },
+        new[]
+        {
+            ".H......H.....L.",
+            "...c.......H...B",
+            "L....N....L....N",
+            "..m..........m..",
+            "...B........c...",
+            "................",
+            ".......T........",
+            "...L.....F......",
+            "..H.......c...H.",
+            "N..............L",
+            "......c.........",
+            "...........B....",
+            "...L....H.......",
+            "L....B.........L",
+        })
+    {
+        Blurb = "A lamplit undercity street: tall narrow houses, market stalls, neon. Fliers take the rooftops.",
+        WildAnchor = new Vector2I(8, 2), PlayerAnchor = new Vector2I(11, 13),
+        Plans = { [BodyPlan.Biped] = 2f, [BodyPlan.Quadruped] = 1.5f, [BodyPlan.Avian] = 1.5f },
+        Strains = { [Strain.Chemtech] = 1.5f, [Strain.Clockwork] = 1.5f },
+        Elements = { [Element.Spark] = 1.5f, [Element.Shade] = 1.5f },
+    };
+
+    /// <summary>A walled garden of the city above: hedges, ponds, statues and a gazebo on the lawn.</summary>
+    public static BattleMap Gardens() => new("Gilded Gardens",
+        new[]
+        {
+            "....,,,,,,,,....",
+            "..==..,,,,..==..",
+            "..==..,,,,..==..",
+            "......,,,,......",
+            ",,,,,,,,,,,,,,,,",
+            "..,,..,,,,..,,..",
+            "..,,..,hh,..,,..",
+            "..,,..,hh,..,,..",
+            "..,,..,,,,..,,..",
+            ",,,,,,,,,,,,,,,,",
+            "......,,,,......",
+            "..====,,,,......",
+            "..====,,,,......",
+        },
+        new[]
+        {
+            "1111111111111111",
+            "1100111111110011",
+            "1100111111110011",
+            "1111111111111111",
+            "1111111111111111",
+            "0000000000000000",
+            "0000000220000000",
+            "0000000220000000",
+            "0000000000000000",
+            "0000000000000000",
+            "0000000000000000",
+            "0000000000000000",
+            "0000000000000000",
+        },
+        new[]
+        {
+            "T..e........e..T",
+            "................",
+            "................",
+            ".u..S......S..u.",
+            "................",
+            "e.....L..L.....e",
+            "..........T.....",
+            ".T..............",
+            "....u.....u.....",
+            "................",
+            "e..T......F...e.",
+            "..............T.",
+            "u.........S.....",
+        })
+    {
+        Blurb = "A gilded garden of the city above: lawns, hedges, ponds and statues. Insects and birds everywhere.",
+        Theme = "Piltover",
+        WildAnchor = new Vector2I(7, 0), PlayerAnchor = new Vector2I(8, 12),
+        Plans = { [BodyPlan.Avian] = 2f, [BodyPlan.Insectoid] = 2f, [BodyPlan.Quadruped] = 1.5f },
+        Strains = { [Strain.Natural] = 1.5f, [Strain.Clockwork] = 1.5f },
+        Elements = { [Element.Leaf] = 2.5f, [Element.Meadow] = 2f },
     };
 }

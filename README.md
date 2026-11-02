@@ -256,6 +256,7 @@ gear, strain and attitude.
 - `--save=NAME` uses a separate save file.
 - `--battle=N --map="Sump Marsh"` runs a one-off battle without the ranch.
 - `--shot=N` saves frame N to `.shots/shot.png`.
+- `--props` writes every map prop in every region's colours.
 - `--export` renders a sheet without a window; `--forms` one creature of every form, front and
   back on board tiles (`--only=Lung,Jelly` for some, `--idle=NAME` for their idle loop as
   frames); `--views=N` sheet N the same way; `--icons` every skill icon.

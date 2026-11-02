@@ -368,6 +368,33 @@ public partial class GameRoot : Node
             return;
         }
 
+        if (args.ContainsKey("props"))
+        {
+            // Every prop in every region's colours: one row per region, each on a board tile.
+            string[] themes = { "Undercity", "Piltover", "Sump", "Ruins", "Cavern" };
+            var kinds = Enum.GetValues<Tactics.Prop>();
+            int cell = 64, scale = args.TryGetValue("scale", out var psc) && int.TryParse(psc, out var psv) ? psv : 3;
+            var propSheet = Image.CreateEmpty(kinds.Length * cell, themes.Length * cell, false, Image.Format.Rgba8);
+            propSheet.Fill(Color.FromHtml("#16121f"));
+            for (int r = 0; r < themes.Length; r++)
+            for (int i = 0; i < kinds.Length; i++)
+            {
+                var (img, a) = Tactics.PropArt.Paint(kinds[i], r, themes[r]);
+                int gx = i * cell + cell / 2, gy = r * cell + cell - 14;
+                for (int y = -12; y <= 12; y++)
+                for (int x = -24; x <= 24; x++)
+                    if (Mathf.Abs(x) / 24f + Mathf.Abs(y) / 12f <= 1 && gx + x >= 0 && gx + x < propSheet.GetWidth()) propSheet.SetPixel(gx + x, gy + y, Color.FromHtml("#2a2438"));
+                propSheet.BlendRect(img, new Rect2I(0, 0, img.GetWidth(), img.GetHeight()), new Vector2I(gx - a.X, gy - a.Y));
+            }
+            propSheet.Resize(propSheet.GetWidth() * scale, propSheet.GetHeight() * scale, Image.Interpolation.Nearest);
+            string ppath = ProjectSettings.GlobalizePath("res://.shots/props.png");
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(ppath)!);
+            propSheet.SavePng(ppath);
+            GD.Print($"wrote {ppath}: {kinds.Length} props x {themes.Length} regions");
+            GetTree().Quit();
+            return;
+        }
+
         if (args.ContainsKey("icons"))
         {
             // Every skill icon, then every glyph, at x4: the readability check.

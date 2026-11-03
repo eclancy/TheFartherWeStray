@@ -24,9 +24,12 @@ public partial class CountryScreen : Control
     public Action Back;
     public bool DemoDispatch;   // --dispatchdemo: open on the first dispatch's chooser (screenshots)
     public bool DemoShop;       // --shopdemo: open on the shop where you stand (screenshots)
+    public Action ToTitle;      // the pause menu's way back to the title
 
-    const int Scale = 4;
-    static readonly Vector2 MapAt = new(40, 112);
+    // The map at 4x on a desktop with the panel on the right; on a phone at 2x, the panel beside it.
+    static int Scale => Phone.On ? 2 : 4;
+    static Vector2 MapAt => Phone.On ? new(24, 112) : new(40, 112);
+    float _panelX, _panelW, _overY;   // the right-hand panel, and where the shop and the chooser open
     static readonly Color Gold = Color.FromHtml("#f2c14e"), Ink = Color.FromHtml("#e8e2f4"), Dim = Color.FromHtml("#9a91b4");
     static readonly Color Pink = Color.FromHtml("#ff4f9a"), Green = Color.FromHtml("#4ff0a0"), Cyan = Color.FromHtml("#4fe3ff");
 
@@ -48,17 +51,24 @@ public partial class CountryScreen : Control
         _board = Country.Board(Ranch);
         _token = Screen(Country.Get(Ranch.Location));
 
-        var back = new Button { Text = "Home  (Esc)", FocusMode = FocusModeEnum.None, Position = new Vector2(1740, 22), CustomMinimumSize = new Vector2(150, 40) };
+        var vp = GetViewportRect().Size;
+        _panelX = Phone.On ? MapAt.X + CountryArt.W * Scale + 24 : vp.X - 750;
+        _panelW = Phone.On ? vp.X - _panelX - 16 : 720;
+        _overY = Phone.On ? 96 : 262;
+        var back = new Button { Text = Phone.Keys("Home  (Esc)", "Home  (B)"), FocusMode = FocusModeEnum.None, Position = new Vector2(vp.X - 180, 22), CustomMinimumSize = new Vector2(150, 40) };
         back.AddThemeFontSizeOverride("font_size", 16);
         back.Pressed += () => Back?.Invoke();
         AddChild(back);
 
-        _place = new VBoxContainer { Position = new Vector2(1170, 96), Size = new Vector2(720, 160) };
+        _place = new VBoxContainer { Position = new Vector2(_panelX, 96), Size = new Vector2(_panelW, 160) };
         _place.AddThemeConstantOverride("separation", 6);
         AddChild(_place);
-        _missions = new MissionBoardPanel { Ranch = Ranch, Position = new Vector2(1170, 262), Size = new Vector2(720, 770), Depart = Depart };
+        _missions = new MissionBoardPanel { Ranch = Ranch, Position = new Vector2(_panelX, 262), Size = new Vector2(_panelW, vp.Y - 310), Depart = Depart };
         AddChild(_missions);
-        _status = new Label { Position = new Vector2(40, 1046), Size = new Vector2(1100, 24) };
+        // Under the map on a phone (two lines), along the foot on a desktop.
+        _status = Phone.On ? new Label { Position = new Vector2(MapAt.X, MapAt.Y + CountryArt.H * Scale + 14), Size = new Vector2(_panelX - MapAt.X - 20, 60) }
+            : new Label { Position = new Vector2(40, vp.Y - 34), Size = new Vector2(1100, 24) };
+        _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _status.AddThemeFontSizeOverride("font_size", 16);
         _status.AddThemeColorOverride("font_color", Gold);
         AddChild(_status);
@@ -67,7 +77,8 @@ public partial class CountryScreen : Control
         var first = _board.FirstOrDefault(m => m.Story != null) ?? _board.FirstOrDefault(m => m.Location == Ranch.Location)
             ?? _board.OrderBy(m => Country.Days(Ranch, m.Location)).FirstOrDefault();
         Select(first?.Location ?? Ranch.Location);
-        _status.Text = "Pick a place, then a mission; Depart (F) travels there and starts it. Esc: back to the ranch.";
+        _status.Text = Phone.Keys("Pick a place, then a mission; Depart (F) travels there and starts it. Esc: back to the ranch.",
+            "D-pad: pick a place.  A: its missions, then Depart.  B: back home.  Start: menu.");
         if (DemoDispatch && _board.FirstOrDefault(m => m.Dispatch != null) is { } job) { Select(job.Location); Choose(job.Dispatch); }
         if (DemoShop && ShopBook.At(Ranch, Ranch.Location).Count > 0) { Select(Ranch.Location); OpenShop(Ranch.Location); }
     }
@@ -111,7 +122,7 @@ public partial class CountryScreen : Control
         CloseShop();
         if (ShopBook.At(Ranch, id).Count > 0)
         {
-            var shop = new Button { Text = "Shop  (S)", FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(140, 36), SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
+            var shop = new Button { Text = Phone.Keys("Shop  (S)", "Shop"), FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(140, 36), SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
             shop.Pressed += () => OpenShop(id);
             _place.AddChild(shop);
         }
@@ -124,7 +135,8 @@ public partial class CountryScreen : Control
         {
             _missions.Source = () => here;
             _missions.Heading = here.Count == 0 ? "NOTHING ON OFFER HERE TODAY" : $"ON OFFER AT {l.Name.ToUpperInvariant()}";
-            _missions.DepartLabelFor = m => m.Dispatch != null ? "Send a beast  (F)" : id == Ranch.Location ? "Depart  (F)" : $"Travel {days}d & depart  (F)";
+            string f = Phone.On ? "" : "  (F)";
+            _missions.DepartLabelFor = m => m.Dispatch != null ? $"Send a beast{f}" : id == Ranch.Location ? $"Depart{f}" : $"Travel {days}d & depart{f}";
             _missions.Selected = 0;
             _missions.Refresh();
             _missions.QueueRedraw();
@@ -132,11 +144,11 @@ public partial class CountryScreen : Control
         QueueRedraw();
     }
 
-    static Label Wrap(string text, int size, Color color)
+    Label Wrap(string text, int size, Color color)
     {
         var label = Ui.Text(text, size, color, 4);
         label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        label.CustomMinimumSize = new Vector2(700, 0);
+        label.CustomMinimumSize = new Vector2(_panelW - 20, 0);
         return label;
     }
 
@@ -195,7 +207,7 @@ public partial class CountryScreen : Control
     void OpenShop(string place)
     {
         CloseShop();
-        _shop = new PanelContainer { Position = new Vector2(1170, 262), Size = new Vector2(720, 0) };
+        _shop = new PanelContainer { Position = new Vector2(_panelX, _overY), Size = new Vector2(_panelW, 0) };
         var box = new StyleBoxFlat { BgColor = new Color(0.07f, 0.05f, 0.12f, 1f), BorderColor = Gold };
         box.SetBorderWidthAll(2);
         box.SetCornerRadiusAll(8);
@@ -218,7 +230,8 @@ public partial class CountryScreen : Control
             go.Pressed += () => TravelToShop(place);
             col.AddChild(go);
         }
-        var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(690, here ? 560 : 500), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        float tall = GetViewportRect().Size.Y - _overY - (here ? 140 : 200);
+        var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(_panelW - 30, Math.Min(here ? 560 : 500, tall)), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         var rows = new VBoxContainer();
         rows.AddThemeConstantOverride("separation", 8);
         scroll.AddChild(rows);
@@ -231,12 +244,12 @@ public partial class CountryScreen : Control
                 : AugmentBook.Get(ware.Id) is { } aug ? SkillIcons.Skill(Classes.ClassBook.Skill(aug.Skill), 2)
                 : GearBook.IsGear(ware.Id) ? SkillIcons.Passive(Classes.ClassBook.Passive(ware.Id), 2) : SkillIcons.Skill(Classes.ClassBook.Skill(ware.Id), 2);
             row.AddChild(Ui.Picture(icon, ShopBook.Text(ware.Id)));
-            var words = new VBoxContainer { CustomMinimumSize = new Vector2(440, 0) };
+            var words = new VBoxContainer { CustomMinimumSize = new Vector2(_panelW - 280, 0) };
             int owned = Ranch.Items.GetValueOrDefault(ware.Id);
             string kind = AugmentBook.IsAugment(ware.Id) ? "  (augment)" : GearBook.IsGear(ware.Id) ? "  (gear)" : "";
             words.AddChild(Ui.Text($"{ShopBook.Name(ware.Id)}{kind}{(owned > 0 ? $"   ·   {owned} in the bag" : "")}", 16, AugmentBook.IsAugment(ware.Id) ? Cyan : Ink));
             var text = Wrap(ShopBook.Text(ware.Id), 13, Dim);
-            text.CustomMinimumSize = new Vector2(440, 0);
+            text.CustomMinimumSize = new Vector2(_panelW - 280, 0);
             words.AddChild(text);
             row.AddChild(words);
             int price = ShopBook.PriceAt(Ranch, ware, place);
@@ -246,11 +259,12 @@ public partial class CountryScreen : Control
             row.AddChild(buy);
             rows.AddChild(row);
         }
-        var close = new Button { Text = "Close  (Esc)", FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(160, 40), SizeFlagsHorizontal = SizeFlags.ShrinkEnd };
+        var close = new Button { Text = Phone.Keys("Close  (Esc)", "Close  (B)"), FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(160, 40), SizeFlagsHorizontal = SizeFlags.ShrinkEnd };
         close.Pressed += CloseShop;
         col.AddChild(close);
         _missions.Visible = false;
         AddChild(_shop);
+        if (Phone.On) FocusFirst(_shop);
     }
 
     void CloseShop()
@@ -276,7 +290,7 @@ public partial class CountryScreen : Control
     /// <summary>Who goes on a dispatch: everyone at home, best suited first, with their odds.</summary>
     void Choose(DispatchDef job)
     {
-        _chooser = new PanelContainer { Position = new Vector2(1170, 262), Size = new Vector2(720, 0) };
+        _chooser = new PanelContainer { Position = new Vector2(_panelX, _overY), Size = new Vector2(_panelW, 0) };
         var box = new StyleBoxFlat { BgColor = new Color(0.07f, 0.05f, 0.12f, 0.97f), BorderColor = Gold };
         box.SetBorderWidthAll(2);
         box.SetCornerRadiusAll(8);
@@ -287,7 +301,7 @@ public partial class CountryScreen : Control
         _chooser.AddChild(col);
         col.AddChild(Wrap($"Who goes on \"{job.Title}\"? Away {job.Days} {(job.Days == 1 ? "day" : "days")}.", 18, Gold));
         col.AddChild(Wrap("Suits: " + string.Join(", ", job.Suits.Select(s => s.hint)) + ". The better it suits, the likelier it goes well.", 15, Dim));
-        var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(690, 520), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(_panelW - 30, Math.Min(520, GetViewportRect().Size.Y - _overY - 220)), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         var rows = new VBoxContainer();
         rows.AddThemeConstantOverride("separation", 4);
         scroll.AddChild(rows);
@@ -302,18 +316,19 @@ public partial class CountryScreen : Control
             var b = new Button
             {
                 Text = $"{rec.Name}  ·  {chance}%{(fits.Count > 0 ? "  ·  " + string.Join(", ", fits) : "")}{(Ranch.Squad.Contains(rec.Id) ? "  (leaves the squad)" : "")}",
-                Alignment = HorizontalAlignment.Left, FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(680, 38),
+                Alignment = HorizontalAlignment.Left, FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(_panelW - 40, 38), ClipText = true,
             };
             b.AddThemeFontSizeOverride("font_size", 16);
             int id = rec.Id;
             b.Pressed += () => Send(id, job);
             rows.AddChild(b);
         }
-        var cancel = new Button { Text = "Cancel  (Esc)", FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(160, 40), SizeFlagsHorizontal = SizeFlags.ShrinkEnd };
+        var cancel = new Button { Text = Phone.Keys("Cancel  (Esc)", "Cancel  (B)"), FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(160, 40), SizeFlagsHorizontal = SizeFlags.ShrinkEnd };
         cancel.Pressed += CloseChooser;
         col.AddChild(cancel);
         _missions.Visible = false;
         AddChild(_chooser);
+        if (Phone.On) FocusFirst(_chooser);
     }
 
     void CloseChooser()
@@ -351,9 +366,49 @@ public partial class CountryScreen : Control
 
     string Pick(Vector2 at) => Country.Locations.FirstOrDefault(l => at.DistanceTo(Screen(l)) < 28)?.Id;
 
+    /// <summary>The pad lands on a panel's first button that can be pressed.</summary>
+    static void FocusFirst(Control panel) =>
+        Callable.From(() => All(panel).OfType<BaseButton>().FirstOrDefault(b => !b.Disabled && b.IsVisibleInTree())?.GrabFocus()).CallDeferred();
+
+    static IEnumerable<Control> All(Node n)
+    {
+        foreach (var child in n.GetChildren())
+        {
+            if (child is Control c) yield return c;
+            foreach (var d in All(child)) yield return d;
+        }
+    }
+
+    /// <summary>The nearest place in an arrow's direction (on the screen), for the pad.</summary>
+    void StepPlace(Key key)
+    {
+        var dir = key switch { Key.Up => Vector2.Up, Key.Down => Vector2.Down, Key.Left => Vector2.Left, _ => Vector2.Right };
+        var from = Screen(Country.Get(_selected ?? Ranch.Location));
+        var next = Country.Locations.Where(l => l.Id != _selected)
+            .Select(l => (l, d: Screen(l) - from)).Where(x => x.d.Dot(dir) > 0.3f * x.d.Length())
+            .OrderBy(x => x.d.Dot(dir) + 2 * Mathf.Abs(x.d.Cross(dir))).Select(x => x.l).FirstOrDefault();
+        if (next == null) return;
+        Audio.Sound.Play("tick");
+        Select(next.Id);
+    }
+
     public override void _UnhandledInput(InputEvent e)
     {
+        if (e is InputEventKey { Pressed: true } pad && !_travelling && _chooser == null && _shop == null)
+        {
+            bool inPanel = GetViewport().GuiGetFocusOwner() is { } owner && IsAncestorOf(owner);
+            // Arrows with nothing focused pick a place; A goes into its missions (or its shop); B in there comes back out.
+            if (!inPanel && pad.Keycode is Key.Up or Key.Down or Key.Left or Key.Right) { StepPlace(pad.Keycode); GetViewport().SetInputAsHandled(); return; }
+            if (!inPanel && !pad.Echo && pad.Keycode is Key.Enter or Key.KpEnter && Phone.On)
+            {
+                if (_missions.Visible && _missions.Missions.Count > 0) _missions.FocusSelected(); else FocusFirst(_place);
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+            if (inPanel && !pad.Echo && pad.Keycode == Key.Escape) { GetViewport().GuiReleaseFocus(); GetViewport().SetInputAsHandled(); return; }
+        }
         if (e is not InputEventKey { Pressed: true, Echo: false } k) return;
+        if (k.Keycode == Phone.Start) { AddChild(new PauseMenu { Save = Ranch.Save, ToTitle = ToTitle }); GetViewport().SetInputAsHandled(); return; }
         if (k.Keycode == Key.Escape && _chooser != null) { CloseChooser(); GetViewport().SetInputAsHandled(); }
         else if (k.Keycode == Key.Escape && _shop != null) { CloseShop(); GetViewport().SetInputAsHandled(); }
         else if (k.Keycode == Key.S && _shop == null && _selected != null && ShopBook.At(Ranch, _selected).Count > 0) OpenShop(_selected);
@@ -405,28 +460,30 @@ public partial class CountryScreen : Control
             var p = Screen(l);
             bool open = Country.IsOpen(Ranch, l), sel = l.Id == _selected, hover = l.Id == _hover;
             var ring = !open ? Color.FromHtml("#4a4060") : l.Side switch { Side.City => Gold, Side.Undercity => Pink, _ => Green };
-            float r = 22 + (sel ? 3 + MathF.Sin(t * 4) * 1.5f : hover ? 2 : 0);
+            float r = (Phone.On ? 15 : 22) + (sel ? 3 + MathF.Sin(t * 4) * 1.5f : hover ? 2 : 0);
             DrawCircle(p, r + 3, new Color(0, 0, 0, 0.7f));
             DrawCircle(p, r, Color.FromHtml("#120e1c"));
             DrawArc(p, r, 0, MathF.Tau, 40, sel ? Ink : ring, sel ? 4 : 3);
-            var glyph = Glyphs.Get(open ? l.Glyph : "lock", 2);
+            var glyph = Glyphs.Get(open ? l.Glyph : "lock", Phone.On ? 1 : 2);
             DrawTexture(glyph, p - glyph.GetSize() / 2, open ? Colors.White : new Color(1, 1, 1, 0.5f));
             string name = open ? l.Name : "???";
-            DrawString(font, p + new Vector2(-91, 45), name, HorizontalAlignment.Center, 180, 17, new Color(0, 0, 0, 0.9f));
-            DrawString(font, p + new Vector2(-92, 44), name, HorizontalAlignment.Center, 180, 17, open ? Ink : Dim);
+            int nameSize = Phone.On ? 14 : 17;
+            float below = Phone.On ? 32 : 44;
+            DrawString(font, p + new Vector2(-91, below + 1), name, HorizontalAlignment.Center, 180, nameSize, new Color(0, 0, 0, 0.9f));
+            DrawString(font, p + new Vector2(-92, below), name, HorizontalAlignment.Center, 180, nameSize, open ? Ink : Dim);
 
             // What's on offer here: a main mission, a duel, how many contracts.
             var here = _board.Where(m => m.Location == l.Id).ToList();
-            float bx = p.X + 20;
-            if (here.Any(m => m.Story != null)) { Badge(p + new Vector2(-30, -30), "star", Gold); }
-            if (here.Any(m => m.Cup != null)) { Badge(new Vector2(bx, p.Y - 30), "crown", Gold); bx += 24; }
-            else if (here.Any(m => m.Rival != null)) { Badge(new Vector2(bx, p.Y - 30), "slash", Pink); bx += 24; }
-            if (here.Any(m => m.Dispatch != null)) { Badge(new Vector2(bx, p.Y - 30), "hand", Cyan); bx += 24; }
+            float off = Phone.On ? 22 : 30, bx = p.X + off * 0.67f;
+            if (here.Any(m => m.Story != null)) { Badge(p + new Vector2(-off, -off), "star", Gold); }
+            if (here.Any(m => m.Cup != null)) { Badge(new Vector2(bx, p.Y - off), "crown", Gold); bx += 24; }
+            else if (here.Any(m => m.Rival != null)) { Badge(new Vector2(bx, p.Y - off), "slash", Pink); bx += 24; }
+            if (here.Any(m => m.Dispatch != null)) { Badge(new Vector2(bx, p.Y - off), "hand", Cyan); bx += 24; }
             int contracts = here.Count(m => m.Story == null && m.Rival == null && m.Dispatch == null && m.Roamer == 0);
             if (contracts > 0)
             {
-                DrawCircle(new Vector2(bx, p.Y - 26), 11, Color.FromHtml("#ff8a3d"));
-                DrawString(font, new Vector2(bx - 10, p.Y - 20), contracts.ToString(), HorizontalAlignment.Center, 20, 15, Color.FromHtml("#1a0f08"));
+                DrawCircle(new Vector2(bx, p.Y - off + 4), 11, Color.FromHtml("#ff8a3d"));
+                DrawString(font, new Vector2(bx - 10, p.Y - off + 10), contracts.ToString(), HorizontalAlignment.Center, 20, 15, Color.FromHtml("#1a0f08"));
             }
         }
 

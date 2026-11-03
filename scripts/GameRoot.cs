@@ -32,10 +32,23 @@ public partial class GameRoot : Node
 {
     public override void _Ready()
     {
+        // On a phone (or with --phone) the game runs inside the phone frame, between the pad's columns.
+        if (UI.Phone.Wanted() && !_framed)
+        {
+            _framed = true;
+            UI.Phone.Begin();
+            // No hover tooltips (a finger left resting would bring one up over the pad's own): a
+            // viewport reads the delay when it's made, so before the game's is.
+            ProjectSettings.SetSetting("gui/timers/tooltip_delay_sec", 3600f);
+            AddChild(new UI.PhoneFrame { Game = new GameRoot() });
+            return;
+        }
         // A crash during setup quits instead of leaving a headless run hanging until its timeout.
         try { Start(); }
         catch (Exception e) { GD.PrintErr(e.ToString()); GetTree().Quit(1); }
     }
+
+    static bool _framed;
 
     /// <summary>The game's name (the user's, 2026-11-02), as the project's config/name has it too.</summary>
     public const string Title = "The Farther We Stray";
@@ -73,6 +86,15 @@ public partial class GameRoot : Node
         Audio.Music.Off = args.ContainsKey("nomusic");
         if (DisplayServer.GetName() != "headless") AddChild(new Audio.Music());
         GetTree().NodeAdded += node => { if (node is BaseButton button) button.Pressed += () => Audio.Sound.Play("click"); };
+        // The phone's pad finds its way round every menu (UI/PadNav.cs).
+        if (UI.Phone.On)
+        {
+            UI.PadNav.Theme();
+            GetTree().NodeAdded += UI.PadNav.Adapt;
+            AddChild(new UI.PadNav());
+            // --pad=down,down,a,...: presses the pad's buttons one by one, after the screen settles (checking it with --shot).
+            if (args.TryGetValue("pad", out var presses)) PressPad(presses.Split(','), args.TryGetValue("padwait", out var pw) && float.TryParse(pw, CultureInfo.InvariantCulture, out var w) ? w : 1.5f);
+        }
 
         if (args.ContainsKey("slotstest"))
         {
@@ -127,6 +149,52 @@ public partial class GameRoot : Node
             var mains = World.StoryBook.All.Where(m => m.Scene != null).ToList();
             foreach (var m in mains.Where(m => Story.SceneBook.Get(m.Scene) == null)) { GD.Print($"  {m.Id} names a scene that doesn't exist: {m.Scene}"); problems++; }
             GD.Print($"scenes: {Story.SceneBook.All.Length}, played before {mains.Count} main missions; problems: {problems}");
+            GetTree().Quit();
+            return;
+        }
+
+        if (args.ContainsKey("icon"))
+        {
+            // The app's icons (icon/): Blaze, the first starter, on the night colour with a chem glow. The
+            // Android launcher's three (named in export_presets.cfg: the adaptive layers 432 square, the
+            // old square 192) and the window's.
+            var sprite = CreaturePainter.Paint(Tactics.Encounter.StarterSquad().First().Item1, false);
+            sprite = sprite.GetRegion(sprite.GetUsedRect());
+            Image Back(int n)
+            {
+                var img = Image.CreateEmpty(n, n, false, Image.Format.Rgba8);
+                Color top = Color.FromHtml("#2a1a48"), bottom = Color.FromHtml("#0b0914"), glow = Color.FromHtml("#4fe3ff");
+                for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    float g = Mathf.Clamp(1 - new Vector2(x - n / 2f, y - n * 0.56f).Length() / (n * 0.4f), 0, 1);
+                    img.SetPixel(x, y, top.Lerp(bottom, y / (n - 1f)).Lerp(glow, g * g * 0.4f));
+                }
+                return img;
+            }
+            Image Front(int n, float fill)
+            {
+                var img = Image.CreateEmpty(n, n, false, Image.Format.Rgba8);
+                int k = Math.Max(1, (int)(n * fill / Math.Max(sprite.GetWidth(), sprite.GetHeight())));
+                var big = (Image)sprite.Duplicate();
+                big.Resize(sprite.GetWidth() * k, sprite.GetHeight() * k, Image.Interpolation.Nearest);
+                img.BlendRect(big, new Rect2I(Vector2I.Zero, big.GetSize()), new Vector2I((n - big.GetWidth()) / 2, (n - big.GetHeight()) / 2));
+                return img;
+            }
+            Image Whole(int n)
+            {
+                var img = Back(n);
+                var front = Front(n, 0.8f);
+                img.BlendRect(front, new Rect2I(Vector2I.Zero, front.GetSize()), Vector2I.Zero);
+                return img;
+            }
+            string iconDir = ProjectSettings.GlobalizePath("res://icon");
+            DirAccess.MakeDirRecursiveAbsolute(iconDir);
+            Back(432).SavePng(iconDir + "/android-background.png");
+            Front(432, 0.56f).SavePng(iconDir + "/android-foreground.png");
+            Whole(192).SavePng(iconDir + "/android-main.png");
+            Whole(256).SavePng(iconDir + "/icon.png");
+            GD.Print($"icons written to {iconDir}");
             GetTree().Quit();
             return;
         }
@@ -1497,6 +1565,26 @@ public partial class GameRoot : Node
         return home;
     }
 
+    async void PressPad(string[] presses, float after)
+    {
+        await ToSignal(GetTree().CreateTimer(after), SceneTreeTimer.SignalName.Timeout);
+        foreach (var p in presses)
+        {
+            Key? key = p.Trim().ToLowerInvariant() switch
+            {
+                "up" => Key.Up, "down" => Key.Down, "left" => Key.Left, "right" => Key.Right,
+                "a" => Key.Enter, "b" => Key.Escape, "start" => UI.Phone.Start, _ => null,
+            };
+            if (key is { } k)
+            {
+                UI.Phone.Frame.View.Key(k, true, false);
+                UI.Phone.Frame.View.Key(k, false, false);
+                GD.Print($"pad: {p.Trim()}, focus on {GetViewport().GuiGetFocusOwner()?.GetType().Name ?? "nothing"} {(GetViewport().GuiGetFocusOwner() as Button)?.Text}");
+            }
+            await ToSignal(GetTree().CreateTimer(p.Trim() == "wait" ? 1.0 : 0.4), SceneTreeTimer.SignalName.Timeout);
+        }
+    }
+
     void ShowTitle()
     {
         Show(new UI.TitleScreen { Start = StartSlot, Open = _titlePanel });
@@ -1523,9 +1611,9 @@ public partial class GameRoot : Node
     }
 
     Ranching.RanchScreen Station(string id, bool vatDemo = false, string select = null) =>
-        new() { Ranch = _ranch, Station = id, Back = () => Show(_home()), Fight = StartRanchBattle, OpenMap = ShowMap, VatDemo = vatDemo, StartOn = select };
+        new() { Ranch = _ranch, Station = id, Back = () => Show(_home()), Fight = StartRanchBattle, OpenMap = ShowMap, VatDemo = vatDemo, StartOn = select, ToTitle = ShowTitle };
 
-    void ShowMap() => Show(new World.CountryScreen { Ranch = _ranch, Fight = StartRanchBattle, Back = () => Show(_home()), DemoDispatch = _demoDispatch, DemoShop = _demoShop });
+    void ShowMap() => Show(new World.CountryScreen { Ranch = _ranch, Fight = StartRanchBattle, Back = () => Show(_home()), DemoDispatch = _demoDispatch, DemoShop = _demoShop, ToTitle = ShowTitle });
     bool _demoDispatch, _demoShop;
 
     System.Func<Node> _lab, _home;
@@ -1601,7 +1689,7 @@ public partial class GameRoot : Node
         if (_shotFrames < 0 || --_shotFrames > 0) return;
         string dir = ProjectSettings.GlobalizePath("res://.shots");
         DirAccess.MakeDirRecursiveAbsolute(dir);
-        var frame = GetViewport().GetTexture().GetImage();
+        var frame = GetTree().Root.GetTexture().GetImage(); // the whole window: on a phone, the pad too
         if (_recorded < _recordFrames)
         {
             DirAccess.MakeDirRecursiveAbsolute($"{dir}/rec");

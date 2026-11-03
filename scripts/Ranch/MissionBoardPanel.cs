@@ -30,7 +30,7 @@ public partial class MissionBoardPanel : Control
     {
         Missions = Source?.Invoke() ?? Mission.Board(Ranch.Encounter, Ranch.Codex, rivalWins: Ranch.Rivals);
         Selected = Math.Clamp(Selected, 0, Math.Max(0, Missions.Count - 1));
-        foreach (var child in GetChildren()) child.QueueFree();
+        foreach (var child in GetChildren()) { RemoveChild(child); child.QueueFree(); }
         if (Missions.Count == 0) return;
         // More cards than fit scroll.
         var scroll = new ScrollContainer { Position = new Vector2(0, 30), Size = new Vector2(Size.X, Size.Y - 100), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
@@ -49,6 +49,8 @@ public partial class MissionBoardPanel : Control
                 _depart.Text = LabelFor(Missions[Selected]);
                 foreach (var c in list.GetChildren().OfType<MissionCard>()) c.QueueRedraw();
             };
+            // The pad: A on a card picks it and moves on to Depart.
+            card.Accepted += () => _depart.GrabFocus();
             list.AddChild(card);
         }
         _depart = new Button { Text = LabelFor(Missions[Selected]), FocusMode = FocusModeEnum.None, Position = new Vector2(Size.X - 240, Size.Y - 56), CustomMinimumSize = new Vector2(240, 48) };
@@ -58,6 +60,13 @@ public partial class MissionBoardPanel : Control
     }
 
     string LabelFor(Mission m) => DepartLabelFor?.Invoke(m) ?? DepartLabel;
+
+    /// <summary>Puts the pad on the picked mission's card.</summary>
+    public void FocusSelected()
+    {
+        var cards = GetChildren().OfType<ScrollContainer>().SelectMany(s => s.GetChild(0).GetChildren().OfType<MissionCard>()).ToList();
+        if (cards.Count > 0) cards[Math.Clamp(Selected, 0, cards.Count - 1)].GrabFocus();
+    }
 
     public override void _Draw()
     {
@@ -79,7 +88,7 @@ public partial class MissionCard : Control
 {
     public MissionBoardPanel Board;
     public int Index;
-    public event Action Clicked;
+    public event Action Clicked, Accepted;
     bool _hover;
 
     public override void _Ready()
@@ -88,11 +97,19 @@ public partial class MissionCard : Control
         TextureFilter = TextureFilterEnum.Nearest;
         MouseEntered += () => { _hover = true; QueueRedraw(); };
         MouseExited += () => { _hover = false; QueueRedraw(); };
+        // The pad: the cards take the focus, and the focused one is the one picked.
+        if (UI.Phone.On)
+        {
+            FocusMode = FocusModeEnum.All;
+            FocusEntered += () => { if (Board.Selected != Index) Clicked?.Invoke(); QueueRedraw(); };
+            FocusExited += QueueRedraw;
+        }
     }
 
     public override void _GuiInput(InputEvent e)
     {
         if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }) Clicked?.Invoke();
+        else if (e.IsActionPressed("ui_accept")) { Clicked?.Invoke(); Accepted?.Invoke(); AcceptEvent(); }
     }
 
     static string Goal(Mission m) => m.Dispatch != null ? "hand" : m.Cup != null ? "crown" : m.Goal switch
@@ -112,10 +129,18 @@ public partial class MissionCard : Control
         box.SetBorderWidthAll(selected ? 3 : 1);
         box.SetCornerRadiusAll(8);
         DrawStyleBox(box, new Rect2(Vector2.Zero, Size));
+        if (HasFocus())
+        {
+            var ring = new StyleBoxFlat { DrawCenter = false, BorderColor = Colors.White };
+            ring.SetBorderWidthAll(2);
+            ring.SetCornerRadiusAll(10);
+            DrawStyleBox(ring, new Rect2(new Vector2(-3, -3), Size + new Vector2(6, 6)));
+        }
 
-        // The map, shrunk to fit on the left.
+        // The map, shrunk to fit on the left (smaller on a narrow panel, to leave the words room).
         var thumb = MissionBoardPanel.Thumb(m.MapName);
-        float scale = Mathf.Min(260f / thumb.GetWidth(), (Size.Y - 20) / thumb.GetHeight());
+        float thumbW = Size.X < 650 ? 140 : 260;
+        float scale = Mathf.Min(thumbW / thumb.GetWidth(), (Size.Y - 20) / thumb.GetHeight());
         var ts = thumb.GetSize() * scale;
         DrawTextureRect(thumb, new Rect2(new Vector2(12, (Size.Y - ts.Y) / 2), ts), false);
 
@@ -123,7 +148,7 @@ public partial class MissionCard : Control
         var ink = Color.FromHtml("#e8e2f4");
         var dim = Color.FromHtml("#9a91b4");
         var gold = Color.FromHtml("#f2c14e");
-        float x = 290, w = Size.X - x - 12;
+        float x = thumbW + 30, w = Size.X - x - 12;
         // Title behind the objective's glyph; then difficulty stars, pack size and reward as glyphs and numbers.
         DrawTexture(Glyphs.Get(Goal(m), 2), new Vector2(x - 4, 8));
         DrawString(font, new Vector2(x + 26, 32), m.Title, HorizontalAlignment.Left, w - 26, 20, ink);

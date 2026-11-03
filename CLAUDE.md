@@ -367,6 +367,36 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   (Lanternkin, Brassbound Tamers, Above and Below), "strays" for uncaught creatures and The Farther
   We Stray as a theme, with the tasks the call left, in `docs/design-notes.md`. Ask before building
   any of it. (The call's creature tiers are built: below.)
+- **The phone build (2026-11-03, the user's ask: Android, held sideways).** `UI/Phone.cs`: on
+  Android, or with `--phone` on a desktop (add `--resolution 2400x1080` for a phone's shape), the
+  game runs in a SubViewport between two fixed pad columns that never cover it and never come or go:
+  a D-pad on the left; A (select), B (cancel) and Start (menu) on the right, Game Boy fashion. The
+  game is laid out 720 tall there (`Phone.GameHeight`; a desktop's is 1080) so text reads on a
+  phone, and about 1000 to 1200 wide: **screens size themselves from `GetViewportRect()`, never
+  1920x1080.** The pad sends keys (the arrows, Enter for A, Escape for B, `Phone.Start` = Key.Menu);
+  Android's back gesture is B. `UI/PadNav.cs`: every button takes the focus, scroll boxes follow
+  it, a gold frame shows it, the first arrow or A lands on the frontmost layer's first control
+  (`PadNav.First` marks one), and the focused or tapped control's tooltip shows beside it (no
+  hover on a phone). Per screen: the base walks on the D-pad and A uses a station; Start opens the
+  pause menu (`UI/PauseMenu.cs`) at the base, at stations and on the map (B closes it). Stations
+  and the map get every action as a button (the vats' Breed, the map's Shop and Depart); the map's
+  D-pad picks a place, A goes into its missions (A on a card moves to Depart), B comes back out.
+  Battles have a cursor: the arrows step it along the board's rows turned a quarter (up is
+  up-right), A acts on it (on your own creature it opens the command bar, as Start does), B
+  cancels or undoes; on a phone a tap moves the cursor, a second tap on it acts, a drag pans.
+  Cutscenes: A or B goes on, Start skips. The desktop is as it was, except that the arrows move
+  the battle cursor now (WASD pans). **New screens and actions:** lay out from the viewport, give
+  every action a button, and look with `--phone`. `--pad=down,down,a,...` presses the pad's
+  buttons after the screen settles (`--padwait=S`), logging where the focus went.
+- **Android export (2026-11-03):** `tools/android-build.sh` writes a release-signed
+  `build/android/TheFartherWeStray.apk` (`--install` puts it on a phone adb sees) from the
+  `Android` preset in `export_presets.cfg` (arm64, no Gradle). **The package id
+  `com.ecec.thefartherwestray` is the app's identity: never change it**, or it's a second app that
+  can't update the first. The version code must climb with every APK (major*10000 + minor*100 +
+  patch, from `config/version`). The key is `%APPDATA%/Godot/keystores/thefartherwestray-release.keystore`
+  with its password beside it (`.secret`), never in the repo; Android only installs an update
+  signed with the same key, so it must be backed up off this machine. `--icon` paints the launcher
+  icons into `icon/` (Blaze on the night colour).
 - Not built yet: the story itself (themes and three endings set by the user, in
   `docs/story-notes.md`; the flags, standing and endings machinery and the cutscene player are
   built) and the network side of PvP. The
@@ -400,6 +430,8 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   for the country map, `--battle=3 --aim --shot=900`
   for the aimed-skill panel, `--lab` for
   the Lab) writes `.shots/shot.png`. It opens a window briefly.
+- **The phone:** add `--phone` and run with `--resolution 2400x1080` to see any screen as a phone
+  shows it, pad and all (the shot is the whole window).
 - `$GODOT_BIN` is in `.claude/settings.json`. If it is unset, say so rather than guessing.
   `.shots/` is ignored by git.
 

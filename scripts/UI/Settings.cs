@@ -59,7 +59,7 @@ public static class Settings
         Audio.Sound.VolumeDb = Effects <= 0.001f ? -80 : -4 + Mathf.LinearToDb(Effects);
         Audio.Music.Db = Music <= 0.001f ? -80 : -10 + Mathf.LinearToDb(Music);
         Audio.Sound.Muted = Muted;
-        if (DisplayServer.GetName() != "headless")
+        if (DisplayServer.GetName() != "headless" && !Phone.On)
             DisplayServer.WindowSetMode(Fullscreen ? DisplayServer.WindowMode.Fullscreen : DisplayServer.WindowMode.Windowed);
     }
 }
@@ -84,11 +84,11 @@ public partial class SettingsPanel : PanelContainer
 
         Slider(col, "sound", "Music", Settings.Music, v => Settings.Music = v);
         Slider(col, "sound", "Effects", Settings.Effects, v => { Settings.Effects = v; Audio.Sound.Play("tick"); });
-        Toggle(col, "x", "Mute everything (N)", Settings.Muted, v => Settings.Muted = v);
+        Toggle(col, "x", Phone.On ? "Mute everything" : "Mute everything (N)", Settings.Muted, v => Settings.Muted = v);
         Cycle(col, "clock", "Cutscene text", () => Settings.Speeds[Settings.TextSpeed], () => Settings.TextSpeed = (Settings.TextSpeed + 1) % Settings.Speeds.Length);
         Cycle(col, "cooldown", "Battle turn timer", () => Settings.TurnTimer == 0 ? "Off" : $"{Settings.TurnTimer} s",
             () => Settings.TurnTimer = Settings.Timers[(Array.IndexOf(Settings.Timers, Settings.TurnTimer) + 1) % Settings.Timers.Length]);
-        Toggle(col, "area", "Fullscreen", Settings.Fullscreen, v => Settings.Fullscreen = v);
+        if (!Phone.On) Toggle(col, "area", "Fullscreen", Settings.Fullscreen, v => Settings.Fullscreen = v);
 
         var done = new Button { Text = "Done", CustomMinimumSize = new Vector2(200, 46) };
         done.AddThemeFontSizeOverride("font_size", 18);

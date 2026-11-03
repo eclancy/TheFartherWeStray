@@ -29,11 +29,14 @@ public partial class RanchScreen : Control
     public string StartOn;                // --select=NAME: open with that creature selected (screenshots)
     public string Station;                // one station of the home base: only its part shows (pens, vats, lab, yard, armory, war)
     public Action Back;                   // back out to the base
+    public Action ToTitle;                // the pause menu's way back to the title
 
     static readonly Color Cyan = Color.FromHtml("#4fe3ff"), Magenta = Color.FromHtml("#ff4f9a"), Gold = Color.FromHtml("#f2c14e");
     static readonly Color Ink = Color.FromHtml("#e8e2f4"), Dim = Color.FromHtml("#9a91b4");
 
     GridContainer _grid;
+    float _right, _top;   // where the right-hand panel starts, and where the screen's body begins
+    Button _breedButton;
     Label _header, _status, _notes;
     VBoxContainer _detail, _training;
     Control _headerChips;
@@ -71,25 +74,32 @@ public partial class RanchScreen : Control
         shade.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         AddChild(shade);
 
-        _header = Text(26, Ink, new Vector2(32, 20), new Vector2(1860, 40));
-        _status = Text(17, Gold, new Vector2(32, 62), new Vector2(1100, 30));
+        // Laid out from the screen's size: the roster on the left, the panel (720 wide) on the right.
+        // A desktop's 1920x1080 gives six columns of creatures; a phone's narrower screen two.
+        var vp = GetViewportRect().Size;
+        _right = vp.X - 720 - (Phone.On ? 16 : 30);
+        _top = Phone.On ? 112 : 96;
+        _header = Text(26, Ink, new Vector2(32, 20), new Vector2(vp.X - 60, 40));
+        _status = Text(17, Gold, new Vector2(32, 62), new Vector2(Phone.On ? vp.X - 64 : 1100, 30));
+        _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 
-        var scroll = new ScrollContainer { Position = new Vector2(24, 100), Size = new Vector2(1120, 920), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        var scroll = new ScrollContainer { Position = new Vector2(24, _top + 4), Size = new Vector2(_right - 50, vp.Y - _top - 64), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         AddChild(scroll);
-        _grid = new GridContainer { Columns = 6 };
+        _grid = new GridContainer { Columns = Math.Max(1, (int)((_right - 48) / 184)) };
         _grid.AddThemeConstantOverride("h_separation", 8);
         _grid.AddThemeConstantOverride("v_separation", 8);
         scroll.AddChild(_grid);
-        _help = Text(16, Dim, new Vector2(32, 1036), new Vector2(1120, 30));
+        _help = Text(16, Dim, new Vector2(32, vp.Y - 44), new Vector2(_right - 50, 30));
         _help.Text =
             "Click: select    Right-click: vat    Enter: breed    J: jobs    L: lab    M: map    S: squad    Delete twice: release    N: sound    Tab: Sprite Lab";
 
-        _vats = new VatPanel { Position = new Vector2(1170, 96), Size = new Vector2(720, 320), Screen = this, MouseFilter = MouseFilterEnum.Ignore };
+        float vatsH = Phone.On ? 190 : 320, notesH = Phone.On ? 44 : 96;
+        _vats = new VatPanel { Position = new Vector2(_right, _top), Size = new Vector2(720, vatsH), Screen = this, MouseFilter = MouseFilterEnum.Ignore };
         AddChild(_vats);
-        _notes = Text(15, Ink, new Vector2(1170, 432), new Vector2(720, 96));
+        _notes = Text(15, Ink, new Vector2(_right, _top + vatsH + 16), new Vector2(720, notesH));
         _notes.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         // Hover detail and the selected creature's training, stacked in one column.
-        var column = _column = new VBoxContainer { Position = new Vector2(1170, 532), Size = new Vector2(720, 430) };
+        var column = _column = new VBoxContainer { Position = new Vector2(_right, _top + vatsH + notesH + 20), Size = new Vector2(720, 430) };
         column.AddThemeConstantOverride("separation", 14);
         AddChild(column);
         _detail = new VBoxContainer();
@@ -99,7 +109,7 @@ public partial class RanchScreen : Control
         _training.AddThemeConstantOverride("separation", 6);
         column.AddChild(_training);
 
-        var buttons = _buttonsRow = new HBoxContainer { Position = new Vector2(1170, 970) };
+        var buttons = _buttonsRow = new HBoxContainer { Position = new Vector2(_right, vp.Y - 110) };
         buttons.AddThemeConstantOverride("separation", 8);
         AddChild(buttons);
         Button Make(string text, Action onPress)
@@ -117,19 +127,23 @@ public partial class RanchScreen : Control
         _releaseButton = Make("Release", () => { if (_selected is { } id) Release(id); });
         _nameButton = Make("Name", () => { if (_selected is { } id) StartNaming(id); });
         _gearButton = Make("Gear", () => { if (_selected is { } id) CycleGear(id); });
-        _nameBox = new LineEdit { PlaceholderText = "A name (Enter keeps, Esc cancels)", MaxLength = 14, Visible = false, Position = new Vector2(1170, 916), CustomMinimumSize = new Vector2(420, 44) };
+        // Enter breeds on a desktop; a phone's pad needs a button for it.
+        _breedButton = Make("Breed", Breed);
+        _breedButton.Visible = false;
+        _nameBox = new LineEdit { PlaceholderText = Phone.Keys("A name (Enter keeps, Esc cancels)", "A name (Done keeps it)"), MaxLength = 14, Visible = false, Position = new Vector2(_right, vp.Y - 164), CustomMinimumSize = new Vector2(420, 44) };
         _nameBox.AddThemeFontSizeOverride("font_size", 18);
         _nameBox.TextSubmitted += text => FinishNaming(text);
         _nameBox.GuiInput += e => { if (e is InputEventKey { Pressed: true, Keycode: Key.Escape }) { _nameBox.Visible = false; _nameBox.AcceptEvent(); } };
         AddChild(_nameBox);
 
-        _lab = new LabPanel { Ranch = Ranch, Position = new Vector2(1170, 96), Size = new Vector2(720, 930), Visible = false };
+        float panelH = vp.Y - _top - 54;
+        _lab = new LabPanel { Ranch = Ranch, Position = new Vector2(_right, _top), Size = new Vector2(720, panelH), Visible = false };
         _lab.Done = msg => { Flash(msg); Rebuild(); if (_selected is { } sid) ShowDetail(sid); };
         AddChild(_lab);
-        _jobs = new JobsPanel { Ranch = Ranch, Position = new Vector2(1170, 96), Size = new Vector2(730, 930), Visible = false };
+        _jobs = new JobsPanel { Ranch = Ranch, Position = new Vector2(_right, _top), Size = new Vector2(Phone.On ? 720 : 730, panelH), Visible = false };
         _jobs.Changed = msg => { Flash(msg); Rebuild(); if (_selected is { } sid) ShowDetail(sid); };
         AddChild(_jobs);
-        _party = new PartyPanel { Ranch = Ranch, Selected = () => _selected, Position = new Vector2(1170, 96), Size = new Vector2(730, 930), Visible = false };
+        _party = new PartyPanel { Ranch = Ranch, Selected = () => _selected, Position = new Vector2(_right, _top), Size = new Vector2(Phone.On ? 720 : 730, panelH), Visible = false };
         _party.Changed = msg => { Flash(msg); Rebuild(); };
         AddChild(_party);
         Button Header(string text, float x, Action onPress)
@@ -140,10 +154,10 @@ public partial class RanchScreen : Control
             AddChild(b);
             return b;
         }
-        _partyButton = Header("Party  (P)", 1260, () => SetPanel(_panel == Panel.Party ? Panel.Vats : Panel.Party));
-        _jobsButton = Header("Jobs  (J)", 1420, () => SetPanel(_panel == Panel.Jobs ? Panel.Vats : Panel.Jobs));
-        _labButton = Header("Lab  (L)", 1580, () => SetPanel(_panel == Panel.Lab ? Panel.Vats : Panel.Lab));
-        _boardButton = Header("Map  (M)", 1740, () => GoToMap());
+        _partyButton = Header("Party  (P)", _right + 90, () => SetPanel(_panel == Panel.Party ? Panel.Vats : Panel.Party));
+        _jobsButton = Header("Jobs  (J)", _right + 250, () => SetPanel(_panel == Panel.Jobs ? Panel.Vats : Panel.Jobs));
+        _labButton = Header("Lab  (L)", _right + 410, () => SetPanel(_panel == Panel.Lab ? Panel.Vats : Panel.Lab));
+        _boardButton = Header("Map  (M)", _right + 570, () => GoToMap());
 
         if (VatDemo)
         {
@@ -185,7 +199,7 @@ public partial class RanchScreen : Control
     void ApplyStation()
     {
         foreach (var b in new[] { _partyButton, _jobsButton, _labButton, _boardButton }) b.Visible = false;
-        var back = new Button { Text = "Back to the base  (Esc)", FocusMode = FocusModeEnum.None, Position = new Vector2(1640, 22), CustomMinimumSize = new Vector2(250, 40) };
+        var back = new Button { Text = Phone.Keys("Back to the base  (Esc)", "Back to the base  (B)"), FocusMode = FocusModeEnum.None, Position = new Vector2(GetViewportRect().Size.X - 280, 22), CustomMinimumSize = new Vector2(250, 40) };
         back.AddThemeFontSizeOverride("font_size", 16);
         back.Pressed += () => Back?.Invoke();
         AddChild(back);
@@ -193,19 +207,26 @@ public partial class RanchScreen : Control
         var keep = Station switch
         {
             "pens" => new[] { _squadButton, _nameButton, _releaseButton },
-            "vats" => new[] { _vatButton },
+            "vats" => Phone.On ? new[] { _vatButton, _breedButton } : new[] { _vatButton },
             "armory" => new[] { _gearButton },
             _ => Array.Empty<Button>(),
         };
-        foreach (var b in new[] { _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _nameButton, _gearButton }) b.Visible = keep.Contains(b);
+        foreach (var b in new[] { _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _nameButton, _gearButton, _breedButton }) b.Visible = keep.Contains(b);
         if (Station != "vats")
         {
             // No vats here: the creature's detail moves up into their space, and the base keeps the news.
             _vats.Visible = false;
             _notes.Visible = false;
-            _column.Position = new Vector2(1170, 110);
+            _column.Position = new Vector2(_right, _top + 14);
         }
-        _help.Text = Station switch
+        // A phone's vats leave no room under them for the training too: the creature's detail is enough there.
+        else if (Phone.On) _training.Visible = false;
+        _help.Text = Phone.On ? Station switch
+        {
+            "pens" => "A or tap: select    the buttons: squad, name, release    B: back to the base    Start: menu",
+            "vats" => "A or tap: select    Into vat, twice, then Breed    B: back to the base    Start: menu",
+            _ => "A or tap: select    B: back to the base    Start: menu",
+        } : Station switch
         {
             "pens" => "Click: select    S: squad    Delete twice: release    Esc: back to the base    N: sound",
             "vats" => "Click: select    Right-click: into a vat    Enter: breed    Esc: back to the base    N: sound",
@@ -215,7 +236,7 @@ public partial class RanchScreen : Control
         Flash(Station switch
         {
             "pens" => "The pens: pick the squad (S), name your beasts, or let one go.",
-            "vats" => "The vats: right-click two beasts into the vats, then Enter to breed.",
+            "vats" => Phone.On ? "The vats: put two beasts into the vats (Into vat), then Breed." : "The vats: right-click two beasts into the vats, then Enter to breed.",
             "armory" => "The armory: fit gear from the bag (Gear cycles through it).",
             "yard" => "The training yard: every class this beast could train, and what each still needs.",
             "war" => "The war table: your tamers lead from off the field, up to two, three beasts each.",
@@ -248,7 +269,8 @@ public partial class RanchScreen : Control
         var layer = new CanvasLayer { Layer = 5 };
         host.AddChild(layer);
         layer.AddChild(shade);
-        var panel = new PanelContainer { Position = new Vector2(560, 320), CustomMinimumSize = new Vector2(800, 0) };
+        var vp = host.GetViewportRect().Size;
+        var panel = new PanelContainer { Position = new Vector2((vp.X - 800) / 2, vp.Y * 0.3f), CustomMinimumSize = new Vector2(800, 0) };
         var box = new StyleBoxFlat { BgColor = new Color(0.08f, 0.06f, 0.13f), BorderColor = Gold };
         box.SetBorderWidthAll(2);
         box.SetCornerRadiusAll(8);
@@ -307,6 +329,7 @@ public partial class RanchScreen : Control
             card.Clicked += right => { if (right && Station is null or "vats") TogglePen(id); else Select(id); };
             card.Hovered += () => ShowDetail(id);
             _grid.AddChild(card);
+            if (Phone.On && id == _selected) PadNav.First(card);
         }
         _header.Text = Station != null ? HomeBase.Get(Station)?.Name.ToUpperInvariant() ?? "THE RANCH" : "THE RANCH";
         _headerChips?.QueueFree();
@@ -322,8 +345,8 @@ public partial class RanchScreen : Control
         // Titles won from rival tamers.
         if (Ranch.Titles.Count > 0) chips.Add(new Chip("sparkle", Ranch.Titles.Count.ToString(), Gold, "titles: " + string.Join(", ", Ranch.Titles)));
         _headerChips = Ui.Chips(chips, 22, 2, 22);
-        _headerChips.Position = new Vector2(230, 20);
-        _headerChips.Size = new Vector2(1100, 40);
+        _headerChips.Position = new Vector2(270, 20);
+        _headerChips.Size = new Vector2(Math.Min(1100, GetViewportRect().Size.X - 580), 40);
         AddChild(_headerChips);
         _vats.QueueRedraw();
         RefreshSelected();
@@ -352,6 +375,7 @@ public partial class RanchScreen : Control
     {
         bool any = _selected != null && Ranch.Creatures.Any(r => r.Id == _selected);
         foreach (var b in new[] { _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _nameButton, _gearButton }) b.Disabled = !any;
+        _breedButton.Disabled = _pen.Count < 2;
         Clear(_training);
         if (!any) return;
         int id = _selected.Value;
@@ -425,6 +449,7 @@ public partial class RanchScreen : Control
     {
         _panel = p;
         foreach (var c in new Control[] { _vats, _notes, _training, _buttonsRow, _detail }) c.Visible = p == Panel.Vats;
+        if (Phone.On && Station == "vats") _training.Visible = false;
         _lab.Visible = p == Panel.Lab;
         _jobs.Visible = p == Panel.Jobs;
         _party.Visible = p == Panel.Party;
@@ -642,7 +667,9 @@ public partial class RanchScreen : Control
         if (Station != null)
         {
             // At a station only its own keys work; the rest of the ranch is walked to.
-            if (k.Keycode == Key.Escape) Back?.Invoke();
+            if (k.Keycode == Key.Escape && _nameBox.Visible) { _nameBox.Visible = false; }
+            else if (k.Keycode == Key.Escape) Back?.Invoke();
+            else if (k.Keycode == Phone.Start) AddChild(new PauseMenu { Save = Ranch.Save, ToTitle = ToTitle });
             else if (k.Keycode is Key.Enter or Key.KpEnter && Station == "vats") Breed();
             else if (k.Keycode == Key.S && Station == "pens" && _selected is { } ps) ToggleSquad(ps);
             else if (k.Keycode == Key.Delete && Station == "pens" && _selected is { } pd) Release(pd);
@@ -701,12 +728,20 @@ public partial class RanchCard : Control
         _tex = ImageTexture.CreateFromImage(CreaturePainter.Paint(Screen.Ranch.Get(Id), false));
         MouseEntered += () => { _hover = true; QueueRedraw(); Hovered?.Invoke(); };
         MouseExited += () => { _hover = false; QueueRedraw(); };
+        // The pad: a card takes the focus (A selects it), and shows its detail as hovering does.
+        if (Phone.On)
+        {
+            FocusMode = FocusModeEnum.All;
+            FocusEntered += () => { QueueRedraw(); Hovered?.Invoke(); };
+            FocusExited += QueueRedraw;
+        }
     }
 
     public override void _GuiInput(InputEvent e)
     {
         if (e is InputEventMouseButton { Pressed: true } mb && mb.ButtonIndex is MouseButton.Left or MouseButton.Right)
             Clicked?.Invoke(mb.ButtonIndex == MouseButton.Right);
+        else if (e.IsActionPressed("ui_accept")) { Clicked?.Invoke(false); AcceptEvent(); }
     }
 
     public override void _Draw()
@@ -723,6 +758,14 @@ public partial class RanchCard : Control
         box.SetBorderWidthAll(Screen.IsSelected(Id) || squad || pen >= 0 ? 3 : _hover ? 2 : 1);
         box.SetCornerRadiusAll(8);
         DrawStyleBox(box, new Rect2(Vector2.Zero, Size));
+        if (HasFocus())
+        {
+            // Where the pad is: a white frame outside the card's own.
+            var ring = new StyleBoxFlat { DrawCenter = false, BorderColor = Colors.White };
+            ring.SetBorderWidthAll(2);
+            ring.SetCornerRadiusAll(10);
+            DrawStyleBox(ring, new Rect2(new Vector2(-4, -4), Size + new Vector2(8, 8)));
+        }
 
         int z = _tex.GetWidth() * 2 <= Size.X - 8 && _tex.GetHeight() * 2 <= 128 ? 2 : 1;
         var ts = _tex.GetSize() * z;

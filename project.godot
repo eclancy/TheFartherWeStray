@@ -14,6 +14,8 @@ config/name="The Farther We Stray"
 config/version="0.1.0"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.5", "C#", "GL Compatibility")
+config/quit_on_go_back=false
+config/icon="res://icon/icon.png"
 
 [display]
 
@@ -23,6 +25,7 @@ window/size/window_width_override=1600
 window/size/window_height_override=900
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/handheld/orientation=4
 
 [dotnet]
 
@@ -31,6 +34,7 @@ project/assembly_name="TheFartherWeStray"
 [rendering]
 
 textures/canvas_textures/default_texture_filter=0
+textures/vram_compression/import_etc2_astc=true
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 environment/defaults/default_clear_color=Color(0.075, 0.06, 0.13, 1)

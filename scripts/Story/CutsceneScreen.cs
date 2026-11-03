@@ -25,7 +25,7 @@ public partial class CutsceneScreen : Control
 
     const int Scale = 3;  // closer in than a battle's 2x: scenes are about who's in them
     static readonly Color Gold = Ui.Gold, Ink = Ui.Ink, Dim = Ui.Dim;
-    static readonly Vector2 Focus = new(960, 400); // where the camera puts what it looks at
+    Vector2 Focus => GetViewportRect().Size * new Vector2(0.5f, 0.37f); // where the camera puts what it looks at
 
     BattleMap _map;
     IsoArt _art;
@@ -173,12 +173,15 @@ public partial class CutsceneScreen : Control
         AddChild(ui);
         _caption = Ui.Text("", 44, Gold, 8);
         _caption.HorizontalAlignment = HorizontalAlignment.Center;
-        _caption.Position = new Vector2(0, 120);
-        _caption.Size = new Vector2(1920, 80);
+        var vp = GetViewportRect().Size;
+        _caption.Position = new Vector2(0, vp.Y * 0.11f);
+        _caption.Size = new Vector2(vp.X, 80);
         _caption.Modulate = new Color(1, 1, 1, 0);
         ui.AddChild(_caption);
 
-        _box = new PanelContainer { Position = new Vector2(260, 806), CustomMinimumSize = new Vector2(1400, 230), Visible = false, MouseFilter = MouseFilterEnum.Ignore };
+        // The dialogue box across the foot of the screen (1400 wide on a desktop, the whole width on a phone).
+        float boxW = Mathf.Min(1400, vp.X - 32);
+        _box = new PanelContainer { Position = new Vector2((vp.X - boxW) / 2, vp.Y - 274), CustomMinimumSize = new Vector2(boxW, 230), Visible = false, MouseFilter = MouseFilterEnum.Ignore };
         var style = new StyleBoxFlat { BgColor = new Color(0.05f, 0.04f, 0.09f, 0.92f), BorderColor = new Color(0.55f, 0.47f, 0.25f) };
         style.SetBorderWidthAll(2);
         style.SetCornerRadiusAll(8);
@@ -201,15 +204,16 @@ public partial class CutsceneScreen : Control
         col.AddChild(_name);
         _text = Ui.Text("", 26, Ink, 4);
         _text.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _text.CustomMinimumSize = new Vector2(1100, 0);
+        _text.CustomMinimumSize = new Vector2(boxW - 300, 0);
         col.AddChild(_text);
         _more = Ui.Text("▼", 22, Gold, 4);
-        _more.Position = new Vector2(1620, 1000);
+        _moreAt = new Vector2(_box.Position.X + boxW - 40, _box.Position.Y + 194);
+        _more.Position = _moreAt;
         _more.Visible = false;
         ui.AddChild(_more);
 
-        var hint = Ui.Text("Enter: next   Esc: skip", 16, Dim, 4);
-        hint.Position = new Vector2(1660, 20);
+        var hint = Ui.Text(Phone.Keys("Enter: next   Esc: skip", "A: next   Start: skip"), 16, Dim, 4);
+        hint.Position = new Vector2(vp.X - 260, 20);
         ui.AddChild(hint);
         _fade = new ColorRect { Color = Colors.Black, MouseFilter = MouseFilterEnum.Ignore };
         _fade.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
@@ -220,8 +224,9 @@ public partial class CutsceneScreen : Control
     {
         if (e is InputEventKey { Pressed: true, Echo: false } k)
         {
-            if (k.Keycode == Key.Escape) { _skipped = true; Finish(); }
-            else if (k.Keycode is Key.Enter or Key.KpEnter or Key.Space or Key.Z) _advance = true;
+            // On a phone Start skips and B goes on like A (B is cancel, and a whole scene is a lot to lose to a slip).
+            if (k.Keycode == Phone.Start || k.Keycode == Key.Escape && !Phone.On) { _skipped = true; Finish(); }
+            else if (k.Keycode is Key.Enter or Key.KpEnter or Key.Space or Key.Z or Key.Escape) _advance = true;
             else return;
             GetViewport().SetInputAsHandled();
         }
@@ -234,8 +239,10 @@ public partial class CutsceneScreen : Control
 
     public override void _Process(double delta)
     {
-        if (_more.Visible) _more.Position = new Vector2(1620, 996 + Mathf.Sin(Time.GetTicksMsec() / 180f) * 3);
+        if (_more.Visible) _more.Position = _moreAt + new Vector2(0, -4 + Mathf.Sin(Time.GetTicksMsec() / 180f) * 3);
     }
+
+    Vector2 _moreAt;
 
     // ------------------------------------------------------------------ running the script
 

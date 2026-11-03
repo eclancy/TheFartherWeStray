@@ -68,7 +68,8 @@ public partial class TitleScreen : Control
             _herd.Add(a);
             _next[a] = _rng.Range(0.5f, 2.5f);
         }
-        _home = new Vector2(1380, 540) - _art.TileCenter(new Vector2(8, 8), 0) * Scale;
+        var vp = GetViewportRect().Size;
+        _home = new Vector2(vp.X * 0.72f, vp.Y / 2) - _art.TileCenter(new Vector2(8, 8), 0) * Scale;
         _board.Position = _home;
 
         // A wash over the left, where the name and the menu stand.
@@ -78,21 +79,26 @@ public partial class TitleScreen : Control
 
         _ui = new CanvasLayer { Layer = 2 };
         AddChild(_ui);
+        // Laid out for a desktop's 1080 rows; a phone's 720 pulls everything up.
+        _short = vp.Y < 900;
         var logo = Ui.Text(GameRoot.Title.ToUpperInvariant(), 80, Ui.Gold, 14);
-        logo.Position = new Vector2(110, 150);
+        logo.Position = new Vector2(Left - 10, _short ? 40 : 150);
         _ui.AddChild(logo);
         var tag = Ui.Text("breed  ·  train  ·  lead", 24, Ui.Dim, 6);
-        tag.Position = new Vector2(118, 262);
+        tag.Position = new Vector2(Left - 2, _short ? 146 : 262);
         _ui.AddChild(tag);
-        _menu = new VBoxContainer { Position = new Vector2(120, 380) };
+        _menu = new VBoxContainer { Position = new Vector2(Left, _short ? 230 : 380) };
         _menu.AddThemeConstantOverride("separation", 14);
         _ui.AddChild(_menu);
         _hint = Ui.Text("", 18, Ui.Gold, 5);
-        _hint.Position = new Vector2(120, 1000);
+        _hint.Position = new Vector2(Left, vp.Y - 80);
         _ui.AddChild(_hint);
-        var keys = Ui.Text("Arrows and Enter, or click    N: sound", 16, Ui.Dim, 4);
-        keys.Position = new Vector2(1500, 1040);
-        _ui.AddChild(keys);
+        if (!Phone.On)
+        {
+            var keys = Ui.Text("Arrows and Enter, or click    N: sound", 16, Ui.Dim, 4);
+            keys.Position = new Vector2(vp.X - 420, vp.Y - 40);
+            _ui.AddChild(keys);
+        }
         ShowMenu();
         switch (Open)
         {
@@ -101,6 +107,10 @@ public partial class TitleScreen : Control
             case "settings": ShowSettings(); break;
         }
     }
+
+    bool _short;
+    float Left => _short ? 60 : 120;
+    float PanelTop => _short ? 190 : 330;
 
     Vector2 FeetAt(Vector2I tile, int size) => _art.TileCenter(new Vector2(tile.X, tile.Y), _map.HeightAt(tile));
 
@@ -152,7 +162,7 @@ public partial class TitleScreen : Control
     {
         ClosePanel();
         _menu.Visible = false;
-        var settings = new SettingsPanel { Position = new Vector2(120, 330) };
+        var settings = new SettingsPanel { Position = new Vector2(Left, PanelTop) };
         settings.Closed = ShowMenu;
         _ui.AddChild(settings);
         _panel = settings;
@@ -166,7 +176,7 @@ public partial class TitleScreen : Control
     {
         ClosePanel();
         _menu.Visible = false;
-        var box = new PanelContainer { Position = new Vector2(120, 330) };
+        var box = new PanelContainer { Position = new Vector2(Left, PanelTop) };
         var style = new StyleBoxFlat { BgColor = new Color(0.06f, 0.05f, 0.1f, 0.96f), BorderColor = Ui.Gold };
         style.SetBorderWidthAll(2);
         style.SetCornerRadiusAll(8);
@@ -188,7 +198,8 @@ public partial class TitleScreen : Control
             col.AddChild(row);
             string text = ranch == null ? $"Slot {s}    (empty)"
                 : $"Slot {s}    {ranch.Summary()}\n           saved {Ranch.SlotSaved(s):yyyy-MM-dd HH:mm}";
-            var pick = new Button { Text = text, CustomMinimumSize = new Vector2(940, 84), Alignment = HorizontalAlignment.Left, Disabled = !fresh && ranch == null };
+            float wide = Mathf.Min(940, GetViewportRect().Size.X - Left * 2 - 180);
+            var pick = new Button { Text = text, CustomMinimumSize = new Vector2(wide, 84), Alignment = HorizontalAlignment.Left, Disabled = !fresh && ranch == null };
             pick.AddThemeFontSizeOverride("font_size", 19);
             pick.Pressed += () =>
             {

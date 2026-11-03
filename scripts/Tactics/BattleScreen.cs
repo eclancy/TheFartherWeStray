@@ -36,7 +36,7 @@ public partial class BattleScreen : Control
     // the wheel zooms. The map is painted with surroundings, so there's town or country to see round it.
     public const int Skirt = 8;
     const float MinZoom = 2, MaxZoom = 3.5f;
-    static readonly Vector2 View = new(740, 540); // the middle of the play area, left of the info panel
+    Vector2 View => new((GetViewportRect().Size.X - PanelW - 40) / 2, GetViewportRect().Size.Y / 2); // the middle of the play area, left of the info panel
     float _zoom = 3, _zoomShown = 3;
     Vector2 _look, _lookShown;     // the board point the camera aims at, and where it's got to
     Rect2 _bounds;                 // where the camera may aim: over the battlefield
@@ -56,7 +56,7 @@ public partial class BattleScreen : Control
     PanelContainer _infoPanel;
     VBoxContainer _info;
     HBoxContainer _strip;
-    const float PanelW = 430;
+    static float PanelW => UI.Phone.On ? 360 : 430;
     readonly List<string> _logLines = new();
 
     enum Mode { Busy, Command, Berry, Skill, Over }
@@ -88,12 +88,13 @@ public partial class BattleScreen : Control
         var hud = new CanvasLayer { Layer = 1 };
         AddChild(hud);
 
+        var vp = GetViewportRect().Size;
         _strip = new HBoxContainer { Position = new Vector2(24, 18) };
         _strip.AddThemeConstantOverride("separation", 6);
         hud.AddChild(_strip);
 
         // The info panel: whoever is under the cursor (or whose turn it is), in glyphs and numbers.
-        _infoPanel = new PanelContainer { Position = new Vector2(1470, 100), CustomMinimumSize = new Vector2(PanelW, 0), MouseFilter = MouseFilterEnum.Ignore };
+        _infoPanel = new PanelContainer { Position = new Vector2(vp.X - PanelW - 20, 100), CustomMinimumSize = new Vector2(PanelW, 0), MouseFilter = MouseFilterEnum.Ignore };
         var backing = new StyleBoxFlat { BgColor = new Color(0.04f, 0.03f, 0.08f, 0.93f), BorderColor = new Color(0.3f, 0.26f, 0.42f) };
         backing.SetBorderWidthAll(1);
         backing.SetCornerRadiusAll(6);
@@ -104,38 +105,43 @@ public partial class BattleScreen : Control
         _infoPanel.AddChild(_info);
         hud.AddChild(_infoPanel);
 
-        _timer = new HBoxContainer { Position = new Vector2(150, 1010), Visible = false, MouseFilter = MouseFilterEnum.Ignore };
+        _timer = new HBoxContainer { Position = new Vector2(150, vp.Y - 70), Visible = false, MouseFilter = MouseFilterEnum.Ignore };
         _timer.AddChild(Ui.Picture(Glyphs.Get("clock", 2), "Turn timer: the turn ends when it runs out"));
         _timerText = Ui.Text("", 24, Ink, 6);
         _timer.AddChild(_timerText);
         hud.AddChild(_timer);
 
-        _skillBar = new HBoxContainer { Position = new Vector2(260, 994) };
+        // On a phone the bar starts at the left (the timer sits above it), as wide as the screen allows.
+        _skillBar = new HBoxContainer { Position = UI.Phone.On ? new Vector2(16, vp.Y - 86) : new Vector2(260, vp.Y - 86) };
         _skillBar.AddThemeConstantOverride("separation", 6);
         hud.AddChild(_skillBar);
 
         // Dark backings under the objective line and the log, so they read over a busy town.
-        foreach (var (pos, size) in new[] { (new Vector2(0, 88), new Vector2(1460, 40)), (new Vector2(1460, 868), new Vector2(460, 212)) })
+        // A phone has no room for the log: the numbers over the creatures tell it.
+        foreach (var (pos, size) in new[] { (new Vector2(0, 88), new Vector2(vp.X - PanelW - 30, 40)), (new Vector2(vp.X - 460, vp.Y - 212), new Vector2(460, 212)) })
         {
             var under = new ColorRect { Position = pos, Size = size, Color = new Color(0.03f, 0.02f, 0.06f, 0.72f), MouseFilter = MouseFilterEnum.Ignore };
+            if (UI.Phone.On && pos.Y > 100) continue;
             hud.AddChild(under);
         }
         _log = MakeLabel(15, Dim);
-        _log.Position = new Vector2(1474, 880);
+        _log.Position = new Vector2(vp.X - 446, vp.Y - 200);
         _log.Size = new Vector2(PanelW - 8, 190);
+        _log.Visible = !UI.Phone.On;
         _log.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _log.VerticalAlignment = VerticalAlignment.Bottom;
         hud.AddChild(_log);
 
         _objective = MakeLabel(19, Gold);
         _objective.Position = new Vector2(24, 100);
-        _objective.Size = new Vector2(1400, 30);
+        _objective.Size = new Vector2(vp.X - PanelW - 60, 30);
+        _objective.ClipText = true;
         hud.AddChild(_objective);
 
         _banner = MakeLabel(54, Gold);
         _banner.HorizontalAlignment = HorizontalAlignment.Center;
-        _banner.Position = new Vector2(0, 430);
-        _banner.Size = new Vector2(1480, 200);
+        _banner.Position = new Vector2(0, vp.Y * 0.4f);
+        _banner.Size = new Vector2(vp.X - PanelW - 40, 200);
         _banner.Visible = false;
         hud.AddChild(_banner);
 
@@ -333,6 +339,7 @@ public partial class BattleScreen : Control
         _mode = Mode.Command;
         _skill = null;
         _reach = _active.Moved ? new() : _battle.Reachable(_active);
+        if (_active.Side == Side.Player) SetCursor(_active.Pos, false);
         RefreshPanel();
         RefreshSkillBar();
         _overlay.QueueRedraw();
@@ -370,7 +377,8 @@ public partial class BattleScreen : Control
         foreach (var child in _skillBar.GetChildren()) child.QueueFree();
         if (_mode is not (Mode.Command or Mode.Skill) || _active == null) return;
 
-        var attack = BarSlot(SkillIcons.Attack(_active.Weapon, 3), "", $"Attack: click a red-marked foe\n{_active.Creature.Loadout().weapon}", !_active.Acted, false, 0, null);
+        string how = UI.Phone.On ? "put the cursor on a red-marked foe and press A (or tap it twice)" : "click a red-marked foe";
+        var attack = BarSlot(SkillIcons.Attack(_active.Weapon, 3), "", $"Attack: {how}\n{_active.Creature.Loadout().weapon}", !_active.Acted, false, 0, null);
         _skillBar.AddChild(attack);
         for (int i = 0; i < _active.Skills.Count; i++)
         {
@@ -403,7 +411,7 @@ public partial class BattleScreen : Control
     Control BarSlot(Texture2D icon, string key, string tip, bool enabled, bool selected, int cooldown, System.Action onPress, string count = null)
     {
         Control slot;
-        var size = new Vector2(72, 72);
+        var size = UI.Phone.On ? new Vector2(64, 64) : new Vector2(72, 72);
         if (onPress == null)
         {
             var panel = new PanelContainer { CustomMinimumSize = size, TooltipText = tip, Modulate = enabled ? Colors.White : new Color(1, 1, 1, 0.4f) };
@@ -421,7 +429,7 @@ public partial class BattleScreen : Control
             b.Pressed += onPress;
             slot = b;
         }
-        if (key != "")
+        if (key != "" && !UI.Phone.On) // a phone has no keys to name
         {
             var k = UI.Ui.Text(key, 14, Ink, 5);
             k.Position = new Vector2(5, 0);
@@ -448,6 +456,8 @@ public partial class BattleScreen : Control
     {
         if (_mode != Mode.Command || _battle.BerrySpots(_active).Count == 0) return;
         _mode = Mode.Berry;
+        var spots = _battle.BerrySpots(_active);
+        SetCursor(spots.OrderBy(t => (t - _active.Pos).LengthSquared()).First());
         _overlay.QueueRedraw();
         RefreshPanel();
         RefreshSkillBar();
@@ -459,6 +469,9 @@ public partial class BattleScreen : Control
         _mode = Mode.Skill;
         _skill = s;
         _skillTiles = _battle.SkillTiles(_active, s);
+        // The cursor goes where the skill would catch the most, nearest first; self-centred skills ignore it.
+        if (SkillAim() == null && _skillTiles.Count > 0)
+            SetCursor(_skillTiles.OrderByDescending(t => _battle.SkillTargets(_active, s, t).Count).ThenBy(t => (t - _active.Pos).LengthSquared()).First());
         RefreshPanel();
         RefreshSkillBar();
         _overlay.QueueRedraw();
@@ -506,8 +519,16 @@ public partial class BattleScreen : Control
             : $"VICTORY\n{(n == 0 ? "no strays recruited" : n == 1 ? "1 stray joins you" : $"{n} strays join you")}";
         _banner.Visible = true;
         AddLog(Finished != null ? "Enter: back to the ranch" : "R: next encounter    Tab: Sprite Lab");
+        if (UI.Phone.On) _banner.Text += "\n" + (Finished != null ? "A: back to the base" : "A: next encounter");
         if (AutoPlay && Finished != null) GetTree().CreateTimer(2.5).Timeout += () => { if (IsInsideTree()) Finished(_battle); };
         RefreshPanel();
+    }
+
+    /// <summary>After the battle: back to the ranch, or (a one-off) the next encounter.</summary>
+    void Continue()
+    {
+        if (Finished != null) Finished(_battle);
+        else { Seed++; StartBattle(); }
     }
 
     // ------------------------------------------------------------------ input
@@ -525,8 +546,8 @@ public partial class BattleScreen : Control
     {
         // Held keys pan (and stop the camera following); a followed creature keeps the camera on it.
         var pan = new Vector2(
-            (Input.IsKeyPressed(Key.D) || Input.IsKeyPressed(Key.Right) ? 1 : 0) - (Input.IsKeyPressed(Key.A) || Input.IsKeyPressed(Key.Left) ? 1 : 0),
-            (Input.IsKeyPressed(Key.S) || Input.IsKeyPressed(Key.Down) ? 1 : 0) - (Input.IsKeyPressed(Key.W) || Input.IsKeyPressed(Key.Up) ? 1 : 0));
+            (Input.IsKeyPressed(Key.D) ? 1 : 0) - (Input.IsKeyPressed(Key.A) ? 1 : 0),
+            (Input.IsKeyPressed(Key.S) ? 1 : 0) - (Input.IsKeyPressed(Key.W) ? 1 : 0));
         if (pan != Vector2.Zero) { _follow = null; _look += pan * (float)delta * 320 / _zoom; }
         if (_follow != null && IsInstanceValid(_follow)) _look = Body(_follow);
         _look = Clamped(_look);
@@ -554,7 +575,7 @@ public partial class BattleScreen : Control
         }
         // The info panel hugs its rows (a lone control doesn't shrink by itself).
         if (_infoPanel != null && _infoPanel.Size.Y != _infoPanel.GetCombinedMinimumSize().Y) _infoPanel.Size = new Vector2(PanelW, 0);
-        var tile = _demoHover ?? _art?.Pick(_board.GetLocalMousePosition());
+        var tile = _demoHover ?? (UI.Phone.On || _keyCursor ? _cursor : _art?.Pick(_board.GetLocalMousePosition()));
         if (tile != _hoverTile)
         {
             _hoverTile = tile;
@@ -565,14 +586,111 @@ public partial class BattleScreen : Control
 
     Unit UnitOn(Vector2I? tile) => tile == null ? null : _battle.Alive.FirstOrDefault(u => u.Tiles.Contains(tile.Value));
 
+    // ------------------------------------------------------------------ the cursor (the arrows, or a phone's pad and taps)
+
+    Vector2I? _cursor;       // the tile the arrows or taps have picked
+    bool _keyCursor;         // on a desktop: the arrows moved the cursor since the mouse last did
+    Vector2? _pressAt;       // a phone: where a finger went down (a drag pans, a tap picks)
+    bool _dragged;
+
+    /// <summary>Puts the cursor on a tile, and the camera after it.</summary>
+    void SetCursor(Vector2I t, bool follow = true)
+    {
+        _cursor = t;
+        if (follow) { _follow = null; _look = Clamped(_art.TileCenter(new Vector2(t.X, t.Y), _battle.Map.HeightAt(t))); }
+        _overlay?.QueueRedraw();
+    }
+
+    /// <summary>
+    /// The arrows step the cursor along the board's rows, turned a quarter to the screen as a tactics
+    /// game's D-pad is: up is up-right, right is down-right, down is down-left, left is up-left.
+    /// </summary>
+    void StepCursor(Key k)
+    {
+        var d = k switch { Key.Up => new Vector2I(0, -1), Key.Right => new Vector2I(1, 0), Key.Down => new Vector2I(0, 1), _ => new Vector2I(-1, 0) };
+        var from = _cursor ?? _active?.Pos ?? Vector2I.Zero;
+        var to = from + d;
+        if (!_battle.Map.InBounds(to)) return;
+        _keyCursor = true;
+        SetCursor(to);
+        Audio.Sound.Play("tick");
+    }
+
+    /// <summary>A on the cursor, or a second tap on the same tile: what a click there would do. On your own creature it opens the command bar.</summary>
+    void ActOn(Vector2I tile)
+    {
+        if (_mode == Mode.Command && _active.Tiles.Contains(tile)) { FocusBar(); return; }
+        Act(tile);
+    }
+
+    bool BarFocused() => GetViewport().GuiGetFocusOwner() is { } f && _skillBar.IsAncestorOf(f);
+
+    /// <summary>The command bar takes the pad: left and right pick, A uses, B or up goes back to the board.</summary>
+    void FocusBar()
+    {
+        var first = _skillBar.GetChildren().OfType<BaseButton>().FirstOrDefault(b => !b.Disabled);
+        if (first == null) return;
+        first.FocusMode = FocusModeEnum.All;
+        first.GrabFocus();
+        Audio.Sound.Play("tick");
+    }
+
+    Vector2I? PickAt(Vector2 screen) => _art?.Pick(_board.GetGlobalTransformWithCanvas().AffineInverse() * screen);
+
     public override void _UnhandledInput(InputEvent e)
     {
+        if (e is InputEventMouseMotion mouse && mouse.Device != InputEvent.DeviceIdEmulation && !UI.Phone.On) _keyCursor = false;
+        bool choosing = _mode is Mode.Command or Mode.Skill or Mode.Berry && _active?.Side == Side.Player && !AutoPlay;
+        if (choosing && e is InputEventKey { Pressed: true } arrow && arrow.Keycode is Key.Up or Key.Down or Key.Left or Key.Right)
+        {
+            // Left and right walk the command bar while it has the pad (Godot's focus does that); up or down leaves it.
+            if (BarFocused()) { if (arrow.Keycode is Key.Up or Key.Down) GetViewport().GuiReleaseFocus(); }
+            else StepCursor(arrow.Keycode);
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+        if (e is InputEventKey { Pressed: true, Echo: false } pad && choosing)
+        {
+            if (pad.Keycode == UI.Phone.Start || pad.Keycode == Key.Escape && BarFocused())
+            {
+                if (BarFocused()) GetViewport().GuiReleaseFocus(); else FocusBar();
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+            if (pad.Keycode is Key.Enter or Key.KpEnter && _mode is Mode.Command or Mode.Berry && _hoverTile is { } at && !BarFocused())
+            {
+                ActOn(at);
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+        }
+        // A phone: a finger dragged across the board pans it; a tap moves the cursor there, and a tap on the cursor acts.
+        if (UI.Phone.On && e is InputEventMouseButton { ButtonIndex: MouseButton.Left } tap)
+        {
+            if (tap.Pressed) { _pressAt = tap.Position; _dragged = false; return; }
+            if (_pressAt == null) return;
+            _pressAt = null;
+            if (_dragged) return;
+            if (_mode == Mode.Over) { Continue(); return; }
+            if (!choosing || PickAt(tap.Position) is not { } t) return;
+            if (t != _cursor) { SetCursor(t, false); Audio.Sound.Play("tick"); }
+            else ActOn(t);
+            return;
+        }
+        if (UI.Phone.On && e is InputEventMouseMotion drag && _pressAt is { } from && (drag.ButtonMask & MouseButtonMask.Left) != 0)
+        {
+            if (!_dragged && drag.Position.DistanceTo(from) < 14) return;
+            _dragged = true;
+            _follow = null;
+            _look = Clamped(_look - drag.Relative / _zoomShown);
+            _lookShown = _look;
+            return;
+        }
         if (e is InputEventKey { Pressed: true, Echo: false } k)
         {
-            if (_mode == Mode.Over && k.Keycode is Key.R or Key.Enter or Key.KpEnter)
+            if (_mode == Mode.Over && k.Keycode is Key.R or Key.Enter or Key.KpEnter || _mode == Mode.Over && k.Keycode == UI.Phone.Start)
             {
-                if (Finished != null) Finished(_battle);
-                else { Seed++; StartBattle(); }
+                Continue();
                 return;
             }
             if (_mode is Mode.Berry or Mode.Skill && k.Keycode == Key.Escape) { EnterCommand(); return; }
@@ -624,8 +742,14 @@ public partial class BattleScreen : Control
             else if (_mode == Mode.Command && _battle.CanUndo(_active)) PlayerAct(() => _battle.Order(CommandKind.Undo, _active));
             return;
         }
-        if (mb.ButtonIndex != MouseButton.Left || _hoverTile == null) return;
-        var tile = _hoverTile.Value;
+        if (mb.ButtonIndex != MouseButton.Left || (PickAt(mb.Position) ?? _hoverTile) is not { } tile) return;
+        _keyCursor = false;
+        Act(tile);
+    }
+
+    /// <summary>What a click on a tile does: fire the aimed skill, set down a berry, attack a foe, or move.</summary>
+    void Act(Vector2I tile)
+    {
         if (_mode == Mode.Skill)
         {
             // Self-centred skills go off on a click anywhere in their area; aimed ones on a valid tile.
@@ -1217,7 +1341,14 @@ public partial class BoardOverlay : Node2D
         if (Screen.HoverTile is { } h)
         {
             var d = Screen.Art.Diamond(h);
-            DrawPolyline(new[] { d[0], d[1], d[2], d[3], d[0] }, new Color(1, 1, 1, 0.85f), 1);
+            if (UI.Phone.On)
+            {
+                // A phone's cursor is the pad's whole aim: gold, and a marker over it to find it by.
+                DrawPolyline(new[] { d[0], d[1], d[2], d[3], d[0] }, Color.FromHtml("#f2c14e"), 1.5f);
+                var top = d.Aggregate((a, b) => a.Y < b.Y ? a : b);
+                DrawColoredPolygon(new[] { top + new Vector2(0, -6), top + new Vector2(-4, -12), top + new Vector2(4, -12) }, Color.FromHtml("#f2c14e"));
+            }
+            else DrawPolyline(new[] { d[0], d[1], d[2], d[3], d[0] }, new Color(1, 1, 1, 0.85f), 1);
         }
     }
 }

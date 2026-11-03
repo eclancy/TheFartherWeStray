@@ -29,7 +29,7 @@ public partial class BaseScreen : Control
     public static Vector2I? Standing;    // where you were, for coming back from a station
 
     const int Scale = 3;
-    static readonly Vector2 Focus = new(960, 500);
+    Vector2 Focus => GetViewportRect().Size * new Vector2(0.5f, 0.463f);
     static readonly Color Gold = Ui.Gold, Ink = Ui.Ink, Dim = Ui.Dim;
 
     BattleMap _map;
@@ -199,21 +199,25 @@ public partial class BaseScreen : Control
         chips.Size = new Vector2(1100, 40);
         ui.AddChild(chips);
         _status = Ui.Text("", 18, Gold, 5);
+        var vp = GetViewportRect().Size;
         _status.Position = new Vector2(32, 64);
-        _status.Size = new Vector2(1200, 30);
+        _status.Size = new Vector2(Mathf.Min(1200, vp.X - 64), 30);
+        _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         ui.AddChild(_status);
-        _notes = Ui.Text(Ranch.Report.Count > 0 ? string.Join("\n", Ranch.Report.TakeLast(6)) : "", 15, Ink, 4);
-        _notes.Position = new Vector2(1400, 70);
-        _notes.Size = new Vector2(490, 300);
+        _notes = Ui.Text(Ranch.Report.Count > 0 ? string.Join("\n", Ranch.Report.TakeLast(Phone.On ? 4 : 6)) : "", 15, Ink, 4);
+        _notes.Position = new Vector2(vp.X - (Phone.On ? 400 : 520), Phone.On ? 120 : 70);
+        _notes.Size = new Vector2(Phone.On ? 380 : 490, 300);
         _notes.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         ui.AddChild(_notes);
         _prompt = Ui.Text("", 22, Ink, 6);
         _prompt.HorizontalAlignment = HorizontalAlignment.Center;
-        _prompt.Position = new Vector2(0, 960);
-        _prompt.Size = new Vector2(1920, 40);
+        _prompt.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _prompt.Position = new Vector2(20, vp.Y - 120);
+        _prompt.Size = new Vector2(vp.X - 40, 40);
         ui.AddChild(_prompt);
-        var hint = Ui.Text("Click: walk (or WASD / arrows)    E or click a station: use it    Esc: menu    N: sound", 15, Dim, 4);
-        hint.Position = new Vector2(32, 1036);
+        var hint = Ui.Text(Phone.Keys("Click: walk (or WASD / arrows)    E or click a station: use it    Esc: menu    N: sound",
+            "D-pad or tap: walk    A or tap a station: use it    Start: menu"), 15, Dim, 4);
+        hint.Position = new Vector2(32, vp.Y - 44);
         ui.AddChild(hint);
         foreach (var s in HomeBase.Stations)
         {
@@ -250,7 +254,7 @@ public partial class BaseScreen : Control
             tag.Position = _board.Position + (FeetAt(first, 1) + new Vector2(0, -38)) * Scale - new Vector2(160, 14);
         }
         var near = _walking ? null : Near();
-        _prompt.Text = near == null ? "" : near.Built(Ranch) ? $"[E]  {near.Name}: {near.Blurb}" : $"{near.Name}: being built. Opens after {near.Needs}.";
+        _prompt.Text = near == null ? "" : near.Built(Ranch) ? $"[{Phone.Keys("E", "A")}]  {near.Name}: {near.Blurb}" : $"{near.Name}: being built. Opens after {near.Needs}.";
         _prompt.AddThemeColorOverride("font_color", near != null && near.Built(Ranch) ? Ink : Dim);
         // The herd wanders the pens, a step now and then.
         foreach (var a in _herd)
@@ -265,52 +269,23 @@ public partial class BaseScreen : Control
 
     // ------------------------------------------------------------------ the pause menu
 
-    CanvasLayer _pause;
+    PauseMenu _pause;
 
-    /// <summary>Esc at the base: resume, the settings, save and go back to the title, or quit.</summary>
+    /// <summary>Esc at the base (Start on a phone): resume, the settings, save and go back to the title, or quit.</summary>
     void Pause()
     {
         if (_pause != null) return;
-        _pause = new CanvasLayer { Layer = 4 };
+        _pause = new PauseMenu { Save = () => { Standing = _you.Tile; Ranch.Save(); }, ToTitle = ToTitle, Closed = () => _pause = null };
         AddChild(_pause);
-        var shade = new ColorRect { Color = new Color(0.02f, 0.01f, 0.05f, 0.7f), MouseFilter = MouseFilterEnum.Stop };
-        shade.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        _pause.AddChild(shade);
-        var col = new VBoxContainer { Position = new Vector2(760, 330) };
-        col.AddThemeConstantOverride("separation", 14);
-        _pause.AddChild(col);
-        col.AddChild(Ui.Text("PAUSED", 30, Gold, 8));
-        Button Item(string text, Action pressed)
-        {
-            var b = new Button { Text = text, CustomMinimumSize = new Vector2(400, 58) };
-            b.AddThemeFontSizeOverride("font_size", 22);
-            b.Pressed += pressed;
-            col.AddChild(b);
-            return b;
-        }
-        Item("Resume", Unpause).CallDeferred(Control.MethodName.GrabFocus);
-        Item("Settings", () =>
-        {
-            col.Visible = false;
-            var settings = new SettingsPanel { Position = new Vector2(640, 280) };
-            settings.Closed = () => { settings.QueueFree(); col.Visible = true; };
-            _pause.AddChild(settings);
-        });
-        Item("Save and return to title", () => { Standing = _you.Tile; Ranch.Save(); ToTitle?.Invoke(); });
-        Item("Save and quit", () => { Standing = _you.Tile; Ranch.Save(); GetTree().Quit(); });
-    }
-
-    void Unpause()
-    {
-        _pause?.QueueFree();
-        _pause = null;
     }
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape })
+        if (Ranch.Pending != null && !AutoFight) return; // the choice after a main mission stands over everything until it's made
+        // Esc opens the menu on a desktop; on a phone Start does (B is cancel, and there's nothing here to cancel).
+        if (_pause == null && e is InputEventKey { Pressed: true, Echo: false } open && (open.Keycode == Phone.Start || open.Keycode == Key.Escape && !Phone.On))
         {
-            if (_pause == null) Pause(); else Unpause();
+            Pause();
             GetViewport().SetInputAsHandled();
             return;
         }

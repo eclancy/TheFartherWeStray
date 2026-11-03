@@ -48,15 +48,9 @@ public partial class PartyPanel : Control
         {
             bool isIn = joined.Contains(w.Id), fielded = Ranch.Fielded.Contains(w.Id);
             var card = new PanelContainer();
-            var box = new StyleBoxFlat
-            {
-                BgColor = new Color(0.1f, 0.08f, 0.16f, 0.92f),
-                BorderColor = fielded ? Gold : isIn ? new Color(0.35f, 0.3f, 0.48f) : new Color(0.2f, 0.17f, 0.28f),
-            };
-            box.SetBorderWidthAll(fielded ? 2 : 1);
-            box.SetCornerRadiusAll(6);
-            box.SetContentMarginAll(10);
-            card.AddThemeStyleboxOverride("panel", box);
+            // A fielded tamer's card is lit gold; one who hasn't joined yet is dim.
+            var box = fielded ? UiSkin.Lit(UiPart.Small, Gold, true) : UiSkin.Box(UiPart.Small, isIn ? UiState.Normal : UiState.Disabled);
+            card.AddThemeStyleboxOverride("panel", UiSkin.Tight(box, 16));
             var rows = new VBoxContainer();
             rows.AddThemeConstantOverride("separation", 6);
             card.AddChild(rows);

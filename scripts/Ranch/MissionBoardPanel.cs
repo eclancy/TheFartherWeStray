@@ -121,21 +121,10 @@ public partial class MissionCard : Control
     {
         var m = Board.Missions[Index];
         bool selected = Board.Selected == Index;
-        var box = new StyleBoxFlat
-        {
-            BgColor = new Color(0.1f, 0.08f, 0.16f, 0.92f),
-            BorderColor = selected ? Color.FromHtml("#f2c14e") : _hover ? new Color(0.6f, 0.55f, 0.75f) : new Color(0.24f, 0.2f, 0.33f),
-        };
-        box.SetBorderWidthAll(selected ? 3 : 1);
-        box.SetCornerRadiusAll(8);
+        // The chosen card's tube lights gold; the pad's focus lights over whichever it's on.
+        var box = selected ? UiSkin.Lit(UiPart.Button, Color.FromHtml("#f2c14e"), true) : UiSkin.Box(UiPart.Button, _hover ? UiState.Hover : UiState.Normal);
         DrawStyleBox(box, new Rect2(Vector2.Zero, Size));
-        if (HasFocus())
-        {
-            var ring = new StyleBoxFlat { DrawCenter = false, BorderColor = Colors.White };
-            ring.SetBorderWidthAll(2);
-            ring.SetCornerRadiusAll(10);
-            DrawStyleBox(ring, new Rect2(new Vector2(-3, -3), Size + new Vector2(6, 6)));
-        }
+        if (HasFocus()) DrawStyleBox(UiSkin.Box(UiPart.Button, UiState.Focus), new Rect2(Vector2.Zero, Size));
 
         // The map, shrunk to fit on the left (smaller on a narrow panel, to leave the words room).
         var thumb = MissionBoardPanel.Thumb(m.MapName);

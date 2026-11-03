@@ -182,11 +182,7 @@ public partial class CutsceneScreen : Control
         // The dialogue box across the foot of the screen (1400 wide on a desktop, the whole width on a phone).
         float boxW = Mathf.Min(1400, vp.X - 32);
         _box = new PanelContainer { Position = new Vector2((vp.X - boxW) / 2, vp.Y - 274), CustomMinimumSize = new Vector2(boxW, 230), Visible = false, MouseFilter = MouseFilterEnum.Ignore };
-        var style = new StyleBoxFlat { BgColor = new Color(0.05f, 0.04f, 0.09f, 0.92f), BorderColor = new Color(0.55f, 0.47f, 0.25f) };
-        style.SetBorderWidthAll(2);
-        style.SetCornerRadiusAll(8);
-        style.SetContentMarginAll(18);
-        _box.AddThemeStyleboxOverride("panel", style);
+        _box.AddThemeStyleboxOverride("panel", UiSkin.Box(UiPart.Panel, UiState.Normal));
         ui.AddChild(_box);
         var row = new HBoxContainer();
         row.AddThemeConstantOverride("separation", 22);

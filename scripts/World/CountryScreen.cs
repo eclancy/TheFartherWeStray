@@ -208,11 +208,7 @@ public partial class CountryScreen : Control
     {
         CloseShop();
         _shop = new PanelContainer { Position = new Vector2(_panelX, _overY), Size = new Vector2(_panelW, 0) };
-        var box = new StyleBoxFlat { BgColor = new Color(0.07f, 0.05f, 0.12f, 1f), BorderColor = Gold };
-        box.SetBorderWidthAll(2);
-        box.SetCornerRadiusAll(8);
-        box.SetContentMarginAll(14);
-        _shop.AddThemeStyleboxOverride("panel", box);
+        _shop.AddThemeStyleboxOverride("panel", UiSkin.Box(UiPart.Panel, UiState.Normal));
         var col = new VBoxContainer();
         col.AddThemeConstantOverride("separation", 6);
         _shop.AddChild(col);
@@ -291,11 +287,7 @@ public partial class CountryScreen : Control
     void Choose(DispatchDef job)
     {
         _chooser = new PanelContainer { Position = new Vector2(_panelX, _overY), Size = new Vector2(_panelW, 0) };
-        var box = new StyleBoxFlat { BgColor = new Color(0.07f, 0.05f, 0.12f, 0.97f), BorderColor = Gold };
-        box.SetBorderWidthAll(2);
-        box.SetCornerRadiusAll(8);
-        box.SetContentMarginAll(14);
-        _chooser.AddThemeStyleboxOverride("panel", box);
+        _chooser.AddThemeStyleboxOverride("panel", UiSkin.Box(UiPart.Panel, UiState.Normal));
         var col = new VBoxContainer();
         col.AddThemeConstantOverride("separation", 6);
         _chooser.AddChild(col);

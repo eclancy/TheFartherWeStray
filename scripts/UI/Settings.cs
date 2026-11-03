@@ -71,11 +71,7 @@ public partial class SettingsPanel : PanelContainer
 
     public override void _Ready()
     {
-        var style = new StyleBoxFlat { BgColor = new Color(0.06f, 0.05f, 0.1f, 0.96f), BorderColor = Ui.Gold };
-        style.SetBorderWidthAll(2);
-        style.SetCornerRadiusAll(8);
-        style.SetContentMarginAll(24);
-        AddThemeStyleboxOverride("panel", style);
+        AddThemeStyleboxOverride("panel", UiSkin.Box(UiPart.Panel, UiState.Normal));
         CustomMinimumSize = new Vector2(640, 0);
         var col = new VBoxContainer();
         col.AddThemeConstantOverride("separation", 16);

@@ -95,11 +95,7 @@ public partial class BattleScreen : Control
 
         // The info panel: whoever is under the cursor (or whose turn it is), in glyphs and numbers.
         _infoPanel = new PanelContainer { Position = new Vector2(vp.X - PanelW - 20, 100), CustomMinimumSize = new Vector2(PanelW, 0), MouseFilter = MouseFilterEnum.Ignore };
-        var backing = new StyleBoxFlat { BgColor = new Color(0.04f, 0.03f, 0.08f, 0.93f), BorderColor = new Color(0.3f, 0.26f, 0.42f) };
-        backing.SetBorderWidthAll(1);
-        backing.SetCornerRadiusAll(6);
-        backing.SetContentMarginAll(14);
-        _infoPanel.AddThemeStyleboxOverride("panel", backing);
+        _infoPanel.AddThemeStyleboxOverride("panel", UiSkin.Box(UiPart.Panel, UiState.Normal));
         _info = new VBoxContainer();
         _info.AddThemeConstantOverride("separation", 8);
         _infoPanel.AddChild(_info);
@@ -178,7 +174,7 @@ public partial class BattleScreen : Control
             c.Shiny = true;
             demo.ShinyPassive = Classes.ClassBook.ShinyPassive(c);
         }
-        _art = new IsoArt(_battle.Map, Skirt);
+        _art = new IsoArt(_battle.Map, Skirt) { KeepTops = true }; // so highlights keep off what's in front
         _backdrop.Texture = ImageTexture.CreateFromImage(IsoArt.PaintBackdrop(480, 270, Seed, _battle.Map.Theme));
         // The camera may aim anywhere over the battlefield; it starts on your side of it.
         var corners = new[] { new Vector2I(0, 0), new Vector2I(_battle.Map.W - 1, 0), new Vector2I(0, _battle.Map.H - 1), new Vector2I(_battle.Map.W - 1, _battle.Map.H - 1) }
@@ -399,13 +395,9 @@ public partial class BattleScreen : Control
             _skillBar.AddChild(BarSlot(SkillIcons.Action("end", 3), "Spc", "End the turn", true, false, 0, EndPlayerTurn));
     }
 
-    static StyleBoxFlat SlotBox(Color border, int width)
-    {
-        var box = new StyleBoxFlat { BgColor = new Color(0.05f, 0.04f, 0.09f, 0.88f), BorderColor = border };
-        box.SetBorderWidthAll(width);
-        box.SetCornerRadiusAll(6);
-        return box;
-    }
+    /// <summary>A command bar slot's frame, with just room for its icon: lit gold when it's the skill being aimed.</summary>
+    static StyleBox SlotBox(UiState state, bool selected = false) =>
+        UiSkin.Tight(selected ? UiSkin.Lit(UiPart.Button, Gold, true) : UiSkin.Box(UiPart.Button, state), 4);
 
     /// <summary>One slot of the command bar: an icon, its key in the corner, its cooldown or count over it.</summary>
     Control BarSlot(Texture2D icon, string key, string tip, bool enabled, bool selected, int cooldown, System.Action onPress, string count = null)
@@ -415,24 +407,24 @@ public partial class BattleScreen : Control
         if (onPress == null)
         {
             var panel = new PanelContainer { CustomMinimumSize = size, TooltipText = tip, Modulate = enabled ? Colors.White : new Color(1, 1, 1, 0.4f) };
-            panel.AddThemeStyleboxOverride("panel", SlotBox(new Color(0.3f, 0.27f, 0.4f), 2));
+            panel.AddThemeStyleboxOverride("panel", SlotBox(UiState.Normal));
             panel.AddChild(UI.Ui.Picture(icon));
             slot = panel;
         }
         else
         {
             var b = new Button { Icon = icon, Disabled = !enabled, TooltipText = tip, FocusMode = FocusModeEnum.None, CustomMinimumSize = size, IconAlignment = HorizontalAlignment.Center };
-            b.AddThemeStyleboxOverride("normal", SlotBox(selected ? Gold : new Color(0.3f, 0.27f, 0.4f), selected ? 3 : 2));
-            b.AddThemeStyleboxOverride("hover", SlotBox(selected ? Gold : Ink, selected ? 3 : 2));
-            b.AddThemeStyleboxOverride("pressed", SlotBox(Gold, 3));
-            b.AddThemeStyleboxOverride("disabled", SlotBox(new Color(0.2f, 0.18f, 0.26f), 2));
+            b.AddThemeStyleboxOverride("normal", SlotBox(UiState.Normal, selected));
+            b.AddThemeStyleboxOverride("hover", SlotBox(UiState.Hover, selected));
+            b.AddThemeStyleboxOverride("pressed", SlotBox(UiState.Pressed));
+            b.AddThemeStyleboxOverride("disabled", SlotBox(UiState.Disabled));
             b.Pressed += onPress;
             slot = b;
         }
         if (key != "" && !UI.Phone.On) // a phone has no keys to name
         {
             var k = UI.Ui.Text(key, 14, Ink, 5);
-            k.Position = new Vector2(5, 0);
+            k.Position = new Vector2(7, 2);
             slot.AddChild(k);
         }
         if (cooldown > 0)
@@ -1011,11 +1003,9 @@ public partial class BattleScreen : Control
         foreach (var child in _strip.GetChildren()) child.QueueFree();
         foreach (var u in _battle.Upcoming().Take(10))
         {
+            // Each side's light in its portrait's tube, the one whose turn it is with its gold bright.
             var frame = new PanelContainer { CustomMinimumSize = new Vector2(72, 72) };
-            var box = new StyleBoxFlat { BgColor = new Color(0.06f, 0.05f, 0.1f, 0.85f), BorderColor = u.Side == Side.Player ? Cyan : Magenta };
-            box.SetBorderWidthAll(u == _active ? 3 : 1);
-            box.SetCornerRadiusAll(4);
-            frame.AddThemeStyleboxOverride("panel", box);
+            frame.AddThemeStyleboxOverride("panel", UiSkin.Tight(UiSkin.Lit(UiPart.Small, u.Side == Side.Player ? Cyan : Magenta, u == _active), 7));
             frame.AddChild(new TextureRect
             {
                 Texture = _views[u].Texture,
@@ -1317,19 +1307,37 @@ public partial class BattleScreen : Control
     }
 }
 
-/// <summary>Tile highlights, berries and the hover cursor, drawn over the board.</summary>
+/// <summary>
+/// Tile highlights, berries and the hover cursor, drawn over the board. A highlight covers only the
+/// part of its tile that can be seen, never the wall or roof of a block in front of it (the user's
+/// call, 2026-11-03: highlights over what hides them confused); the cursor's tile shows its whole
+/// highlight, over whatever is in front, so you can still see where you're aiming.
+/// </summary>
 public partial class BoardOverlay : Node2D
 {
     public BattleScreen Screen;
+
+    readonly Dictionary<(Vector2I, bool), (Texture2D fill, Texture2D rim, Vector2 at)> _masks = new();
+    readonly Dictionary<Vector2I, bool> _hidden = new();
+
+    /// <summary>A tile's highlight masks, made once: only what can be seen of it, or its whole top.</summary>
+    (Texture2D fill, Texture2D rim, Vector2 at) Mask(Vector2I t, bool whole)
+    {
+        if (_masks.TryGetValue((t, whole), out var m)) return m;
+        var (fill, rim, at, hidden) = Screen.Art.TopMask(t, whole);
+        _hidden[t] = hidden;
+        return _masks[(t, whole)] = (ImageTexture.CreateFromImage(fill), ImageTexture.CreateFromImage(rim), at);
+    }
 
     public override void _Draw()
     {
         var art = Screen.Art;
         foreach (var (t, c) in Screen.Highlights())
         {
-            var d = art.Diamond(t, 1);
-            DrawColoredPolygon(d, c);
-            DrawPolyline(new[] { d[0], d[1], d[2], d[3], d[0] }, new Color(c, 0.9f), 1);
+            var m = Mask(t, false);
+            if (_hidden[t] && Screen.HoverTile == t) m = Mask(t, true);
+            DrawTexture(m.fill, m.at, c);
+            DrawTexture(m.rim, m.at, new Color(c, 0.9f));
         }
         foreach (var b in Screen.Berries)
         {

@@ -177,11 +177,7 @@ public partial class TitleScreen : Control
         ClosePanel();
         _menu.Visible = false;
         var box = new PanelContainer { Position = new Vector2(Left, PanelTop) };
-        var style = new StyleBoxFlat { BgColor = new Color(0.06f, 0.05f, 0.1f, 0.96f), BorderColor = Ui.Gold };
-        style.SetBorderWidthAll(2);
-        style.SetCornerRadiusAll(8);
-        style.SetContentMarginAll(22);
-        box.AddThemeStyleboxOverride("panel", style);
+        box.AddThemeStyleboxOverride("panel", UiSkin.Box(UiPart.Panel, UiState.Normal));
         _ui.AddChild(box);
         _panel = box;
         var col = new VBoxContainer();

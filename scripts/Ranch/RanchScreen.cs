@@ -271,11 +271,7 @@ public partial class RanchScreen : Control
         layer.AddChild(shade);
         var vp = host.GetViewportRect().Size;
         var panel = new PanelContainer { Position = new Vector2((vp.X - 800) / 2, vp.Y * 0.3f), CustomMinimumSize = new Vector2(800, 0) };
-        var box = new StyleBoxFlat { BgColor = new Color(0.08f, 0.06f, 0.13f), BorderColor = Gold };
-        box.SetBorderWidthAll(2);
-        box.SetCornerRadiusAll(8);
-        box.SetContentMarginAll(18);
-        panel.AddThemeStyleboxOverride("panel", box);
+        panel.AddThemeStyleboxOverride("panel", UiSkin.Box(UiPart.Panel, UiState.Normal));
         shade.AddChild(panel);
         var col = new VBoxContainer();
         col.AddThemeConstantOverride("separation", 10);
@@ -750,22 +746,13 @@ public partial class RanchCard : Control
         var rec = Screen.Ranch.Record(Id);
         bool squad = Screen.InSquad(Id);
         int pen = Screen.PenSlot(Id);
-        var box = new StyleBoxFlat
-        {
-            BgColor = new Color(0.1f, 0.08f, 0.16f, 0.92f),
-            BorderColor = Screen.IsSelected(Id) ? Color.FromHtml("#f2c14e") : pen >= 0 ? Color.FromHtml("#ff4f9a") : squad ? Color.FromHtml("#4fe3ff") : _hover ? new Color(0.6f, 0.55f, 0.75f) : new Color(0.24f, 0.2f, 0.33f),
-        };
-        box.SetBorderWidthAll(Screen.IsSelected(Id) || squad || pen >= 0 ? 3 : _hover ? 2 : 1);
-        box.SetCornerRadiusAll(8);
+        // The card's tube says where it stands: gold when chosen, pink in a vat, cyan in the squad.
+        var box = Screen.IsSelected(Id) ? UiSkin.Lit(UiPart.Button, Color.FromHtml("#f2c14e"), true)
+            : pen >= 0 ? UiSkin.Lit(UiPart.Button, Color.FromHtml("#ff4f9a"))
+            : squad ? UiSkin.Lit(UiPart.Button, Color.FromHtml("#4fe3ff"))
+            : UiSkin.Box(UiPart.Button, _hover ? UiState.Hover : UiState.Normal);
         DrawStyleBox(box, new Rect2(Vector2.Zero, Size));
-        if (HasFocus())
-        {
-            // Where the pad is: a white frame outside the card's own.
-            var ring = new StyleBoxFlat { DrawCenter = false, BorderColor = Colors.White };
-            ring.SetBorderWidthAll(2);
-            ring.SetCornerRadiusAll(10);
-            DrawStyleBox(ring, new Rect2(new Vector2(-4, -4), Size + new Vector2(8, 8)));
-        }
+        if (HasFocus()) DrawStyleBox(UiSkin.Box(UiPart.Button, UiState.Focus), new Rect2(Vector2.Zero, Size)); // where the pad is
 
         int z = _tex.GetWidth() * 2 <= Size.X - 8 && _tex.GetHeight() * 2 <= 128 ? 2 : 1;
         var ts = _tex.GetSize() * z;
@@ -781,13 +768,13 @@ public partial class RanchCard : Control
         DrawString(font, new Vector2(0, ground + 44), $"{c.Size} {c.Species.Plan}", HorizontalAlignment.Center, Size.X, 13, Color.FromHtml("#9a91b4"));
 
         // Marks in the top corners.
-        if (squad) DrawString(font, new Vector2(8, 20), Screen.LeaderTag(Id), HorizontalAlignment.Left, -1, 13, Color.FromHtml("#4fe3ff"));
+        if (squad) DrawString(font, new Vector2(18, 30), Screen.LeaderTag(Id), HorizontalAlignment.Left, -1, 13, Color.FromHtml("#4fe3ff"));
         if (Screen.Ranch.Away.TryGetValue(Id, out var away))
-            DrawString(font, new Vector2(8, 20), $"AWAY {Math.Max(0, away.BackOn - Screen.Ranch.Day)}d", HorizontalAlignment.Left, -1, 13, Color.FromHtml("#ff4f9a"));
-        if (pen >= 0) DrawString(font, new Vector2(8, squad ? 38 : 20), pen == 0 ? "VAT A" : "VAT B", HorizontalAlignment.Left, -1, 13, Color.FromHtml("#ff4f9a"));
+            DrawString(font, new Vector2(18, 30), $"AWAY {Math.Max(0, away.BackOn - Screen.Ranch.Day)}d", HorizontalAlignment.Left, -1, 13, Color.FromHtml("#ff4f9a"));
+        if (pen >= 0) DrawString(font, new Vector2(18, squad ? 48 : 30), pen == 0 ? "VAT A" : "VAT B", HorizontalAlignment.Left, -1, 13, Color.FromHtml("#ff4f9a"));
         string tag = Screen.IsNew(Id) ? "NEW" : c.Generation > 0 ? $"GEN {c.Generation}" : "";
-        if (tag != "") DrawString(font, new Vector2(0, 20), tag, HorizontalAlignment.Right, Size.X - 8, 13, Color.FromHtml("#f2c14e"));
-        if (rec.Steeping) DrawString(font, new Vector2(0, 38), "steeping", HorizontalAlignment.Right, Size.X - 8, 12, Color.FromHtml("#4ff0a0"));
+        if (tag != "") DrawString(font, new Vector2(0, 30), tag, HorizontalAlignment.Right, Size.X - 18, 13, Color.FromHtml("#f2c14e"));
+        if (rec.Steeping) DrawString(font, new Vector2(0, 48), "steeping", HorizontalAlignment.Right, Size.X - 18, 12, Color.FromHtml("#4ff0a0"));
         else if (rec.Recovering) DrawString(font, new Vector2(0, 38), "recovering", HorizontalAlignment.Right, Size.X - 8, 12, Color.FromHtml("#ff5a6a"));
         else if (!rec.Rested) DrawString(font, new Vector2(0, 38), "resting", HorizontalAlignment.Right, Size.X - 8, 12, Color.FromHtml("#9a91b4"));
     }

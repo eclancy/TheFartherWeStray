@@ -159,7 +159,10 @@ public partial class Pad : Control
     public (Rect2 left, Rect2 right) Columns;
 
     static readonly Color Ink = Ui.Ink, Dim = Ui.Dim, Gold = Ui.Gold, Edge = new(0.95f, 0.76f, 0.31f, 0.35f);
-    static readonly Color Body = Color.FromHtml("#221a36"), Rim = Color.FromHtml("#3d3158"), Lit = Color.FromHtml("#3b2c5c");
+    static readonly Color Violet = Color.FromHtml("#a98bff"), Cyan = Color.FromHtml("#4fe3ff");
+
+    /// <summary>The pad's art is in the menus' frame pixels, each this many of the window's units.</summary>
+    const int P = 2;
     const double Delay = 0.3, Every = 0.085;
 
     readonly Dictionary<long, Key?> _fingers = new();  // a finger (the mouse is -1) and what it holds
@@ -167,7 +170,11 @@ public partial class Pad : Control
     Key? _repeating;
     double _repeatAt;
 
-    public override void _Ready() => MouseFilter = MouseFilterEnum.Ignore;
+    public override void _Ready()
+    {
+        MouseFilter = MouseFilterEnum.Ignore;
+        TextureFilter = TextureFilterEnum.Nearest;
+    }
 
     Vector2 DpadCentre => Columns.left.Position + new Vector2(Columns.left.Size.X / 2, Columns.left.Size.Y * 0.6f);
     float Arm => Columns.left.Size.X * 0.42f;
@@ -262,9 +269,48 @@ public partial class Pad : Control
 
     bool Pressed(Key k) => _held.ContainsKey(k);
 
+    // The pad's art, painted once for its size (UI/UiSkin.cs): the cross, each arm lit, and A and B lit.
+    float _builtArm = -1, _builtR = -1;
+    Texture2D _cross, _a, _aOn, _b, _bOn;
+    readonly Dictionary<Key, Texture2D> _armOn = new();
+
+    static readonly (Key key, Vector2 dir)[] Arms = { (Key.Up, Vector2.Up), (Key.Down, Vector2.Down), (Key.Left, Vector2.Left), (Key.Right, Vector2.Right) };
+
+    /// <summary>
+    /// The D-pad as one gilt-and-neon shape: two stepped bars crossed, each pixel's ring the deeper of the
+    /// two, so the frame runs round the cross's outline; and A and B as rings, their tubes lit gold and violet.
+    /// </summary>
+    void Build()
+    {
+        _builtArm = Arm;
+        _builtR = ButtonR;
+        int hl = Mathf.RoundToInt(Arm / P), hw = Mathf.RoundToInt(Arm * 0.31f / P), n = hl * 2 + 1;
+        int Cross(int x, int y) => Math.Max(UiSkin.Inset(x - (hl - hw), y, hw * 2 + 1, n, 1), UiSkin.Inset(x, y - (hl - hw), n, hw * 2 + 1, 1));
+        _cross = ImageTexture.CreateFromImage(UiSkin.PaintRings(n, n, Cross));
+        foreach (var (key, dir) in Arms)
+        {
+            // An arm lit as it's held: the focus light, on that arm beyond the middle only.
+            int Arm1(int x, int y) => (x - hl) * dir.X + (y - hl) * dir.Y > hw ? Cross(x, y) : -1;
+            _armOn[key] = ImageTexture.CreateFromImage(UiSkin.PaintRings(n, n, Arm1, UiState.Focus, Cyan));
+        }
+        int r = Mathf.RoundToInt(ButtonR / P), d = r * 2 + 1;
+        int Round(int x, int y) => (int)(r + 0.5f - new Vector2(x - r, y - r).Length()) is var k && k >= 0 ? k : -1;
+        _a = ImageTexture.CreateFromImage(UiSkin.PaintRings(d, d, Round, UiState.Normal, Gold));
+        _aOn = ImageTexture.CreateFromImage(UiSkin.PaintRings(d, d, Round, UiState.Focus, Gold));
+        _b = ImageTexture.CreateFromImage(UiSkin.PaintRings(d, d, Round, UiState.Normal, Violet));
+        _bOn = ImageTexture.CreateFromImage(UiSkin.PaintRings(d, d, Round, UiState.Focus, Violet));
+    }
+
+    void DrawArt(Texture2D tex, Vector2 centre)
+    {
+        var size = tex.GetSize() * P;
+        DrawTextureRect(tex, new Rect2((centre - size / 2).Round(), size), false);
+    }
+
     public override void _Draw()
     {
         if (Columns.left.Size.X <= 0) return; // not laid out yet
+        if (!Mathf.IsEqualApprox(_builtArm, Arm) || !Mathf.IsEqualApprox(_builtR, ButtonR)) Build();
         var font = GetThemeDefaultFont();
         foreach (var (col, edgeX) in new[] { (Columns.left, Columns.left.End.X), (Columns.right, Columns.right.Position.X) })
         {
@@ -272,55 +318,40 @@ public partial class Pad : Control
             DrawLine(new Vector2(edgeX, 0), new Vector2(edgeX, col.Size.Y), Edge, 1);
         }
 
-        // The D-pad: a cross with a dent in the middle and an arrow on each arm.
+        // The D-pad: the cross, an arm lit while it's held, and an arrow on each arm.
         var c = DpadCentre;
         float arm = Arm, w = arm * 0.62f;
-        DrawCircle(c + new Vector2(0, 3), arm * 1.12f, new Color(0, 0, 0, 0.35f));
-        foreach (var r in new[] { new Rect2(c.X - w / 2, c.Y - arm, w, arm * 2), new Rect2(c.X - arm, c.Y - w / 2, arm * 2, w) })
+        DrawCircle(c + new Vector2(0, 4), arm * 1.12f, new Color(0, 0, 0, 0.35f));
+        DrawArt(_cross, c);
+        foreach (var (key, dir) in Arms)
         {
-            var box = new StyleBoxFlat { BgColor = Body, BorderColor = Rim };
-            box.SetBorderWidthAll(2);
-            box.SetCornerRadiusAll(6);
-            DrawStyleBox(box, r);
+            if (Pressed(key)) DrawArt(_armOn[key], c);
+            var tip = c + dir * arm * 0.74f;
+            var side = new Vector2(-dir.Y, dir.X) * w * 0.24f;
+            var back = tip - dir * w * 0.34f;
+            DrawColoredPolygon(new[] { tip, back + side, back - side }, Pressed(key) ? Colors.White : Dim);
         }
-        DrawRect(new Rect2(c.X - w / 2 + 2, c.Y - w / 2 + 2, w - 4, w - 4), Body);
-        foreach (var (key, dir) in new[] { (Key.Up, Vector2.Up), (Key.Down, Vector2.Down), (Key.Left, Vector2.Left), (Key.Right, Vector2.Right) })
-        {
-            var tip = c + dir * arm * 0.78f;
-            var side = new Vector2(-dir.Y, dir.X) * w * 0.26f;
-            var back = tip - dir * w * 0.36f;
-            if (Pressed(key))
-            {
-                var lit = new Rect2(c + dir * w * 0.5f - new Vector2(Mathf.Abs(dir.Y), Mathf.Abs(dir.X)) * (w / 2 - 3), Vector2.Zero)
-                    .Expand(c + dir * (arm - 3) + new Vector2(Mathf.Abs(dir.Y), Mathf.Abs(dir.X)) * (w / 2 - 3));
-                DrawRect(lit, Lit);
-            }
-            DrawColoredPolygon(new[] { tip, back + side, back - side }, Pressed(key) ? Gold : Dim);
-        }
-        DrawCircle(c, w * 0.18f, new Color(0, 0, 0, 0.3f));
 
         // A and B, Game Boy fashion (B low on the left, A high on the right), with what each does under them.
-        void Round(Vector2 at, string letter, string word, Key key, Color tint)
+        void Round(Vector2 at, string letter, string word, Key key, Texture2D off, Texture2D on, Color tint)
         {
             float r = ButtonR;
-            DrawCircle(at + new Vector2(0, 3), r, new Color(0, 0, 0, 0.35f));
-            DrawCircle(at, r, Pressed(key) ? tint : Body);
-            DrawArc(at, r, 0, Mathf.Tau, 40, Pressed(key) ? Ink : tint, 2, true);
-            int size = Mathf.RoundToInt(r * 0.95f);
-            DrawString(font, at + new Vector2(-r, size * 0.36f), letter, HorizontalAlignment.Center, r * 2, size, Pressed(key) ? Color.FromHtml("#1a1030") : Ink);
+            DrawCircle(at + new Vector2(0, 4), r, new Color(0, 0, 0, 0.35f));
+            DrawArt(off, at);
+            if (Pressed(key)) DrawArt(on, at);
+            int size = Mathf.RoundToInt(r * 0.9f);
+            DrawString(font, at + new Vector2(-r, size * 0.36f), letter, HorizontalAlignment.Center, r * 2, size, Pressed(key) ? Colors.White : tint);
             DrawString(font, at + new Vector2(-r * 1.6f, r + 16), word, HorizontalAlignment.Center, r * 3.2f, 11, Dim);
         }
-        Round(ACentre, "A", "select", Key.Enter, Gold);
-        Round(BCentre, "B", "cancel", Key.Escape, Color.FromHtml("#a98bff"));
+        Round(ACentre, "A", "select", Key.Enter, _a, _aOn, Gold);
+        Round(BCentre, "B", "cancel", Key.Escape, _b, _bOn, Violet);
 
-        // Start: a pill above them.
+        // Start: a small gilt-and-neon plate above them, lit while it's held.
         var s = StartRect;
-        var pill = new StyleBoxFlat { BgColor = Pressed(Phone.Start) ? Gold : Body, BorderColor = Pressed(Phone.Start) ? Ink : Rim };
-        pill.SetBorderWidthAll(2);
-        pill.SetCornerRadiusAll((int)(s.Size.Y / 2));
-        DrawStyleBox(pill, s);
-        DrawString(font, new Vector2(s.Position.X, s.Position.Y + s.Size.Y * 0.68f), "START", HorizontalAlignment.Center, s.Size.X, Mathf.RoundToInt(s.Size.Y * 0.5f),
-            Pressed(Phone.Start) ? Color.FromHtml("#1a1030") : Ink);
+        DrawStyleBox(UiSkin.Box(UiPart.Small, Pressed(Phone.Start) ? UiState.Hover : UiState.Normal), s);
+        if (Pressed(Phone.Start)) DrawStyleBox(UiSkin.Box(UiPart.Small, UiState.Focus), s);
+        DrawString(font, new Vector2(s.Position.X, s.Position.Y + s.Size.Y * 0.68f), "START", HorizontalAlignment.Center, s.Size.X, Mathf.RoundToInt(s.Size.Y * 0.46f),
+            Pressed(Phone.Start) ? Colors.White : Ink);
         DrawString(font, new Vector2(s.Position.X - 10, s.End.Y + 16), "menu", HorizontalAlignment.Center, s.Size.X + 20, 11, Dim);
     }
 }

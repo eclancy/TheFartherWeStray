@@ -50,11 +50,7 @@ public partial class PadNav : Node
         _layer = new CanvasLayer { Layer = 60 };
         AddChild(_layer);
         _tip = new PanelContainer { Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore };
-        var box = new StyleBoxFlat { BgColor = new Color(0.05f, 0.04f, 0.09f, 0.96f), BorderColor = Ui.Gold };
-        box.SetBorderWidthAll(2);
-        box.SetCornerRadiusAll(6);
-        box.SetContentMarginAll(10);
-        _tip.AddThemeStyleboxOverride("panel", box);
+        _tip.AddThemeStyleboxOverride("panel", UiSkin.Box(UiPart.Tip, UiState.Normal));
         _text = Ui.Text("", 17, Ui.Ink, 4);
         _text.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _tip.AddChild(_text);

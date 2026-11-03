@@ -24,6 +24,8 @@ namespace TheFartherWeStray;
 ///                     --aim aims the first skill at the busiest tile (for screenshots of the skill panel)
 ///   --autobattle=N    run a battle AI-vs-AI headless and print the log
 ///   --shot=N          save frame N to .shots/shot.png and quit
+///   --ui=NAME         another menu style on every button and panel: plain, gilded, neon, iron (giltneon is
+///                     the game's; UI/UiSkin.cs, docs/ui-style.md); --uiboard=NAME shows a style's parts side by side
 ///   --export=FILE     write the sheet (or species) as a PNG and quit; works with --headless
 ///   --scale=N         export pixel scale (default 3)
 ///   --columns=N --from=N --count=N   export layout: columns, first slot (1-based) and how many (8, 1, 24)
@@ -95,6 +97,10 @@ public partial class GameRoot : Node
             // --pad=down,down,a,...: presses the pad's buttons one by one, after the screen settles (checking it with --shot).
             if (args.TryGetValue("pad", out var presses)) PressPad(presses.Split(','), args.TryGetValue("padwait", out var pw) && float.TryParse(pw, CultureInfo.InvariantCulture, out var w) ? w : 1.5f);
         }
+        // The menus' look (UI/UiSkin.cs, docs/ui-style.md): gilt and neon, or --ui=NAME for one of the styles it was
+        // picked from. After the phone's focus frame, so the style's own wins.
+        UI.UiSkin.Use(args.TryGetValue("ui", out var uiName) && UI.UiSkin.TryParse(uiName, out var uiSkin) ? uiSkin : UI.Skin.GiltNeon);
+        GetTree().NodeAdded += UI.UiSkin.Adapt;
 
         if (args.ContainsKey("slotstest"))
         {
@@ -193,7 +199,27 @@ public partial class GameRoot : Node
             Back(432).SavePng(iconDir + "/android-background.png");
             Front(432, 0.56f).SavePng(iconDir + "/android-foreground.png");
             Whole(192).SavePng(iconDir + "/android-main.png");
-            Whole(256).SavePng(iconDir + "/icon.png");
+            // The project's and the window's: Blaze in the menus' gilt-and-neon frame (UI/UiSkin.cs), its
+            // tube lit, on glass with a chem glow, painted 64 pixels square to read in Godot's project
+            // list, then made 256. Blaze at 3x (its size on the board) fills the glass like a portrait, cut off
+            // by the frame where it reaches it.
+            var frame = UI.UiSkin.Paint(UI.Skin.GiltNeon, UI.UiPart.Panel, UI.UiState.Normal, 64, 64, lit: true);
+            for (int y = 8; y < 56; y++)
+            for (int x = 8; x < 56; x++)
+            {
+                // A glow behind the creature in three bands, stepped like the board's light.
+                float d = new Vector2(x - 31.5f, y - 35).Length();
+                float band = d < 12 ? 0.3f : d < 18 ? 0.18f : d < 24 ? 0.08f : 0;
+                if (band > 0) frame.SetPixel(x, y, frame.GetPixel(x, y).Lerp(Color.FromHtml("#4fe3ff"), band));
+            }
+            frame.Resize(256, 256, Image.Interpolation.Nearest);
+            var blaze = (Image)sprite.Duplicate();
+            blaze.Resize(sprite.GetWidth() * 3, sprite.GetHeight() * 3, Image.Interpolation.Nearest);
+            var at = new Vector2I((256 - blaze.GetWidth()) / 2, (256 - blaze.GetHeight()) / 2 + 6);
+            var glass = new Rect2I(26, 26, 204, 204); // inside the frame's tube
+            var shown = new Rect2I(at, blaze.GetSize()).Intersection(glass);
+            frame.BlendRect(blaze, new Rect2I(shown.Position - at, shown.Size), shown.Position);
+            frame.SavePng(iconDir + "/icon.png");
             GD.Print($"icons written to {iconDir}");
             GetTree().Quit();
             return;
@@ -1501,6 +1527,13 @@ public partial class GameRoot : Node
         _recordWhole = args.ContainsKey("recordwhole");
 
         if (args.ContainsKey("lab") || drawPets || species != null) { _home = _lab; Show(_lab()); return; }
+        // --uiboard=NAME: one menu style's parts side by side over a board, to compare the styles (with --shot).
+        if (args.TryGetValue("uiboard", out var boardSkin))
+        {
+            UI.UiSkin.TryParse(boardSkin, out var shown);
+            Show(new UI.StyleBoard { Skin = shown });
+            return;
+        }
         if (args.TryGetValue("battle", out var oneOff))
         {
             // A one-off battle with the default squad, no ranch involved.

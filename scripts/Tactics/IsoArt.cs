@@ -10,7 +10,7 @@ namespace TheFartherWeStray.Tactics;
 /// shaded sides, in an undercity palette (cobbles, moss, brass platforms, glowing chem). Also the
 /// backdrop: a skyline of brass towers above and neon-lit slums below.
 /// </summary>
-public sealed class IsoArt
+public sealed partial class IsoArt
 {
     public const int TW = 48, TH = 24, HS = 12; // tile width, tile height, pixels per height level
     const int BaseDepth = 8, Margin = 8;
@@ -27,6 +27,15 @@ public sealed class IsoArt
     readonly HashSet<Vector2I> _aroundBlocked = new();
     public readonly List<(Vector2I tile, Prop prop)> AroundProps = new();
     float _fade; // how far the tile being painted is darkened (the surroundings fade out at their edge)
+
+    /// <summary>
+    /// Keep, as the board is painted, which battlefield tile's top shows at each board pixel, so a
+    /// highlight can keep to the part of its tile that can be seen (<see cref="TopMask"/>). Off by
+    /// default: only a battle needs it, and it's a number a pixel.
+    /// </summary>
+    public bool KeepTops;
+    short[] _tops;  // a tile's index (y * map width + x) where its top shows; -1 for walls, the surroundings, nothing
+    short _owner = -1;
 
     /// <param name="skirt">How many tiles of surroundings to paint round the map (0: the map alone, an island).</param>
     public IsoArt(BattleMap map, int skirt = 0)
@@ -221,6 +230,11 @@ public sealed class IsoArt
     public Image PaintBoard(double time = 0)
     {
         var img = Image.CreateEmpty(Width, Height, false, Image.Format.Rgba8);
+        if (KeepTops)
+        {
+            _tops = new short[Width * Height];
+            Array.Fill(_tops, (short)-1);
+        }
         foreach (var t in PaintOrder())
         {
             // The surroundings darken toward their edge, so the battlefield stands out.
@@ -245,29 +259,35 @@ public sealed class IsoArt
         var R = top + new Vector2(hw, hh);
         var down = new Vector2(0, depth);
 
+        _owner = -1; // walls show no tile's top
         if (terrain == Terrain.Pit)
         {
             // A hole: just darkness with a faint glow far below.
+            _owner = TopId(t);
             Fill(img, new[] { top, R, B, L }, (x, y, u, v) =>
             {
                 float d = Mathf.Max(Mathf.Abs(u - 0.5f), Mathf.Abs(v - 0.5f));
                 return d > 0.44f ? C("#1b1426") : (Hash(x, y, 3) % 23 == 0 ? C("#3b1f4a") : C("#0a0710"));
             });
+            _owner = -1;
             return;
         }
 
         var (sideL, sideR) = Sides(terrain);
         if (terrain == Terrain.Roof)
         {
-            // A building: its walls are house fronts, with timbers, windows and sometimes a door.
-            Fill(img, new[] { L, B, B + down, L + down }, (x, y, u, v) => Facade(t, x, y, L, B, h, sideL, 0));
-            Fill(img, new[] { B, R, R + down, B + down }, (x, y, u, v) => Facade(t, x, y, B, R, h, sideR, 1));
-            Fill(img, new[] { top, R, B, L }, (x, y, u, v) => TopColor(terrain, x, y, u, v));
-            Line(img, top, L, TopColor(terrain, 0, 0, 0.5f, 0.5f).Lightened(0.28f));
-            Line(img, top, R, TopColor(terrain, 0, 0, 0.5f, 0.5f).Lightened(0.15f));
-            Line(img, L, B, sideL.Darkened(0.45f));
-            Line(img, B, R, sideR.Darkened(0.45f));
-            Line(img, B, B + down, sideR.Darkened(0.55f));
+            // A building: its walls are house fronts and its top a roof, each house its own (Houses.cs).
+            var house = HouseAt(t);
+            Fill(img, new[] { L, B, B + down, L + down }, (x, y, u, v) => Facade(t, x, y, L, B, h, 0));
+            Fill(img, new[] { B, R, R + down, B + down }, (x, y, u, v) => Facade(t, x, y, B, R, h, 1));
+            _owner = TopId(t);
+            Fill(img, new[] { top, R, B, L }, (x, y, u, v) => RoofTop(t, x, y, u, v));
+            _owner = -1;
+            Line(img, top, L, house.Roof.Lightened(0.28f));
+            Line(img, top, R, house.Roof.Lightened(0.15f));
+            Line(img, L, B, house.Wall.Darkened(0.45f));
+            Line(img, B, R, house.Wall.Darkened(0.6f));
+            Line(img, B, B + down, house.Wall.Darkened(0.65f));
             return;
         }
         // Left face is lit, right face in shadow; a darker band where block meets block.
@@ -285,7 +305,9 @@ public sealed class IsoArt
             if (terrain is Terrain.Stone or Terrain.Grass && ((y - (int)top.Y + 3) % 6 == 0)) c = sideR.Darkened(0.18f);
             return c;
         });
+        _owner = TopId(t);
         Fill(img, new[] { top, R, B, L }, (x, y, u, v) => TopColor(terrain, x, y, u, v));
+        _owner = -1;
 
         // Crisp FFTA edges: lit back rims, dark front rims.
         Line(img, top, L, TopColor(terrain, 0, 0, 0.5f, 0.5f).Lightened(0.28f));
@@ -294,46 +316,7 @@ public sealed class IsoArt
         Line(img, B, R, sideR.Darkened(0.35f));
         Line(img, B, B + down, sideR.Darkened(0.45f));
         Decorate(img, t, top, terrain);
-    }
-
-    /// <summary>
-    /// A house front on one wall of a building tile: plaster, a timber at each storey, a window a
-    /// storey (most lit), and on some, a door at street level. <paramref name="face"/> 0 is the left
-    /// wall, 1 the right; a and b are the wall's top corners.
-    /// </summary>
-    Color Facade(Vector2I t, int x, int y, Vector2 a, Vector2 b, int h, Color wall, int face)
-    {
-        float along = (x + 0.5f - a.X) / (b.X - a.X);
-        float below = y + 0.5f - (a.Y + along * (b.Y - a.Y));
-        int storey = (int)(below / HS), inStorey = (int)below % HS;
-        int storeys = h; // walls rise h storeys above the ground; the rest is foundation
-        var timber = _look.Timber;
-        if (below < 1.5f || inStorey == 0) return timber;
-        if (along < 0.09f || along > 0.91f) return timber;
-        if (storey >= storeys) return wall.Darkened(0.25f); // the foundation below street level
-        if (_map.Theme == "Undercity" && WallArt(t, face, h) is { } art)
-        {
-            int col = (int)(along * WallCols), row = (int)below - art.top;
-            if (row >= 0 && row < art.mask.GetLength(1) && art.mask[col, row] is var m and > 0)
-                return face == 1 ? art.colors[m].Darkened(0.22f) : art.colors[m];
-        }
-        bool door = storey == storeys - 1 && Hash(t.X, t.Y, 40 + face) % 3 == 0;
-        if (door)
-        {
-            if (along > 0.36f && along < 0.64f && inStorey >= 3)
-                return along > 0.56f && inStorey == 7 ? C("#e8c060") : _look.Door;
-            return wall;
-        }
-        if (along > 0.32f && along < 0.68f && inStorey >= 3 && inStorey <= 8)
-        {
-            bool edge = along < 0.36f || along > 0.64f || inStorey == 3 || inStorey == 8;
-            if (edge) return timber;
-            uint lit = Hash(t.X * 3 + face, t.Y * 5 + storey, 41);
-            if (lit % 4 == 0) return C("#1a1a2a");
-            var glass = _look.Windows[lit % (uint)_look.Windows.Length];
-            return inStorey == 4 && along < 0.5f ? glass.Lightened(0.35f) : glass;
-        }
-        return Hash(x, y, 42) % 23 == 0 ? wall.Darkened(0.12f) : wall;
+        Spill(img, t, top); // light from the houses behind it
     }
 
     /// <summary>
@@ -400,95 +383,145 @@ public sealed class IsoArt
         }
     }
 
-    // ------------------------------------------------------------------ the undercity's walls
+    // ------------------------------------------------------------------ what's on the walls
 
     const int WallCols = 24, ArtRows = 11;
     readonly Dictionary<(Vector2I, int), (byte[,] mask, Color[] colors, int top)?> _wallArt = new();
-    static readonly Color[] Neon = { C("#ff4fb8"), C("#4fe3ff"), C("#6fff8a"), C("#ffd23a"), C("#f4f0ff"), C("#ff6a3a"), C("#b07aff") };
+    static readonly Color[] Neon = { C("#ff4fb8"), C("#4fe3ff"), C("#6fff8a"), C("#ffd23a"), C("#f4f0ff"), C("#ff6a3a"), C("#b07aff"), C("#ff8ac0"), C("#7fffe0") };
+    static readonly Color[] ChemPaint = { C("#6fff8a"), C("#c8ff4f"), C("#4ff0a0"), C("#ffd23a"), C("#9fffc8") };
+    static readonly Color[] OldPaint = { C("#c84a3a"), C("#e8dcc0"), C("#4a6a8a"), C("#c8a040"), C("#6a8a4a") };
+    static readonly Color[] Papers = { C("#e8dcc0"), C("#c84a3a"), C("#e8c040"), C("#7ab0d8"), C("#f0f0e8"), C("#9a7ab8"), C("#5a9a6a") };
 
-    // Symbols sprayed on walls ('a' paint): no words, just marks.
+    // Marks sprayed on walls and lit in neon signs ('a' paint): no words, just marks.
     static readonly string[][] Symbols =
     {
-        new[] { "a..a..a", "aa.a.aa", "aaaaaaa", "aaaaaaa" },                       // a crown
-        new[] { "...a...", "..aaa..", "aaaaaaa", ".aaaaa.", "..a.a..", ".a...a." },  // a star
-        new[] { "...a...", "....a..", "aaaaaaa", "....a..", "...a..." },             // an arrow
-        new[] { "..aaa", ".aa..", "aaaa.", "..aa.", ".aa..", "a...." },              // a bolt
-        new[] { "a...a", ".a.a.", "..a..", ".a.a.", "a...a" },                       // an X
+        new[] { "a..a..a", "aa.a.aa", "aaaaaaa", "aaaaaaa" },                         // a crown
+        new[] { "...a...", "..aaa..", "aaaaaaa", ".aaaaa.", "..a.a..", ".a...a." },    // a star
+        new[] { "...a...", "....a..", "aaaaaaa", "....a..", "...a..." },               // an arrow
+        new[] { "..aaa", ".aa..", "aaaa.", "..aa.", ".aa..", "a...." },                // a bolt
+        new[] { "a...a", ".a.a.", "..a..", ".a.a.", "a...a" },                         // an X
+        new[] { "..aaa..", ".a...a.", "a..a..a", ".a...a.", "..aaa.." },               // an eye
+        new[] { ".aaaaa.", "aa.a.aa", "aaaaaaa", ".a.a.a." },                          // a skull
+        new[] { ".aa.aa.", "aaaaaaa", ".aaaaa.", "..aaa..", "...a..." },               // a heart
+        new[] { "aaaaa", "a...a", "a.a.a", "a.aaa", "a...." },                         // a spiral
+        new[] { "a.a.a", ".....", ".aaa.", "aaaaa", ".aaa." },                         // a paw
+        new[] { "..a..", ".aa..", ".aaa.", "aaaaa", ".aaa." },                         // a flame
+        new[] { "a.....a", "aa...aa", ".aa.aa.", "..aaa..", "...a..." },               // wings
+        new[] { "...a...", "..a.a..", ".a.a.a.", "a.....a", "aaaaaaa" },               // an eye in a triangle
     };
 
+    // Stencils, sprayed through a cut card: bigger marks with a soft dusting round them.
+    static readonly string[][] Stencils =
+    {
+        new[] { "a.......a", "aa.....aa", ".aaaaaaa.", ".a.aaa.a.", ".aaaaaaa.", "..aa.aa..", "...aaa..." }, // a horned beast's head
+        new[] { "..aaaaa..", ".aaaaaaa.", "aa..a..aa", "aaaaaaaaa", ".aa.a.aa.", "..aaaaa.." },              // a mask
+        new[] { "...aaa...", "..aaaaa..", "aaaaaaaaa", "..aaaaa..", "..a...a..", ".aa...aa." },              // a lantern
+    };
+
+    /// <summary>How much of a region's walls carry paint or posters: the undercity most, the city above none.</summary>
+    float GraffitiChance => _map.Theme switch { "Undercity" => 0.62f, "Mire" => 0.32f, "Ruins" => 0.24f, "Coast" => 0.07f, "Ranch" => 0.05f, _ => 0f };
+
     /// <summary>
-    /// Graffiti and posters on one undercity wall, or none (the user's ask for a grittier undercity,
-    /// 2026-11-02): a neon tag scrawled at street level with a drop shadow and drips, bubble letters,
-    /// a sprayed symbol, or a torn poster pasted up a storey. Painted in the wall's own skewed grid,
-    /// so it lies on the wall. Mask values: 1 paint, 2 its outline, 3 drips, 4 paper, 5 print, 6 shine.
+    /// Graffiti and posters on one wall, or none (the user's asks for a grittier undercity, 2026-11-02,
+    /// and for a lot more of it, 2026-11-03): scrawled tags (some ending in an arrow), two-tone bubble
+    /// letters, sprayed marks, stencils with their dusting, chunky throw-ups, a cluster of stickers, a
+    /// torn poster or a few pasted over each other, a patch painted over with a fresh tag on it, chem
+    /// stains running down, and on a tall wall a mural two storeys high. Chem colours in the Glowmire,
+    /// faded paint in the ruins, posters alone on the coast and at the ranch. Painted in the wall's own
+    /// skewed grid, so it lies on the wall. Mask values: 1 paint, 2 its outline, 3 drips and dust,
+    /// 4 paper, 5 print, 6 shine, 7 second paint, 8 its shade, 9 the painted-over patch, 10 more paper,
+    /// 11 a bright accent.
     /// </summary>
     (byte[,] mask, Color[] colors, int top)? WallArt(Vector2I t, int face, int h)
     {
         if (_wallArt.TryGetValue((t, face), out var cached)) return cached;
         var rng = new Creatures.SeededRng(Hash(t.X, t.Y, 70 + face));
-        (byte[,], Color[], int)? art = null;
-        if (rng.Chance(0.6f))
+        if (!rng.Chance(GraffitiChance)) return _wallArt[(t, face)] = null;
+        bool postersOnly = _map.Theme is "Coast" or "Ranch";
+        int kind = postersOnly ? 9 + rng.Int(2) : rng.Int(17);
+        if (kind == 13 && h < 2) kind = 4; // a mural wants two storeys
+        int rows = kind == 13 ? HS * 2 - 1 : ArtRows;
+        var mask = new byte[WallCols, rows];
+        var palette = _map.Theme switch { "Mire" => ChemPaint, "Ruins" => OldPaint, _ => Neon };
+        var paint = rng.Pick(palette);
+        var second = rng.Pick(palette);
+        if (second == paint) second = rng.Pick(palette);
+        var wall = TerrainOf(t) == Terrain.Roof ? HouseAt(t).Wall : _look.WallL;
+        var colors = new Color[12];
+        colors[1] = paint;
+        colors[2] = rng.Chance(0.6f) ? C("#120a18") : rng.Pick(palette);
+        colors[3] = paint.Darkened(0.25f);
+        colors[4] = rng.Pick(Papers);
+        colors[5] = C("#2a1e2e");
+        colors[6] = C("#ffffff");
+        colors[7] = second;
+        colors[8] = second.Darkened(0.3f);
+        colors[9] = wall.Lerp(C("#8a8a90"), 0.3f).Lightened(0.05f);
+        colors[10] = rng.Pick(Papers);
+        colors[11] = rng.Pick(palette).Lightened(0.3f);
+        if (_map.Theme == "Ruins") for (int i = 1; i < colors.Length; i++) colors[i] = colors[i].Lerp(wall, 0.45f); // weathered
+        int top = kind == 13 ? (h - 2) * HS + 1 : (h - 1) * HS + 1; // the street-level storey (and the one above, for a mural)
+        void Set(int x, int y, byte v, bool over = true)
         {
-            var mask = new byte[WallCols, ArtRows];
-            var paint = rng.Pick(Neon);
-            var colors = new Color[7];
-            colors[1] = paint;
-            colors[2] = rng.Chance(0.6f) ? C("#120a18") : rng.Pick(Neon);
-            colors[3] = paint.Darkened(0.25f);
-            colors[4] = rng.Pick(new[] { C("#e8dcc0"), C("#c84a3a"), C("#e8c040"), C("#7ab0d8") });
-            colors[5] = C("#2a1e2e");
-            colors[6] = C("#ffffff");
-            int top = (h - 1) * HS + 1; // the street-level storey
-            int kind = rng.Int(10);
-            void Set(int x, int y, byte v, bool over = true)
+            if (x < 2 || x >= WallCols - 2 || y < 0 || y >= rows) return;
+            if (over || mask[x, y] == 0) mask[x, y] = v;
+        }
+        void Tag(int strokes, bool arrow)
+        {
+            // Two or three scrawled strokes, a drop shadow, a few drips; maybe an arrowhead at the end.
+            int x = 3 + rng.Int(3), y = 4;
+            for (int k = 0; k < strokes; k++)
             {
-                if (x < 2 || x >= WallCols - 2 || y < 0 || y >= ArtRows) return;
-                if (over || mask[x, y] == 0) mask[x, y] = v;
-            }
-            if (kind < 4)
-            {
-                // A tag: two or three scrawled strokes, a drop shadow, a few drips.
-                int strokes = 2 + rng.Int(2), x = 3 + rng.Int(3);
-                for (int k = 0; k < strokes; k++)
+                y = 2 + rng.Int(5);
+                for (int step = 0; step < 5; step++)
                 {
-                    int y = 2 + rng.Int(5);
-                    for (int step = 0; step < 5; step++)
-                    {
-                        int nx = x + 1 + rng.Int(2), ny = Math.Clamp(y + rng.Int(5) - 2, 1, 8);
-                        for (int i = 0; i <= 8; i++) Set((int)Mathf.Round(Mathf.Lerp(x, nx, i / 8f)), (int)Mathf.Round(Mathf.Lerp(y, ny, i / 8f)), 1);
-                        x = nx; y = ny;
-                    }
-                    x = Math.Max(3, x - 6 + rng.Int(3));
+                    int nx = x + 1 + rng.Int(2), ny = Math.Clamp(y + rng.Int(5) - 2, 1, 8);
+                    for (int i = 0; i <= 8; i++) Set((int)Mathf.Round(Mathf.Lerp(x, nx, i / 8f)), (int)Mathf.Round(Mathf.Lerp(y, ny, i / 8f)), 1);
+                    x = nx; y = ny;
                 }
-                Outline(mask, Set);
-                Drips(mask, rng, Set);
+                if (k < strokes - 1) x = Math.Max(3, x - 6 + rng.Int(3));
             }
-            else if (kind < 6)
+            if (arrow) { Set(x, y - 2, 1); Set(x, y + 2, 1); Set(x + 1, y - 1, 1); Set(x + 1, y + 1, 1); Set(x + 2, y, 1); }
+            Outline(mask, Set);
+            Drips(mask, rng, Set);
+        }
+        void Mark(string[] art, byte v, int x0, int y0)
+        {
+            for (int y = 0; y < art.Length; y++)
+            for (int x = 0; x < art[y].Length; x++)
+                if (art[y][x] == 'a') Set(x0 + x, y0 + y, v);
+        }
+        switch (kind)
+        {
+            case < 4:
+                Tag(2 + rng.Int(2), kind == 3);
+                break;
+            case 4 or 5:
             {
-                // Bubble letters: fat round shapes side by side, outlined, with a shine.
+                // Bubble letters: fat round shapes side by side, two-tone, outlined, with a shine.
                 int n = 2 + rng.Int(2), x0 = 4 + rng.Int(2);
                 for (int i = 0; i < n; i++)
                 {
                     float cx = x0 + i * 5.2f, cy = 5 + rng.Range(-1f, 1f), rx = 2.6f, ry = 3.3f;
                     for (int y = 0; y < ArtRows; y++)
                     for (int x = 0; x < WallCols; x++)
-                        if (Sq((x - cx) / rx) + Sq((y - cy) / ry) <= 1) Set(x, y, 1);
+                        if (Sq((x - cx) / rx) + Sq((y - cy) / ry) <= 1) Set(x, y, y > cy ? (byte)7 : (byte)1);
                     Set((int)cx - 1, (int)cy - 2, 6);
                 }
                 Outline(mask, Set, all: true);
                 Drips(mask, rng, Set);
+                break;
             }
-            else if (kind < 8)
+            case 6 or 7 or 8:
             {
                 var sym = rng.Pick(Symbols);
-                int x0 = 4 + rng.Int(WallCols - 10), y0 = 1 + rng.Int(Math.Max(1, ArtRows - sym.Length - 2));
-                for (int y = 0; y < sym.Length; y++)
-                for (int x = 0; x < sym[y].Length; x++)
-                    if (sym[y][x] == 'a') Set(x0 + x, y0 + y, 1);
+                int w = sym.Max(r => r.Length);
+                Mark(sym, 1, 4 + rng.Int(Math.Max(1, WallCols - w - 7)), 1 + rng.Int(Math.Max(1, ArtRows - sym.Length - 2)));
                 Outline(mask, Set);
                 Drips(mask, rng, Set);
+                break;
             }
-            else
+            case 9:
             {
                 // A poster, pasted up and torn at a corner, a storey higher if there is one.
                 if (h > 1) top = (h - 2) * HS + 1;
@@ -498,10 +531,101 @@ public sealed class IsoArt
                     if (!(x == 5 && y == 0) && !(x == 0 && y == 6 && rng.Chance(0.5f))) Set(x0 + x, y0 + y, 4);
                 for (int x = 1; x < 5; x++) Set(x0 + x, y0 + 2, 5);
                 Set(x0 + 2, y0 + 4, 5); Set(x0 + 3, y0 + 4, 5); Set(x0 + 1, y0 + 5, 5);
+                break;
             }
-            art = (mask, colors, top);
+            case 10:
+            {
+                // Posters pasted over each other, two papers, their print in rows.
+                int x0 = 3 + rng.Int(4);
+                for (int p = 0; p < 2 + rng.Int(2); p++)
+                {
+                    int px0 = x0 + p * (3 + rng.Int(3)), py0 = 1 + rng.Int(3), w = 4 + rng.Int(3), ht = 5 + rng.Int(3);
+                    byte paper = p % 2 == 0 ? (byte)4 : (byte)10;
+                    for (int y = 0; y < ht; y++)
+                    for (int x = 0; x < w; x++)
+                        if (!(y == 0 && x == w - 1 && rng.Chance(0.6f))) Set(px0 + x, py0 + y, paper);
+                    for (int y = 2; y < ht - 1; y += 2)
+                    for (int x = 1; x < w - 1; x++)
+                        if (rng.Chance(0.7f)) Set(px0 + x, py0 + y, 5);
+                }
+                break;
+            }
+            case 11:
+            {
+                // A stencil: a crisp mark with a dusting of spray round it.
+                var st = rng.Pick(Stencils);
+                int x0 = 3 + rng.Int(WallCols - 14), y0 = 1 + rng.Int(3);
+                for (int k = 0; k < 14; k++) Set(x0 - 1 + rng.Int(st[0].Length + 2), y0 - 1 + rng.Int(st.Length + 2), 3, false);
+                Mark(st, 1, x0, y0);
+                break;
+            }
+            case 12:
+            {
+                // Stickers slapped up one over another.
+                for (int k = 0; k < 5 + rng.Int(4); k++)
+                {
+                    int x0 = 3 + rng.Int(WallCols - 7), y0 = 1 + rng.Int(ArtRows - 4), w = 2 + rng.Int(2);
+                    byte v = (byte)(k % 3 == 0 ? 4 : k % 3 == 1 ? 10 : 11);
+                    for (int y = 0; y < 2; y++)
+                    for (int x = 0; x < w; x++) Set(x0 + x, y0 + y, v);
+                    if (rng.Chance(0.5f)) Set(x0, y0, 5);
+                }
+                break;
+            }
+            case 13:
+            {
+                // A mural two storeys high: a sun of two colours, its rays in a third, outlined.
+                float cx = WallCols / 2f + rng.Range(-2f, 2f), cy = rows / 2f, r = 6.2f;
+                for (int y = 0; y < rows; y++)
+                for (int x = 0; x < WallCols; x++)
+                {
+                    float dx = x + 0.5f - cx, dy = y + 0.5f - cy, d = Mathf.Sqrt(dx * dx + dy * dy);
+                    if (d <= r) Set(x, y, d < r * 0.45f ? (byte)6 : d < r * 0.75f ? (byte)1 : (byte)7);
+                    else if (d <= r + 3.5f && (int)((Mathf.Atan2(dy, dx) + Mathf.Pi) / Mathf.Tau * 12 + 0.5f) % 2 == 0) Set(x, y, 11);
+                }
+                Outline(mask, Set, all: true);
+                break;
+            }
+            case 14:
+            {
+                // A patch where the owner painted a tag over, and somebody's fresh tag on it.
+                int x0 = 3 + rng.Int(3), w = 12 + rng.Int(6);
+                for (int y = 1; y < 10; y++)
+                for (int x = x0; x < x0 + w; x++) Set(x, y, 9);
+                if (rng.Chance(0.7f)) Tag(2, false);
+                break;
+            }
+            case 15:
+            {
+                // A throw-up: two chunky letters, filled, outlined, a stripe of shine.
+                int x0 = 4 + rng.Int(3);
+                for (int i = 0; i < 2; i++)
+                {
+                    int lx = x0 + i * 7, w = 5 + rng.Int(2);
+                    for (int y = 2; y < 9; y++)
+                    for (int x = lx; x < lx + w; x++)
+                        if (!((y == 2 || y == 8) && (x == lx || x == lx + w - 1))) Set(x, y, 1);
+                    for (int y = 4; y < 7; y++) Set(lx + w / 2, y, 2); // the letter's hole
+                    Set(lx + 1, 3, 6); Set(lx + 2, 3, 6);
+                }
+                Outline(mask, Set, all: true);
+                Drips(mask, rng, Set);
+                break;
+            }
+            default:
+            {
+                // Stains running down from a leak: long drips of chem or rust under a crusted rim.
+                int n = 2 + rng.Int(3);
+                for (int k = 0; k < n; k++)
+                {
+                    int x = 3 + rng.Int(WallCols - 6), len = 4 + rng.Int(ArtRows - 4);
+                    Set(x, 0, 1); Set(x + 1, 0, 1);
+                    for (int y = 1; y < len; y++) Set(x, y, 3);
+                }
+                break;
+            }
         }
-        return _wallArt[(t, face)] = art;
+        return _wallArt[(t, face)] = (mask, colors, top);
     }
 
     static float Sq(float v) => v * v;
@@ -510,9 +634,9 @@ public sealed class IsoArt
     static void Outline(byte[,] mask, Action<int, int, byte, bool> set, bool all = false)
     {
         var paint = new List<(int x, int y)>();
-        for (int y = 0; y < ArtRows; y++)
-        for (int x = 0; x < WallCols; x++)
-            if (mask[x, y] is 1 or 6) paint.Add((x, y));
+        for (int y = 0; y < mask.GetLength(1); y++)
+        for (int x = 0; x < mask.GetLength(0); x++)
+            if (mask[x, y] is 1 or 6 or 7 or 11) paint.Add((x, y));
         foreach (var (x, y) in paint)
             foreach (var (dx, dy) in all ? new[] { (1, 0), (-1, 0), (0, 1), (0, -1) } : new[] { (1, 1), (0, 1) })
                 set(x + dx, y + dy, 2, false);
@@ -521,11 +645,12 @@ public sealed class IsoArt
     /// <summary>Runs of paint down the wall from the lowest strokes.</summary>
     static void Drips(byte[,] mask, Creatures.SeededRng rng, Action<int, int, byte, bool> set)
     {
+        int rows = mask.GetLength(1);
         for (int d = 0, tries = 0; d < 2 + rng.Int(2) && tries < 40; tries++)
         {
-            int x = 2 + rng.Int(WallCols - 4), y = ArtRows - 1;
-            while (y > 0 && mask[x, y] != 1) y--;
-            if (mask[x, y] != 1) continue;
+            int x = 2 + rng.Int(WallCols - 4), y = rows - 1;
+            while (y > 0 && mask[x, y] is not (1 or 7)) y--;
+            if (mask[x, y] is not (1 or 7)) continue;
             for (int k = 1; k <= 1 + rng.Int(3); k++) set(x, y + k, 3, false);
             d++;
         }
@@ -696,7 +821,42 @@ public sealed class IsoArt
             float u = dy / TH + dx / TW, v = dy / TH - dx / TW;
             var c = shade(x, y, u, v);
             img.SetPixel(x, y, _fade > 0 ? c.Darkened(_fade) : c);
+            if (_tops != null) _tops[y * Width + x] = _owner;
         }
+    }
+
+    /// <summary>The index a battlefield tile's top is kept under in the tops map, or -1 for the surroundings.</summary>
+    short TopId(Vector2I t) => Outside(t) == 0 ? (short)(t.Y * _map.W + t.X) : (short)-1;
+
+    /// <summary>
+    /// A battlefield tile's highlight as two masks over its box at board pixel <c>at</c>: the fill (its
+    /// top inset a pixel) and the rim round it, white where they're drawn. Unless <paramref name="whole"/>,
+    /// only where the tile's top can be seen, not where a block in front covers it; and whether any of it
+    /// is covered. Needs <see cref="KeepTops"/> set before the board was painted.
+    /// </summary>
+    public (Image fill, Image rim, Vector2I at, bool hidden) TopMask(Vector2I t, bool whole = false)
+    {
+        var c = TileCenter(new Vector2(t.X, t.Y), _map.HeightAt(t));
+        float hw1 = TW / 2f - 2, hh1 = TH / 2f - 1, hw2 = TW / 2f - 4, hh2 = TH / 2f - 2;
+        var at = new Vector2I(Mathf.FloorToInt(c.X - hw1), Mathf.FloorToInt(c.Y - hh1));
+        int w = Mathf.CeilToInt(c.X + hw1) - at.X, h = Mathf.CeilToInt(c.Y + hh1) - at.Y;
+        var fill = Image.CreateEmpty(w, h, false, Image.Format.Rgba8);
+        var rim = Image.CreateEmpty(w, h, false, Image.Format.Rgba8);
+        short id = TopId(t);
+        bool hidden = false;
+        for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
+        {
+            float dx = Mathf.Abs(at.X + x + 0.5f - c.X), dy = Mathf.Abs(at.Y + y + 0.5f - c.Y);
+            if (dx / hw1 + dy / hh1 > 1) continue;
+            int bx = at.X + x, by = at.Y + y;
+            bool seen = _tops == null || (bx >= 0 && by >= 0 && bx < Width && by < Height && _tops[by * Width + bx] == id);
+            if (!seen) hidden = true;
+            if (!seen && !whole) continue;
+            fill.SetPixel(x, y, Colors.White);
+            if (dx / hw2 + dy / hh2 > 1) rim.SetPixel(x, y, Colors.White);
+        }
+        return (fill, rim, at, hidden);
     }
 
     void Line(Image img, Vector2 a, Vector2 b, Color c)

@@ -80,6 +80,19 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   stat up/down), `Ui.Chips` (glyph + number). A glyph before every stat; full text only in
   tooltips; colour only as a second cue. New skills need an entry in `SkillIcons.SkillGlyph`;
   check `--icons` (writes `.shots/icons.png`).
+- **Menu style: Gilt and neon** (the user's pick, 2026-11-03; research, rules and the other three
+  candidates in `docs/ui-style.md`). The city's gold line with stepped Art Deco corners round smoked
+  violet glass, an undercity neon tube inside it: unlit, glowing faintly under the pointer, lit cyan
+  for the pad's focus, pink when pressed. Frames are pixel nine-slices painted in code
+  (`UI/UiSkin.cs`; a frame pixel is the board's 3x, small buttons' 2x) and go on Godot's default
+  theme at start, so every button, panel, tooltip and slider takes them. Screens that draw their own
+  boxes use `UiSkin.Box(part, state)`; a box whose light means something uses `UiSkin.Lit` (pens
+  cards: gold chosen, pink in a vat, cyan in the squad; the turn order by side; the skill being
+  aimed); `UiSkin.Tight` gives an icon or portrait less room. A button whose words are 16 points or
+  less takes the small frame (`UiSkin.Adapt`). The phone pad is drawn in it too (`PaintRings`). New
+  boxes go through `UiSkin`, never a fresh `StyleBoxFlat`. The game icon (`icon/icon.png`, `--icon`)
+  is Blaze in the frame. `--ui=plain|gilded|neon|iron` puts another style on for comparing;
+  `--uiboard=NAME --shot=30` shows a style's parts side by side (`UI/StyleBoard.cs`).
 
 ## Status
 
@@ -187,13 +200,28 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   (`PropArt.Place` places both). They're scenery, never part of the battle (`Pick` is map-only).
   Battles, cutscenes, the base and the title use `BattleScreen.Skirt` (8). The battle camera
   (`BattleScreen.Camera`) draws the board at 3x (wheel: 2 to 3.5), follows whoever acts, pans with
-  WASD / arrows / a middle-drag, and keeps over the battlefield; the HUD sits on its own canvas
+  WASD / arrows / a middle-drag, and keeps over the battlefield. **Tile highlights keep to what
+  can be seen** (the user's call, 2026-11-03): `IsoArt.KeepTops` records which tile's top shows at
+  each board pixel as it paints, `TopMask` cuts a highlight to it, and `BoardOverlay` draws a tile
+  hidden behind a block in front only where it shows, or whole while the cursor is on it. The HUD sits on its own canvas
   layer above the board's depth-sorted sprites. Small ground details (tufts,
   cracks, fungus, neon puddles) are painted per tile. **The undercity's grime** (the user's ask,
   2026-11-02): broken streetlights (`l`) that stutter and spark, leaking hydrants (`y`) spraying
   into a rippling puddle, steam grates (`v`), and neon signs buzzing out now and then, animated by
   `PropFx` (show only, never the rules); graffiti tags, bubble letters, sprayed symbols and torn
-  posters on undercity walls (`IsoArt.WallArt`, from the wall's tile). `PropArt.Place` puts a map's
+  posters on undercity walls (`IsoArt.WallArt`, from the wall's tile). **Houses** (the user's ask
+  for a lot more variation, 2026-11-03; `Tactics/Houses.cs`): each run of roof tiles of one height
+  is a `House` rolled from its first tile and its region's `Street`: wall material (plaster,
+  timbered, brick, boards, tin, stone) and colour, roof (shingles, tin, a flat roof with a parapet,
+  vents and lit skylights, slate, copper, thatch, snow), windows (square, arched, portholes,
+  shuttered, boarded, barred; lit in the house's colours with a glow on the wall), doors (lit
+  fanlights, roller shutters), awnings, flower boxes, wall lamps, neon signs with a mark, drainpipes,
+  ivy, icicles; lamps and lit doorways pool light on the street in front (`Spill`). The undercity is
+  grimy brick, tin and boards lit in every colour; the city above pastel plaster and stone, arched
+  and shuttered windows, awnings and flowers. `WallArt` has 17 kinds (tags, arrows, two-tone
+  bubbles, 13 marks, stencils, throw-ups, stickers, pasted posters, painted-over patches with fresh
+  tags, chem stains, two-storey murals) in the undercity, the Glowmire (chem colours) and the ruins
+  (faded), and posters alone on the coast and at the ranch. All of it is painting, never the rules. `PropArt.Place` puts a map's
   props on any board (battles and cutscenes). `--props` writes every prop in every region's colours. Sightings promise a codex-missing part. After touching maps or AI, run
   `--autoboard=6`: no mission may stall. Your side's AI plays the objective (`PlayerPlan` in
   `Battle.cs`): hunts focus the alpha, hold-outs keep together and out of reach, captures never

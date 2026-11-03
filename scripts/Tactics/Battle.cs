@@ -50,6 +50,9 @@ public sealed partial class Battle
     public Unit Target;          // Capture: recruit it. Hunt: bring it down.
     public int SurviveRounds;    // Survive: still standing after this many rounds
     public const int DuelRounds = 20; // Duel: if both squads still stand after this many rounds, the one with more HP left wins
+    // Capture: past this many rounds your side's AI stops holding back and fights it out (on the bigger
+    // town maps a careful last creature could otherwise keep clear of a loyal pair for ever).
+    public const int CaptureGiveUp = 20;
     public Mission Mission;
 
     readonly SeededRng _rng;
@@ -1098,6 +1101,9 @@ public sealed partial class Battle
     /// <summary>A loyal target nobody can win over any more: no packmate joined and none is left to win.</summary>
     bool LoyalLost() => Quarry is { Attitude: Attitude.Loyal } q && Recruited.Count == 0 && Mark() == q;
 
+    /// <summary>A capture that's gone on too long: your side gives it up and fights.</summary>
+    bool GivenUp => Goal == Objective.Capture && Round > CaptureGiveUp;
+
     /// <summary>
     /// Whether the player side may hurt this creature. Capturing means not knocking the target
     /// out (it would flee), except for the one champion a proud target has to lose to; the same
@@ -1106,7 +1112,7 @@ public sealed partial class Battle
     /// </summary>
     bool MayHurt(Unit u, Unit t)
     {
-        if (u.Side != Side.Player || Goal != Objective.Capture || Quarry is not { } q) return true;
+        if (u.Side != Side.Player || Goal != Objective.Capture || Quarry is not { } q || GivenUp) return true;
         if (t == q && LoyalLost()) return true; // nothing left to win: end it
         var mark = Mark();
         if ((t == q || t == mark) && !(t.Attitude == Attitude.Proud && Champion() == u)) return false;
@@ -1133,7 +1139,7 @@ public sealed partial class Battle
     Unit Avoid(Unit o)
     {
         var m = Mark();
-        if (m == null || LoyalLost() || m.Attitude == Attitude.Proud && Champion() == o) return null;
+        if (m == null || LoyalLost() || GivenUp || m.Attitude == Attitude.Proud && Champion() == o) return null;
         if (BitesBack(o))
             foreach (var w in new[] { Quarry, m }.Distinct())
                 if (w.Attitude != Attitude.Skittish && (w.Attitude == Attitude.Proud || Preview(o, w).dmg * 1.2f + o.Thorns >= w.Hp))
@@ -1212,7 +1218,7 @@ public sealed partial class Battle
             var at = tiles.Where(p => InRange(u, p, q)).ToList();
             return at.Count > 0 ? at.OrderByDescending(p => FootHeight(u, p)).ThenBy(p => p == u.Pos ? 0 : 1).First() : Toward(q);
         }
-        if (Goal == Objective.Capture && q != null)
+        if (Goal == Objective.Capture && q != null && !GivenUp)
         {
             q = Mark();
             if (q.Attitude == Attitude.Proud && Champion() == u)

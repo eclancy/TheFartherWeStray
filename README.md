@@ -294,7 +294,8 @@ takes you back to the ranch, where your recruits, chem and JP are waiting.
 | Mouse wheel | zoom in and out |
 | Enter | after a battle: back home |
 
-Battles are seen close up, and every map stands in its own surroundings: the undercity's dark
+Battles are seen close up. The town maps are bigger than the rest: a street, sheds and houses
+ring the old square on every side, and every roof can be climbed to. Every map stands in its own surroundings: the undercity's dark
 streets and neon, the city above's red roofs and gardens, snowfields, dunes, basalt and lava, the
 sea, crystal caverns, the fields round your base. The surroundings are scenery, a little darker
 than the battlefield; only the battlefield can be walked.

@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using CreatureTactics.Creatures;
 using Godot;
 
@@ -95,19 +97,110 @@ public sealed partial class BattleMap
 
     public static BattleMap ByName(string name) => name switch
     {
-        "Brass Bridges" => Bridges(),
+        "Brass Bridges" => Grow(Bridges(), TownRing),
         "Glowmire" => Sump(),
-        "Clocktower Ruins" => Clocktower(),
+        "Clocktower Ruins" => Grow(Clocktower(), TownRing),
         "Hexlight Hollow" => Hollow(),
-        "Lantern Row" => LanternRow(),
-        "Gilded Gardens" => Gardens(),
+        "Lantern Row" => Grow(LanternRow(), TownRing),
+        "Gilded Gardens" => Grow(Gardens(), TownRing),
         "Frostfang Pass" => Frost(),
         "Sunscorch Dunes" => Dunes(),
         "Cinder Rift" => Cinder(),
         "Saltwind Coast" => Coast(),
         "The Grand Coliseum" => Coliseum(),
-        _ => Foundry(),
+        _ => Grow(Foundry(), TownRing),
     };
+
+    /// <summary>How many tiles of streets and houses the town maps grow by on every side.</summary>
+    public const int TownRing = 3;
+
+    BattleMap(string name, int w, int h)
+    {
+        Name = name;
+        W = w;
+        H = h;
+        _terrain = new Terrain[w * h];
+        _height = new int[w * h];
+    }
+
+    /// <summary>
+    /// A town map grown by a ring of city on every side (the user's ask, 2026-11-02: bigger maps, a
+    /// proper city): the handmade map whole in the middle, then a street round its edge, then blocks
+    /// of houses cut by alleys. The blocks step up a storey at a time (a row of sheds, then the houses
+    /// behind), so every roof can be climbed to: nothing can perch where nobody can follow. Lamps,
+    /// signs and crates stand along the street now and then. The anchors move with the middle.
+    /// </summary>
+    static BattleMap Grow(BattleMap core, int ring)
+    {
+        var m = new BattleMap(core.Name, core.W + 2 * ring, core.H + 2 * ring)
+        {
+            Blurb = core.Blurb, Theme = core.Theme, Plans = core.Plans, Strains = core.Strains, Elements = core.Elements,
+            PlayerAnchor = core.PlayerAnchor + new Vector2I(ring, ring), WildAnchor = core.WildAnchor + new Vector2I(ring, ring),
+        };
+        uint salt = (uint)SeededRng.Hash(core.Name);
+        uint R(int x, int y, int k) { uint h = (uint)(x * 374761393 + y * 668265263 + (int)(salt % 100000) * 31 + k * 2246822519); h = (h ^ (h >> 13)) * 1274126177; return h ^ (h >> 16); }
+        bool uptown = core.Theme == "Uptown", ruins = core.Theme == "Ruins";
+        for (int y = 0; y < m.H; y++)
+        for (int x = 0; x < m.W; x++)
+        {
+            var t = new Vector2I(x, y);
+            var c = t - new Vector2I(ring, ring); // in the core's own tiles
+            int i = y * m.W + x;
+            if (core.InBounds(c))
+            {
+                m._terrain[i] = core.TerrainAt(c);
+                m._height[i] = core.HeightAt(c);
+                continue;
+            }
+            // How far out of the middle, and which way the ring runs here (its blocks are cut along it).
+            int dx = c.X < 0 ? -c.X : c.X >= core.W ? c.X - core.W + 1 : 0, dy = c.Y < 0 ? -c.Y : c.Y >= core.H ? c.Y - core.H + 1 : 0;
+            int d = Math.Max(dx, dy);
+            int along = dx >= dy ? c.Y : c.X;
+            bool alley = along % 4 == 0 || dx > 0 && dy > 0 && (dx + dy) % 3 == 0;
+            uint r = R(x, y, 0);
+            Terrain terrain;
+            int height;
+            if (d == 1 || alley)
+            {
+                // The street round the old edge, and the alleys out through the blocks.
+                terrain = uptown && r % 4 == 0 ? Terrain.Grass : ruins && r % 3 == 0 ? Terrain.Grass : Terrain.Stone;
+                height = 0;
+            }
+            else
+            {
+                // Sheds a storey high along the street, houses two storeys behind them (ruins lower).
+                terrain = ruins && r % 3 == 0 ? Terrain.Grass : Terrain.Roof;
+                height = terrain == Terrain.Grass ? 0 : ruins ? 1 : Math.Min(2, d - 1);
+            }
+            m._terrain[i] = terrain;
+            m._height[i] = height;
+        }
+        // The middle's props, moved with it; a few more along the new street.
+        foreach (var (tile, prop) in core.Props) m.Add(tile + new Vector2I(ring, ring), prop);
+        for (int y = 0; y < m.H; y++)
+        for (int x = 0; x < m.W; x++)
+        {
+            var t = new Vector2I(x, y);
+            if (core.InBounds(t - new Vector2I(ring, ring)) || m.TerrainAt(t) == Terrain.Roof || m.HeightAt(t) != 0) continue;
+            uint r = R(x, y, 9);
+            if (r % 11 != 0) continue;
+            // Never next to another prop, so the street stays open.
+            if (m.Props.Any(p => Math.Abs(p.tile.X - x) + Math.Abs(p.tile.Y - y) <= 2)) continue;
+            m.Add(t, core.Theme switch
+            {
+                "Uptown" => r % 3 == 0 ? Prop.Tree : r % 3 == 1 ? Prop.Lamp : Prop.Statue,
+                "Ruins" => r % 2 == 0 ? Prop.Rock : Prop.DeadTree,
+                _ => r % 4 == 0 ? Prop.Neon : r % 4 == 1 ? Prop.BrokenLamp : r % 4 == 2 ? Prop.Crate : Prop.Lamp,
+            });
+        }
+        return m;
+    }
+
+    void Add(Vector2I t, Prop prop)
+    {
+        Props.Add((t, prop));
+        if (PropArt.Blocks(prop)) _blocked.Add(t);
+    }
 
     // Terrain: '.' moss/grass, ',' stone, 'b' brass, '~' chem, ' ' pit, 'x' crystal, 'h' roof,
     //          'w' wooden boards, '-' dirt, '=' water.

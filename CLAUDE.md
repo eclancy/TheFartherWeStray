@@ -144,7 +144,11 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   at half size (cutscene dialogue sits low).
 - Missions (`Tactics/Mission.cs`): a board of four contracts per encounter (Rout, Capture, Hunt,
   Hold out) on twelve handmade maps (`BattleMap.cs`, `BattleMapsFar.cs`, about 16x13 since 2026-11-02 when the user
-  asked for larger maps), each with a look (`Look` in `IsoArt.cs`) and fauna odds. Maps have three
+  asked for larger maps; the five town maps, Lantern Row, the Foundry, the Brass Bridges, the Gilded
+  Gardens and the Clocktower Ruins, grow by `BattleMap.Grow` to about 22x19: the handmade map whole
+  in the middle, a street round it, then house blocks cut by alleys, stepping up a storey at a time
+  so every roof can be climbed to; anchors move with the middle, so scenes' `player+DX,DY` tiles
+  still fit), each with a look (`Look` in `IsoArt.cs`) and fauna odds. Maps have three
   grids: terrain (now with roofs, boards, dirt and water), heights, and props. Buildings are roof
   tiles on house-front walls (FFTA towns: fliers and climbers stand on roofs). Props
   (`Props.cs`: 25 kinds, trees to neon signs, built like creatures and coloured per region) block
@@ -171,9 +175,11 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   its blow could fell keeps clear; for a loyal target, `Mark` first wins over its easiest
   packmate). Creatures whose thorns or counters could fell the target keep out of its reach
   (`Avoid`). `--capturetest=10` plays a capture with the target set to each temper: on
-  2026-11-02 proud 8/10, skittish 7, curious 9, aggressive 6, loyal 2, no stalls. Loyal stays low
-  because the target fights at full strength while you may not touch it (the rule is a
-  placeholder). `--trace=TITLE` prints the full log of matching missions (`--trace=8Loyal` in
+  2026-11-02 proud 8/10, skittish 7, curious 9, aggressive 6, loyal 2, no stalls; on the grown
+  town maps proud 8, skittish 7, curious 10, aggressive 7, loyal 6. Loyal stays lowest because the
+  target fights at full strength while you may not touch it (the rule is a placeholder). After
+  `Battle.CaptureGiveUp` (20) rounds your side's AI gives a capture up and fights it out: on the
+  bigger maps a last creature could otherwise keep clear of a loyal pair for ever. `--trace=TITLE` prints the full log of matching missions (`--trace=8Loyal` in
   `--capturetest`).
 - **Tamers and the party (the user's direction, 2026-11-02, built):** the player leads creatures
   as a tamer (the user's name, 2026-11-02: friendlier than "general" or the working name "warden";

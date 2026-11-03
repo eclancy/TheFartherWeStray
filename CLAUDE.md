@@ -17,6 +17,12 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   Sump, chemtech). Strains show as Chemborn and Runic (`Strain.Label()`); the `Strain` enum names and
   the `hextech_core` and `shimmer_*` ids stay because saves store them. The marsh is the Glowmire;
   the city above's look is `Uptown`.
+- **Theme: industrial fantasy** (the user, 2026-11-02): a magic world in its industrial age, as in
+  Arcane. The city above is a gilded golden age (royal, spires, old money); the undercity is smog,
+  pipes, alchemy and chemicals glowing in glass, with neon signs but **no computers**. Lean away
+  from neon punk's hacking side (screens, code, cyberware) everywhere, and from brass-and-gears
+  steampunk in names. Machines are clockwork, steam and chemistry; the creature tiers fit it
+  (the undercity's rigs and chemicals, the city above's thoroughbreds and breeding).
 - The current sprite fidelity (medium creature about Gen 3 size, four tones, selective outlines)
   is what the user wants. Don't shrink it.
 - **Chosen look: "Neon Undercity"** (2026-11-01), the default `ArtStyle`. The user compared five

@@ -21,6 +21,10 @@ at the user's request. Nothing beyond what's marked as the user's direction is d
 - **Three endings** (2026-11-02): **bringing justice to the undercity**, **bringing chaos to the
   main city**, or **finding peace between them**. Alignment, how story missions are solved and
   dialogue choices steer toward one.
+- **Theme: industrial fantasy** (2026-11-02): a magic world in its industrial age, as in Arcane.
+  The city above is a gilded golden age (royal, spires, old money, showy progress); the undercity
+  is smog, pipes, alchemy and chemicals glowing in glass, with neon signs but no computers. Not
+  neon punk's hacking side, and names not steampunk.
 - **The two sides in the creatures** (2026-11-02): biological, breedable traits belong with the
   city above; mechanical and chemical augments (neon and metal, chemical and weapon-like attacks)
   belong with the undercity. See `design-notes.md`, Traits and augments.

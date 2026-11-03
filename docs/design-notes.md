@@ -51,9 +51,9 @@ stronger it gets, the farther it strays from what it was, which fits The Farther
 - **Names shouldn't lean steampunk**, and not every one needs "lantern" in it. On the call the
   user called the game more neon punk; afterwards (2026-11-02) they asked to lean away from neon
   punk too if it means hacking, and it usually reads that way (cyberpunk: screens, hackers,
-  cyberware). Suggested instead, open: **industrial fantasy**, Arcane's own mix. That means a
-  gilded city above in its golden age, and an undercity of smog, pipes, alchemy and glowing
-  chemicals, with neon signs but no computers.
+  cyberware). **The theme is industrial fantasy** (the user chose it, 2026-11-02): Arcane's own
+  mix. That means a gilded city above in its golden age, and an undercity of smog, pipes, alchemy
+  and glowing chemicals, with neon signs but no computers.
 
 **Tasks from the call:**
 - [ ] Name the DNA tier. Options so far: Spliced, Chimera (two creatures combined), Mutant (the

@@ -425,6 +425,14 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   with its password beside it (`.secret`), never in the repo; Android only installs an update
   signed with the same key, so it must be backed up off this machine. `--icon` paints the launcher
   icons into `icon/` (Blaze on the night colour).
+- **Windows export and releases (2026-11-03):** `tools/windows-build.sh` writes
+  `build/windows/TheFartherWeStray-windows.zip` (a folder to unzip and run: `TheFartherWeStray.exe`,
+  its `.pck` and the .NET assemblies) from the `Windows Desktop` preset (x86_64; the exe takes the
+  project icon and `config/version`). It isn't code-signed, so SmartScreen warns on first run. A
+  release is a GitHub release `vX.Y.Z` on eclancy/TheFartherWeStray (public) carrying
+  `TheFartherWeStray-android.apk` and `TheFartherWeStray-windows.zip` by those names:
+  ecec.dev/the-farther-we-stray/download links to `releases/latest/download/NAME`. Bump
+  `config/version` and the APK's version code together.
 - Not built yet: the story itself (themes and three endings set by the user, in
   `docs/story-notes.md`; the flags, standing and endings machinery and the cutscene player are
   built) and the network side of PvP. The

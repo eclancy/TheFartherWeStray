@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Creatures;
-using CreatureTactics.Story;
-using CreatureTactics.Tactics;
-using CreatureTactics.UI;
+using TheFartherWeStray.Creatures;
+using TheFartherWeStray.Story;
+using TheFartherWeStray.Tactics;
+using TheFartherWeStray.UI;
 using Godot;
 
-namespace CreatureTactics.Ranching;
+namespace TheFartherWeStray.Ranching;
 
 /// <summary>
 /// Home: the base you walk around (the user's direction, 2026-11-02). You're on the board as a person;

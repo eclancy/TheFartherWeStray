@@ -1,10 +1,10 @@
 using System;
 using System.Linq;
-using CreatureTactics.Party;
-using CreatureTactics.UI;
+using TheFartherWeStray.Party;
+using TheFartherWeStray.UI;
 using Godot;
 
-namespace CreatureTactics.Ranching;
+namespace TheFartherWeStray.Ranching;
 
 /// <summary>
 /// The party: every tamer, who's joined, who's going into the next battle (at most two), and the

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 
-namespace CreatureTactics.Creatures;
+namespace TheFartherWeStray.Creatures;
 
 /// <summary>
 /// Draws a creature the way FFTA shows its units: from above and to the side, facing a screen

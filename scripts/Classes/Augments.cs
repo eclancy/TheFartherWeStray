@@ -1,7 +1,7 @@
 using System.Linq;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Creatures;
 
-namespace CreatureTactics.Classes;
+namespace TheFartherWeStray.Classes;
 
 /// <summary>An augment: a graft bolted on (its look and its stats) and the attack it brings.</summary>
 public sealed class AugmentDef

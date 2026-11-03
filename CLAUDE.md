@@ -1,8 +1,11 @@
-# CLAUDE.md - Creature Tactics
+# CLAUDE.md - The Farther We Stray
 
-**The game is called The Farther We Stray** (the user, 2026-11-02): `GameRoot.Title`, on the title
-screen and the window. The project, solution, folder and `config/name` keep Creature Tactics:
-changing `config/name` moves `user://` and loses every save. The story's theme: the city above is
+**The game is called The Farther We Stray** (the user, 2026-11-02): `GameRoot.Title`, the project's
+`config/name`, the solution and project (`TheFartherWeStray.sln`, `.csproj`), the assembly and the
+root namespace (`TheFartherWeStray`). The old working name is gone everywhere but one place:
+`GameRoot.BringOverOldSaves` copies saves and settings once from the old `user://` folder (user://
+follows `config/name`, so renaming the game moved it; never rename it again without a copy like
+that). The local folder may still have the old name until the user renames it. The story's theme: the city above is
 just as corrupt as the city below (`docs/story-notes.md`). **Words on screen** (the user, for now):
 your tamed creatures (and a tamer's) are **beasts** ("your beasts"); uncaught ones are **strays**;
 general rules text and the code say creature. No automatic nicknames: players name their beasts.
@@ -371,7 +374,7 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
 
 ## Build and check
 
-- `dotnet build CreatureTactics.sln` is the fast check.
+- `dotnet build TheFartherWeStray.sln` is the fast check.
 - **Battle rules:** `"$GODOT_BIN" --headless --path . -- --autobattle=N` prints an AI-vs-AI log.
   After any rules change, run seeds 1-20: every one should end in under 30 rounds. Stalemates have
   come from kiting skittish fliers and from units stuck behind cliffs.

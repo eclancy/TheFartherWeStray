@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Godot;
 
-namespace CreatureTactics.UI;
+namespace TheFartherWeStray.UI;
 
 /// <summary>
 /// Small pixel glyphs for stats, statuses and skill effects, after WizardSurvivors' stat glyphs:

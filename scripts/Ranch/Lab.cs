@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Creatures;
 
-namespace CreatureTactics.Ranching;
+namespace TheFartherWeStray.Ranching;
 
 /// <summary>
 /// The lab, where parts change without breeding (game-ideas.md: "you can't take off a horn, so

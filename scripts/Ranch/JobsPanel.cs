@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Classes;
-using CreatureTactics.Creatures;
-using CreatureTactics.UI;
+using TheFartherWeStray.Classes;
+using TheFartherWeStray.Creatures;
+using TheFartherWeStray.UI;
 using Godot;
 
-namespace CreatureTactics.Ranching;
+namespace TheFartherWeStray.Ranching;
 
 /// <summary>
 /// The selected creature's job tree (FFTA's job menu, per creature): every class, marked open,

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace CreatureTactics.Audio;
+namespace TheFartherWeStray.Audio;
 
 /// <summary>
 /// A little music theory for writing songs as data: chord tones by name, and whole lines (an

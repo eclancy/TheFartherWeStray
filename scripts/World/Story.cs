@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Creatures;
-using CreatureTactics.Ranching;
-using CreatureTactics.Tactics;
+using TheFartherWeStray.Creatures;
+using TheFartherWeStray.Ranching;
+using TheFartherWeStray.Tactics;
 
-namespace CreatureTactics.World;
+namespace TheFartherWeStray.World;
 
 /// <summary>What the rest of the game asks of you before a main mission appears.</summary>
 public enum Milestone { Contracts, Creatures, CodexParts, RivalWins, CityStanding, UndercityStanding }

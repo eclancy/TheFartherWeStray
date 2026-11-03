@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Creatures;
 
-namespace CreatureTactics.Party;
+namespace TheFartherWeStray.Party;
 
 /// <summary>
 /// A tamer: a member of your party who leads up to three creatures into battle from off the

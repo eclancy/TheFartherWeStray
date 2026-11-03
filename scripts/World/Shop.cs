@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Classes;
-using CreatureTactics.Ranching;
+using TheFartherWeStray.Classes;
+using TheFartherWeStray.Ranching;
 
-namespace CreatureTactics.World;
+namespace TheFartherWeStray.World;
 
 /// <summary>Something a shop sells: what, for how much chem, where, and what has to happen first.</summary>
 public sealed class Ware

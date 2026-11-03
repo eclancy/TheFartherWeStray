@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Classes;
-using CreatureTactics.Creatures;
-using CreatureTactics.Party;
-using CreatureTactics.Ranching;
-using CreatureTactics.Tactics;
+using TheFartherWeStray.Classes;
+using TheFartherWeStray.Creatures;
+using TheFartherWeStray.Party;
+using TheFartherWeStray.Ranching;
+using TheFartherWeStray.Tactics;
 
-namespace CreatureTactics.World;
+namespace TheFartherWeStray.World;
 
 /// <summary>
 /// A dispatch (the user's direction, 2026-11-02: funny, pun-filled jobs, like FFTA's dispatch

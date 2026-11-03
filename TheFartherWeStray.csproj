@@ -3,6 +3,6 @@
     <TargetFramework>net9.0</TargetFramework>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <Nullable>annotations</Nullable>
-    <RootNamespace>CreatureTactics</RootNamespace>
+    <RootNamespace>TheFartherWeStray</RootNamespace>
   </PropertyGroup>
 </Project>

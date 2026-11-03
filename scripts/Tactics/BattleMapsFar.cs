@@ -1,7 +1,7 @@
 using Godot;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Creatures;
 
-namespace CreatureTactics.Tactics;
+namespace TheFartherWeStray.Tactics;
 
 /// <summary>
 /// The far regions (the user's direction, 2026-11-02: missions in very different places, whose ground

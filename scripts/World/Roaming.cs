@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Creatures;
-using CreatureTactics.Ranching;
-using CreatureTactics.Tactics;
+using TheFartherWeStray.Creatures;
+using TheFartherWeStray.Ranching;
+using TheFartherWeStray.Tactics;
 
-namespace CreatureTactics.World;
+namespace TheFartherWeStray.World;
 
 /// <summary>A wild pack roaming the country (saved): where it is, and the map whose fauna it is.</summary>
 public sealed class Wanderer

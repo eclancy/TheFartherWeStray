@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace CreatureTactics.Creatures;
+namespace TheFartherWeStray.Creatures;
 
 /// <summary>
 /// Species names built from syllables: an element-flavoured front and a back taken from the

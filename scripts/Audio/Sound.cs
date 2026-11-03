@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Creatures;
 using Godot;
-using static CreatureTactics.Audio.SfxSynth;
+using static TheFartherWeStray.Audio.SfxSynth;
 
-namespace CreatureTactics.Audio;
+namespace TheFartherWeStray.Audio;
 
 /// <summary>
 /// Every sound in the game, as voices for <see cref="SfxSynth"/> (begun 2026-11-02 at the user's

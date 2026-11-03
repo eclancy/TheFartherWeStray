@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace CreatureTactics.Creatures;
+namespace TheFartherWeStray.Creatures;
 
 /// <summary>
 /// Deterministic RNG (SplitMix64), so a seed draws the same creature on every machine and every

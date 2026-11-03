@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Creatures;
 using Godot;
 
-namespace CreatureTactics.Tactics;
+namespace TheFartherWeStray.Tactics;
 
 /// <summary>Things standing on a map tile: foliage, rocks, street furniture, ruins. Most block the tile.</summary>
 public enum Prop

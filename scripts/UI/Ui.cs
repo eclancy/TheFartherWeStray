@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Classes;
+using TheFartherWeStray.Classes;
 using Godot;
 
-namespace CreatureTactics.UI;
+namespace TheFartherWeStray.UI;
 
 /// <summary>One piece of shorthand: a glyph and a few characters ("sword x1.5", "hourglass 3").</summary>
 public readonly record struct Chip(string Glyph, string Text = "", Color? Tint = null, string Tip = null);

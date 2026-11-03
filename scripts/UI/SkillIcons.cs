@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Classes;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Classes;
+using TheFartherWeStray.Creatures;
 using Godot;
 
-namespace CreatureTactics.UI;
+namespace TheFartherWeStray.UI;
 
 /// <summary>
 /// An icon for every skill, class, passive and piece of loadout. A skill icon is a framed glyph:

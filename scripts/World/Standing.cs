@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using CreatureTactics.Ranching;
+using TheFartherWeStray.Ranching;
 
-namespace CreatureTactics.World;
+namespace TheFartherWeStray.World;
 
 /// <summary>
 /// Standing with the two sides (the user's direction, 2026-11-02): the glorious city above and the

@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using CreatureTactics.Classes;
-using CreatureTactics.Creatures;
-using CreatureTactics.UI;
+using TheFartherWeStray.Classes;
+using TheFartherWeStray.Creatures;
+using TheFartherWeStray.UI;
 using Godot;
 
-namespace CreatureTactics.Tactics;
+namespace TheFartherWeStray.Tactics;
 
 /// <summary>What a skill looks like going off: the colours and the way its particles move.</summary>
 public enum FxTheme { Strike, Ember, Frost, Tide, Leaf, Spark, Stone, Venom, Shade, Holy, Arcane, Brass, Chem, Sound, Wind, Boost }

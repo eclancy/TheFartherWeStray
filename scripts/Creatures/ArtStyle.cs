@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace CreatureTactics.Creatures;
+namespace TheFartherWeStray.Creatures;
 
 public enum OutlineMode { Black, Tinted, Selective }
 

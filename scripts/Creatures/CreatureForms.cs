@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 
-namespace CreatureTactics.Creatures;
+namespace TheFartherWeStray.Creatures;
 
 /// <summary>
 /// The forms: each lays out a body in creature space (X forward, Y left, Z up, in pixels for a medium

@@ -1,6 +1,6 @@
 using Godot;
 
-namespace CreatureTactics.Creatures;
+namespace TheFartherWeStray.Creatures;
 
 /// <summary>
 /// The front door to creature drawing. Everything is drawn by <see cref="CreatureSculptor"/> in

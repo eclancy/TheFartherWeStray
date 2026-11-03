@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Creatures;
 
-namespace CreatureTactics.Tactics;
+namespace TheFartherWeStray.Tactics;
 
 /// <summary>
 /// The squad rules for online matches (the user's calls, 2026-11-02): your own tamers and creatures,

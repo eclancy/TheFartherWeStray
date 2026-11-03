@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using CreatureTactics.Creatures;
-using CreatureTactics.UI;
+using TheFartherWeStray.Creatures;
+using TheFartherWeStray.UI;
 using Godot;
 
-namespace CreatureTactics.Tactics;
+namespace TheFartherWeStray.Tactics;
 
 /// <summary>
 /// A battle on an isometric board. On your creature's turn: click a blue tile to move, a marked

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace CreatureTactics.Creatures;
+namespace TheFartherWeStray.Creatures;
 
 /// <summary>
 /// Pets from the DrawPets adopt shop (../DrawPets/scripts/adoptables.gd), re-made as species in

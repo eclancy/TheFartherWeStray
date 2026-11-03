@@ -2,13 +2,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using CreatureTactics.Classes;
-using CreatureTactics.Creatures;
-using CreatureTactics.Party;
-using CreatureTactics.Tactics;
+using TheFartherWeStray.Classes;
+using TheFartherWeStray.Creatures;
+using TheFartherWeStray.Party;
+using TheFartherWeStray.Tactics;
 using Godot;
 
-namespace CreatureTactics.Ranching;
+namespace TheFartherWeStray.Ranching;
 
 /// <summary>A creature away on a dispatch: the job, the day it's back, its odds of doing well.</summary>
 public sealed class AwayRecord

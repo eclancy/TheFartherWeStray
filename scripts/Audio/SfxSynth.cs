@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Creatures;
 using Godot;
 
-namespace CreatureTactics.Audio;
+namespace TheFartherWeStray.Audio;
 
 public enum Wave { Square, Triangle, Saw, Sine, Noise }
 

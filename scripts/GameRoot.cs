@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using CreatureTactics.Creatures;
-using CreatureTactics.SpriteLab;
+using TheFartherWeStray.Creatures;
+using TheFartherWeStray.SpriteLab;
 using Godot;
 
-namespace CreatureTactics;
+namespace TheFartherWeStray;
 
 /// <summary>
 /// Entry point: the ranch by default, or a one-off battle, or the Sprite Lab.
@@ -37,16 +37,33 @@ public partial class GameRoot : Node
         catch (Exception e) { GD.PrintErr(e.ToString()); GetTree().Quit(1); }
     }
 
-    /// <summary>
-    /// The game's name (the user's, 2026-11-02). The project's config/name stays "Creature Tactics":
-    /// changing it would move user:// and lose every save, so the window takes this at start instead.
-    /// </summary>
+    /// <summary>The game's name (the user's, 2026-11-02), as the project's config/name has it too.</summary>
     public const string Title = "The Farther We Stray";
+
+    /// <summary>
+    /// Saves and settings from before the game had its name: user:// follows the project's name, so
+    /// when the game was renamed they were left in the old folder. Copied over once, never overwriting.
+    /// </summary>
+    static void BringOverOldSaves()
+    {
+        try
+        {
+            string now = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath("user://"));
+            string old = System.IO.Path.Combine(System.IO.Directory.GetParent(now.TrimEnd('/', System.IO.Path.DirectorySeparatorChar))?.FullName ?? "", "Creature Tactics");
+            if (!System.IO.Directory.Exists(old) || System.IO.Path.GetFullPath(old) == now) return;
+            foreach (var file in System.IO.Directory.GetFiles(old))
+            {
+                string to = System.IO.Path.Combine(now, System.IO.Path.GetFileName(file));
+                if (!System.IO.File.Exists(to) && (file.EndsWith(".json") || file.EndsWith(".cfg"))) System.IO.File.Copy(file, to);
+            }
+        }
+        catch (Exception e) { GD.PrintErr($"Couldn't bring over old saves: {e.Message}"); }
+    }
 
     void Start()
     {
         var args = ParseArgs(OS.GetCmdlineUserArgs());
-        if (DisplayServer.GetName() != "headless") DisplayServer.WindowSetTitle(Title);
+        BringOverOldSaves();
         // Sound: every button clicks; N mutes, --mute starts muted.
         AddChild(new Audio.Sound());
         // The player's settings (volumes, mute, text speed, turn timer, fullscreen); --mute mutes on top.

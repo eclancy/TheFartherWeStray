@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-namespace CreatureTactics.Creatures;
+namespace TheFartherWeStray.Creatures;
 
 /// <summary>Which way a creature faces on screen. The other two diagonals are these two, mirrored.</summary>
 public enum View { Front, Back }

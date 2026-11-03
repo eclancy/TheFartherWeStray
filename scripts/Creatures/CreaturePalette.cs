@@ -1,6 +1,6 @@
 using Godot;
 
-namespace CreatureTactics.Creatures;
+namespace TheFartherWeStray.Creatures;
 
 /// <summary>A colour in HSV, kept as numbers so individuals can jitter and shinies can rotate it.</summary>
 public record struct Hsv(float H, float S, float V)

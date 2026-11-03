@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Creatures;
-using CreatureTactics.Ranching;
-using CreatureTactics.Story;
-using CreatureTactics.Tactics;
+using TheFartherWeStray.Creatures;
+using TheFartherWeStray.Ranching;
+using TheFartherWeStray.Story;
+using TheFartherWeStray.Tactics;
 using Godot;
 
-namespace CreatureTactics.UI;
+namespace TheFartherWeStray.UI;
 
 /// <summary>
 /// The title (the user's pick, 2026-11-02): the home base drifting by behind the name, creatures

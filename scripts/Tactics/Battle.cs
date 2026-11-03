@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Classes;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Classes;
+using TheFartherWeStray.Creatures;
 using Godot;
 
-namespace CreatureTactics.Tactics;
+namespace TheFartherWeStray.Tactics;
 
 // What happened, in order, for the screen to animate. The rules finish instantly; the screen catches up.
 public abstract record BattleEvent;

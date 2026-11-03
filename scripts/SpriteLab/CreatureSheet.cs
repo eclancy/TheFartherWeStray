@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using System.Text;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Creatures;
 using Godot;
 
-namespace CreatureTactics.SpriteLab;
+namespace TheFartherWeStray.SpriteLab;
 
 /// <summary>Which creatures a sheet shows, and composing a sheet into one PNG.</summary>
 public static class CreatureSheet

@@ -2,14 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using CreatureTactics.Classes;
-using CreatureTactics.Creatures;
-using CreatureTactics.Ranching;
-using CreatureTactics.Tactics;
-using CreatureTactics.UI;
+using TheFartherWeStray.Classes;
+using TheFartherWeStray.Creatures;
+using TheFartherWeStray.Ranching;
+using TheFartherWeStray.Tactics;
+using TheFartherWeStray.UI;
 using Godot;
 
-namespace CreatureTactics.World;
+namespace TheFartherWeStray.World;
 
 /// <summary>
 /// The country map (the user's direction, 2026-11-02): every place, open or not, the roads between

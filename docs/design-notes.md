@@ -10,7 +10,7 @@ _Imported from the user's "Game name ideas" doc and the call's transcript (the g
 The title ideas are still ideas; the creature tiers have since been decided and built (below). The
 doc's Wizard Survivors names belong to another game and stay there._
 
-**Title ideas** (the game is still called Creature Tactics):
+**Title ideas** (before the game was named The Farther We Stray):
 - Favourites: **Lanternkin** and **Brassbound Tamers** (liked on the call), and **Above and Below**
   (it fits the city and the undercity).
 - Built on those: *Lanternkin: Brassbound Tamers* (the creatures are Lanternkin, you're a
@@ -56,8 +56,8 @@ upkeep or a cap on growth; none of those is built.
   thoroughbreds, chimeras...).
 
 **Open:**
-- [x] A title: **The Farther We Stray** (the user's pick, 2026-11-02). On the title screen and the
-  window; the project, solution and folder keep the working name Creature Tactics.
+- [x] A title: **The Farther We Stray** (the user's pick, 2026-11-02), everywhere: the title screen,
+  the window, the project, the code; the old working name is retired.
 - [x] A name for tamed creatures: **"your beasts", for now** (the user, 2026-11-02). On screen,
   your tamed creatures (and a tamer's) are beasts; uncaught ones are strays; general rules text and
   the code keep "creature". The rounds of suggestions, kept for later:

@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Classes;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Classes;
+using TheFartherWeStray.Creatures;
 
-namespace CreatureTactics.Party;
+namespace TheFartherWeStray.Party;
 
 /// <summary>
 /// A rival tamer (the user's pick, 2026-11-02): someone breeding toward their own ideal creature,

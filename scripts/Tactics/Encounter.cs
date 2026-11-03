@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Classes;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Classes;
+using TheFartherWeStray.Creatures;
 
-namespace CreatureTactics.Tactics;
+namespace TheFartherWeStray.Tactics;
 
 /// <summary>Sets up a battle: your squad against a wild pack generated from a seed.</summary>
 public static class Encounter

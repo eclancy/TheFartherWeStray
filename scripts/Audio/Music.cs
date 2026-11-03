@@ -3,10 +3,10 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Creatures;
 using Godot;
 
-namespace CreatureTactics.Audio;
+namespace TheFartherWeStray.Audio;
 
 /// <summary>
 /// A song as data (music begun 2026-11-02 at the user's pick): a tempo, a length in bars and parts,

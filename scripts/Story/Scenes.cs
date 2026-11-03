@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
-using CreatureTactics.Tactics;
+using TheFartherWeStray.Tactics;
 using Godot;
 
-namespace CreatureTactics.Story;
+namespace TheFartherWeStray.Story;
 
 /// <summary>
 /// A cutscene (built 2026-11-02 at the user's pick): a map, and a script of who stands where and what

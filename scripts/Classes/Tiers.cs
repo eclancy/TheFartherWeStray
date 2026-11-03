@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Creatures;
 
-namespace CreatureTactics.Classes;
+namespace TheFartherWeStray.Classes;
 
 /// <summary>What has been done to a creature, from least to most.</summary>
 public enum Tier { Stray, Thoroughbred, Infused, Chimera, Rigged, Abomination }

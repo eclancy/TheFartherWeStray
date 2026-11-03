@@ -1,6 +1,6 @@
 using System.Linq;
 
-namespace CreatureTactics.Classes;
+namespace TheFartherWeStray.Classes;
 
 /// <summary>
 /// What the shops sell (the user's direction, 2026-11-02): gear for your creatures and items to help

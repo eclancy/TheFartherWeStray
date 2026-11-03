@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Creatures;
-using CreatureTactics.Party;
-using CreatureTactics.Ranching;
-using CreatureTactics.Tactics;
+using TheFartherWeStray.Creatures;
+using TheFartherWeStray.Party;
+using TheFartherWeStray.Ranching;
+using TheFartherWeStray.Tactics;
 using Godot;
 
-namespace CreatureTactics.World;
+namespace TheFartherWeStray.World;
 
 public enum Side { City, Undercity, Wilds }
 

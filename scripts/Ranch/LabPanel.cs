@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Creatures;
-using CreatureTactics.UI;
+using TheFartherWeStray.Creatures;
+using TheFartherWeStray.UI;
 using Godot;
 
-namespace CreatureTactics.Ranching;
+namespace TheFartherWeStray.Ranching;
 
 /// <summary>
 /// The lab at the ranch: a graft chamber showing the selected creature as it would look with the

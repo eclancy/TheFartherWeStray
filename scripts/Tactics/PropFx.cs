@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Creatures;
 using Godot;
 
-namespace CreatureTactics.Tactics;
+namespace TheFartherWeStray.Tactics;
 
 /// <summary>
 /// The moving parts of a prop (the user's ask for a grittier undercity, 2026-11-02): a broken

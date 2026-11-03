@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-namespace CreatureTactics.UI;
+namespace TheFartherWeStray.UI;
 
 /// <summary>
 /// The player's settings (the title screen's and the base's pause menu), kept in user://settings.cfg

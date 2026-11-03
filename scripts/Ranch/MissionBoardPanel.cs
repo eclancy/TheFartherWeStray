@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Tactics;
-using CreatureTactics.UI;
+using TheFartherWeStray.Tactics;
+using TheFartherWeStray.UI;
 using Godot;
 
-namespace CreatureTactics.Ranching;
+namespace TheFartherWeStray.Ranching;
 
 /// <summary>
 /// A list of missions as cards, each with a thumbnail of its map, the objective, difficulty, chem

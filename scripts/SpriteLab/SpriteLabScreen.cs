@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Creatures;
 using Godot;
 
-namespace CreatureTactics.SpriteLab;
+namespace TheFartherWeStray.SpriteLab;
 
 /// <summary>
 /// The sprite generator prototype: a sheet of seeded creatures to judge for charm. Each card is a

@@ -1,4 +1,4 @@
-namespace CreatureTactics.Creatures;
+namespace TheFartherWeStray.Creatures;
 
 // The vocabulary of a creature. See docs/game-ideas.md, sections 1 and 4: body plans are the
 // FFTA "race", parts are the equipment slots, size sets the grid footprint and attitude becomes

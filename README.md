@@ -1,14 +1,13 @@
 # The Farther We Stray
 
-_The game's name (the user's pick, 2026-11-02). The project, solution and folder keep the working
-name Creature Tactics._
+_The game's name (the user's pick, 2026-11-02)._
 
 An FFTA-style isometric tactics game where your units are procedurally generated creatures you
 recruit, breed and train. A creature's body plan works like an FFTA race, its parts are its
 equipment (horns are the weapon, a shell is the armour, wings are the movement accessory), and
 its attitude is both its reaction ability and how you recruit it in battle.
 
-The design lives in [docs/game-ideas.md](docs/game-ideas.md). Section 4, "Creature Tactics",
+The design lives in [docs/game-ideas.md](docs/game-ideas.md). Section 4, "The Farther We Stray",
 is the game, and sections 1-2 add detail.
 
 Godot 4.5 (.NET), C#.
@@ -37,7 +36,7 @@ Every strain except natural gets a neon rim light and glow spill.
 ```
 
 `GODOT_BIN` is set in `.claude/settings.json` (Godot 4.5.1 mono). Build C# with
-`dotnet build CreatureTactics.sln`. On a fresh checkout, run `"$GODOT_BIN" --headless --path . --import` once.
+`dotnet build TheFartherWeStray.sln`. On a fresh checkout, run `"$GODOT_BIN" --headless --path . --import` once.
 
 The game opens on the **title**: Continue, New game, Load (three save slots, each showing where
 that game stands), Settings and Quit. A game starts at your **home base**; **Esc** there opens the

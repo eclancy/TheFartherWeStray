@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Classes;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Classes;
+using TheFartherWeStray.Creatures;
 
-namespace CreatureTactics.Tactics;
+namespace TheFartherWeStray.Tactics;
 
 public enum Objective { Rout, Capture, Hunt, Survive, Duel }
 

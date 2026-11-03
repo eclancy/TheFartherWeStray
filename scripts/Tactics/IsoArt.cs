@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 
-namespace CreatureTactics.Tactics;
+namespace TheFartherWeStray.Tactics;
 
 /// <summary>
 /// Paints the isometric board as pixel art, FFTA-style: diamond tiles raised on blocks with lit and

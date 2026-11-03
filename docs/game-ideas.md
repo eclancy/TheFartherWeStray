@@ -113,7 +113,7 @@ Clone the Slay the Spire foundation as a learning project:
 
 ---
 
-## 4. Combined: Creature Tactics (Collector × FFTA)
+## 4. Combined: The Farther We Stray (Collector × FFTA)
 
 **The pitch:** An FFTA-style tactics game where your units are procedurally generated creatures you recruit, breed and train. Each half fixes the other's weak spot. The tactics grid gives random parts and sizes a real job, and the collector gives the tactics game endless unit variety and a long-term hook.
 

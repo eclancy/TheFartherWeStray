@@ -1,8 +1,8 @@
 using System;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Creatures;
 using Godot;
 
-namespace CreatureTactics.World;
+namespace TheFartherWeStray.World;
 
 /// <summary>
 /// The country map's picture, painted in code like the boards: the glorious city on its plateau

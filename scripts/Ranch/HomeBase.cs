@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Tactics;
+using TheFartherWeStray.Tactics;
 using Godot;
 
-namespace CreatureTactics.Ranching;
+namespace TheFartherWeStray.Ranching;
 
 /// <summary>A place at the home base where one of the ranch's systems lives, built as the campaign goes on.</summary>
 public sealed class StationDef

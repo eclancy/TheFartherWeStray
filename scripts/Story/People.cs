@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Creatures;
 using Godot;
 
-namespace CreatureTactics.Story;
+namespace TheFartherWeStray.Story;
 
 public enum Hat { None, Hood, Cap, Band, TopHat, WideBrim, Crown, Circlet }
 public enum Hair { Mohawk, Crest, Liberty, Spikes, Undercut, HalfShaved, Long, Twintails, Dreads, Buns, Horns, Pompadour, Shaved }

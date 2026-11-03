@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Creatures;
 using Godot;
 
-namespace CreatureTactics.Tactics;
+namespace TheFartherWeStray.Tactics;
 
 public enum Terrain { Grass, Stone, Brass, Chem, Pit, Crystal, Roof, Wood, Dirt, Water, Ice, Sand, Lava }
 

@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Creatures;
-using CreatureTactics.Ranching;
-using CreatureTactics.Tactics;
+using TheFartherWeStray.Creatures;
+using TheFartherWeStray.Ranching;
+using TheFartherWeStray.Tactics;
 
-namespace CreatureTactics.World;
+namespace TheFartherWeStray.World;
 
 /// <summary>A trial: a mission at one place that opens a class, and moves your standing toward that place's side.</summary>
 public sealed class TrialDef

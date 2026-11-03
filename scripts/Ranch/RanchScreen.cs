@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Classes;
-using CreatureTactics.Creatures;
-using CreatureTactics.SpriteLab;
-using CreatureTactics.Tactics;
-using CreatureTactics.UI;
+using TheFartherWeStray.Classes;
+using TheFartherWeStray.Creatures;
+using TheFartherWeStray.SpriteLab;
+using TheFartherWeStray.Tactics;
+using TheFartherWeStray.UI;
 using Godot;
 
-namespace CreatureTactics.Ranching;
+namespace TheFartherWeStray.Ranching;
 
 /// <summary>
 /// The ranch: your roster, the squad, training, and the breeding vats. Click a creature to select

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-namespace CreatureTactics.Creatures;
+namespace TheFartherWeStray.Creatures;
 
 /// <summary>What a pixel is made of. Colours are only picked at the end, from the palette.</summary>
 public enum Mat : byte { None, Main, Second, Accent, Membrane, Metal, EyeWhite, Pupil, Glow, Mouth, Line }

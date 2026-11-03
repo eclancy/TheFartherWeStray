@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-namespace CreatureTactics.Tactics;
+namespace TheFartherWeStray.Tactics;
 
 public enum CommandKind { Move, Attack, Skill, Berry, Undo, Flee, EndTurn }
 

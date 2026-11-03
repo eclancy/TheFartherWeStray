@@ -2,12 +2,12 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using CreatureTactics.Creatures;
-using CreatureTactics.Tactics;
-using CreatureTactics.UI;
+using TheFartherWeStray.Creatures;
+using TheFartherWeStray.Tactics;
+using TheFartherWeStray.UI;
 using Godot;
 
-namespace CreatureTactics.Story;
+namespace TheFartherWeStray.Story;
 
 /// <summary>
 /// Plays a <see cref="SceneDef"/> on its map, FFTA-style: the cast stand on the board as animated

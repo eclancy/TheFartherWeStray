@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Creatures;
 
-namespace CreatureTactics.Classes;
+namespace TheFartherWeStray.Classes;
 
 /// <summary>
 /// Traits (the user's direction, 2026-11-02): sensible, biological quirks a creature is born with

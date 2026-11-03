@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CreatureTactics.Creatures;
+using TheFartherWeStray.Creatures;
 
-namespace CreatureTactics.Classes;
+namespace TheFartherWeStray.Classes;
 
 public enum StatKind { Atk, Def, Spd, Move, Evade, Thorns }
 public enum TargetKind { Enemy, Ally, Self, Area, Tile }

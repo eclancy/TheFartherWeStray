@@ -106,6 +106,19 @@ public partial class TitleScreen : Control
             case "load": ShowSlots(false); break;
             case "settings": ShowSettings(); break;
         }
+
+        // The version, small in the corner; and a downloaded copy's update check (docs/releasing.md):
+        // Windows updates itself over the title before it starts, Android offers the new APK in a strip.
+        var version = Ui.Text("v" + UpdateScreen.CurrentVersion, 14, Ui.Dim, 4);
+        version.Position = new Vector2(16, vp.Y - 30);
+        _ui.AddChild(version);
+        if (UpdateScreen.ShouldCheck())
+        {
+            var over = new CanvasLayer { Layer = 50 };
+            AddChild(over);
+            over.AddChild(new UpdateScreen { Finished = over.QueueFree });
+        }
+        UpdateBanner.AttachTo(this);
     }
 
     bool _short;

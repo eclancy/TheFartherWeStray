@@ -220,6 +220,39 @@ public partial class GameRoot : Node
             var shown = new Rect2I(at, blaze.GetSize()).Intersection(glass);
             frame.BlendRect(blaze, new Rect2I(shown.Position - at, shown.Size), shown.Position);
             frame.SavePng(iconDir + "/icon.png");
+            // The same for Windows (the exe and its installer): an .ico holding it at every size the
+            // shell asks for, the small ones as plain bitmaps, the 256 as a PNG.
+            using (var ico = new System.IO.BinaryWriter(System.IO.File.Create(iconDir + "/icon.ico")))
+            {
+                int[] sizes = { 16, 24, 32, 48, 64, 128, 256 };
+                var images = sizes.Select(n =>
+                {
+                    var img = (Image)frame.Duplicate();
+                    img.Resize(n, n, Image.Interpolation.Lanczos);
+                    if (n == 256) return img.SavePngToBuffer();
+                    using var bmp = new System.IO.MemoryStream();
+                    using var w = new System.IO.BinaryWriter(bmp);
+                    w.Write(40); w.Write(n); w.Write(n * 2); w.Write((short)1); w.Write((short)32); w.Write(0); w.Write(n * n * 4 + n * ((n + 31) / 32 * 4)); w.Write(0L); w.Write(0L);
+                    for (int y = n - 1; y >= 0; y--)
+                    for (int x = 0; x < n; x++)
+                    {
+                        var c = img.GetPixel(x, y);
+                        w.Write((byte)(c.B8)); w.Write((byte)(c.G8)); w.Write((byte)(c.R8)); w.Write((byte)(c.A8));
+                    }
+                    w.Write(new byte[n * ((n + 31) / 32 * 4)]); // the mask: unused, the alpha says it all
+                    w.Flush();
+                    return bmp.ToArray();
+                }).ToList();
+                ico.Write((short)0); ico.Write((short)1); ico.Write((short)sizes.Length);
+                int offset = 6 + 16 * sizes.Length;
+                for (int i = 0; i < sizes.Length; i++)
+                {
+                    ico.Write((byte)(sizes[i] % 256)); ico.Write((byte)(sizes[i] % 256)); ico.Write((byte)0); ico.Write((byte)0);
+                    ico.Write((short)1); ico.Write((short)32); ico.Write(images[i].Length); ico.Write(offset);
+                    offset += images[i].Length;
+                }
+                foreach (var data in images) ico.Write(data);
+            }
             GD.Print($"icons written to {iconDir}");
             GetTree().Quit();
             return;

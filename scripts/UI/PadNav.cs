@@ -26,9 +26,13 @@ public partial class PadNav : Node
     Control _for;
     double _hideAt;
 
+    /// <summary>A meta on a button that should stay tap-only on the phone (the update strip's): set before it joins the tree.</summary>
+    public const string Skip = "pad_skip";
+
     /// <summary>Phone-only touches to the whole UI, as each control joins the tree.</summary>
     public static void Adapt(Node node)
     {
+        if (node.HasMeta(Skip)) return;
         if (node is BaseButton b && b.FocusMode == Control.FocusModeEnum.None) b.FocusMode = Control.FocusModeEnum.All;
         if (node is ScrollContainer s) s.FollowFocus = true;
     }

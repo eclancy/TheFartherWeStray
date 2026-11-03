@@ -36,6 +36,7 @@ public sealed class CreatureRecord
     public List<string> Augments = new(); // bolted on at the lab, not passed down
     public List<string> Infusions = new(); // brewed at the lab to tune its stats, not passed down
     public bool Steeping;                  // a new infusion taking: it sits out the next battle
+    public bool Recovering;                // an abomination after an episode: it sits out the next battle
     [JsonIgnore] public string Name => Nickname ?? Species.Name;
     public float BodyJitter = 1, LegJitter = 1, HeadJitter = 1;
     public int Generation;
@@ -239,7 +240,7 @@ public sealed class Ranch
     /// <summary>Into the squad under the first fielded tamer with room; false if every tamer's hands are full.</summary>
     public bool AddToSquad(int id, string tamer = null)
     {
-        if (Away.ContainsKey(id) || Record(id).Steeping) return false;
+        if (Away.ContainsKey(id) || Record(id).Steeping || Record(id).Recovering) return false;
         if (Squad.Contains(id)) RemoveFromSquad(id);
         tamer ??= Fielded.FirstOrDefault(w => Led(w) < TamerBook.CreaturesEach);
         if (tamer == null || !Fielded.Contains(tamer) || Led(tamer) >= TamerBook.CreaturesEach) return false;
@@ -366,6 +367,60 @@ public sealed class Ranch
         // Undercity work: the undercity takes note.
         string moved = World.Standing.Shift(this, 0, World.Standing.Augment);
         return $"{rec.Name} has {an} {aug.Name} bolted on: it can use {skill.Name}.{(scrapped != null ? $" The {scrapped} is scrapped." : "")}{TierNote(id, before)} ({moved})";
+    }
+
+    /// <summary>
+    /// An abomination's instability, between missions (the user's call, 2026-11-02): after a battle it
+    /// fought, 1 in 4 it has an episode. It needs the next battle to recover, its body shifts (a part
+    /// changes), or something sours (an infusion washes out; with none, its rigs seize and cost chem).
+    /// </summary>
+    List<string> Episodes(Battle battle)
+    {
+        var lines = new List<string>();
+        foreach (var u in battle.Units.Where(u => u.Side == Tactics.Side.Player && u.Training != null && u.Tier == Classes.Tier.Abomination && !battle.Recruited.Contains(u)))
+        {
+            int id = Squad.Concat(Creatures.Select(r => r.Id)).FirstOrDefault(i => Get(i) == u.Creature, -1);
+            if (id < 0) continue;
+            var rec = Record(id);
+            var rng = new SeededRng(SeededRng.Derive(Encounter * 31UL + (ulong)id, 0xAB0E));
+            if (!rng.Chance(Classes.TierBook.EpisodeChance)) continue;
+            switch (rng.Int(3))
+            {
+                case 0:
+                    rec.Recovering = true;
+                    RemoveFromSquad(id);
+                    lines.Add($"{rec.Name} has an episode: it convulses for days, and needs the next battle to recover.");
+                    break;
+                case 1:
+                {
+                    var slots = Lab.SlotsFor(rec.Species.Plan).ToList();
+                    var slot = slots[rng.Int(slots.Count)];
+                    var choices = System.Enum.GetValues(slot.Type).Cast<int>().Where(v => v != Lab.Get(rec.Parts, slot.Name)).ToList();
+                    int pick = choices[rng.Int(choices.Count)];
+                    rec.BirthParts ??= rec.Parts;
+                    rec.Parts = Lab.Set(rec.Parts, slot.Name, pick);
+                    Refresh(id);
+                    lines.Add($"{rec.Name} has an episode: its body shifts, and its {slot.Name.ToLowerInvariant()} is {Lab.Words(slot.Name, pick)} now.");
+                    break;
+                }
+                default:
+                    if (rec.Infusions.Count > 0)
+                    {
+                        string sour = rec.Infusions[rng.Int(rec.Infusions.Count)];
+                        rec.Infusions.Remove(sour);
+                        Refresh(id);
+                        lines.Add($"{rec.Name} has an episode: its {Classes.InfusionBook.Get(sour)?.Name} sours and washes out.");
+                    }
+                    else
+                    {
+                        int cost = System.Math.Min(Chem, 15);
+                        Chem -= cost;
+                        lines.Add($"{rec.Name} has an episode: its rigs seize, and it takes {cost} chem to free them.");
+                    }
+                    break;
+            }
+        }
+        return lines;
     }
 
     /// <summary>A line for when work at the lab changes a creature's tier ("" if it doesn't).</summary>
@@ -646,7 +701,8 @@ public sealed class Ranch
             Record(id).Training = new Training { Class = DefaultClass(u.Creature), Innate = ClassBook.WildSkill(u.Creature) };
             joined.Add(id);
         }
-        foreach (var r in Creatures) { r.Rested = true; r.Steeping = false; }
+        foreach (var r in Creatures) { r.Rested = true; r.Steeping = false; r.Recovering = false; }
+        Report.AddRange(Episodes(battle));
         // A beaten pack is gone. A battle takes a day: packs roam on, whoever's dispatch is done comes home.
         if (battle.Winner == Tactics.Side.Player && mission?.Roamer is > 0 and var roamer) Wanderers.RemoveAll(w => w.Id == roamer);
         Day++;

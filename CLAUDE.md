@@ -1,5 +1,10 @@
 # CLAUDE.md - Creature Tactics
 
+**The game is called The Farther We Stray** (the user, 2026-11-02): `GameRoot.Title`, on the title
+screen and the window. The project, solution, folder and `config/name` keep Creature Tactics:
+changing `config/name` moves `user://` and loses every save. The story's theme: the city above is
+just as corrupt as the city below (`docs/story-notes.md`).
+
 FFTA-style isometric tactics with procedurally generated creature units. Godot 4.5 .NET, **C#**,
 2D, GL Compatibility, built in code (`scenes/Main.tscn` only attaches `GameRoot`). The design is
 `docs/game-ideas.md` (section 4; sections 1-2 for detail). Read it before design decisions.
@@ -114,8 +119,8 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   area, drawn in `BattleScreen.Phantom`), Mesmer (`AllFoes`: every foe on the field at once), Reaper
   (`Doom`, `Sleep`, `Finish`; `Unit.DoomTurns`, `SleepTurns` are in the state hash), and after FFTA's
   blue mage, time mage, gadgeteer and morpher: Mimic (learns foes' skills used on it:
-  `Battle.Learned`, `Training.Learned`), Horologist (`Stop`, `Quicken`), Saboteur (`Gamble`: every
-  foe or every ally on a coin flip; `PassiveDef.Lucky`), Skinchanger (`CopyForm`: `Unit.Borrowed`).
+  `Battle.Learned`, `Training.Learned`), Horologist (`Stop`, `Quicken`), Saboteur (traps: `SkillDef.Trap`,
+  `Battle.Traps`, hidden from the other side, sprung by the first foe to walk on one), Skinchanger (`CopyForm`: `Unit.Borrowed`).
   **Trials** (the user's call): the seven signature classes open only after their trial mission
   (`ClassDef.Trial`, `World/Trials.cs`, flags `trial:CLASS`), which also moves standing toward its
   side; `ClassBook.TrialDone` reads the save in play (set in `Ranch.Tidy`/`New`; open by default).
@@ -290,8 +295,9 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   `Species.Infused`, `Chimera` and `Spliced` pass down; infusions, grafted parts and augments
   don't; `Species.Rigged` is only for rivals. `Unit.From` counts a creature as caught if it's yours
   or trained (a rival's); wild ones are strays, and the game calls them strays. An abomination
-  also gets `TierBook.Unstable` (big stats; each turn 25% it lashes out at an ally beside it or
-  misfires: `PassiveDef.Unstable`). Costs: a new infusion steeps (`CreatureRecord.Steeping`: out of
+  also gets `TierBook.Unstable` (big stats; its instability is between missions, never in battle:
+  after a battle, 1 in 4 an episode in `Ranch.Episodes`: `CreatureRecord.Recovering`, a part shifts,
+  or an infusion sours). Costs: a new infusion steeps (`CreatureRecord.Steeping`: out of
   the next battle), rigs cost `TierBook.UpkeepPerRig` chem after each battle, rigged creatures learn
   slower (`TierBook.GrowthRate`). Movement rigs: Gear Wings (fly), Grapple Claws (climb)
   (`AugmentDef.Move`). Breeding a chimera, new blood, infusions and the

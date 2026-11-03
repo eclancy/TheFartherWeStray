@@ -148,15 +148,18 @@ public static class TierBook
     }
 
     /// <summary>
-    /// An abomination's perk (the user's call, 2026-11-02: a perk of its own, with an unstable cost):
-    /// big stats, but each of its turns a chance it lashes out at an ally beside it, or misfires and
-    /// hurts itself when none is near.
+    /// An abomination's perk (the user's calls, 2026-11-02: a perk of its own with an unstable cost,
+    /// the instability between missions rather than losing control in battle): big stats, and after
+    /// each battle it fights, a chance of an episode (<see cref="Ranching.Ranch.AfterBattle"/>).
     /// </summary>
     public static readonly PassiveDef Unstable = new()
     {
-        Id = "unstable", Name = "Unstable", Atk = 3, Def = 2, Spd = 1, HpPct = 0.1f, Unstable = 0.25f,
-        Text = "ATK +3, DEF +2, SPD +1, max HP +10%. Unstable: each turn, a 25% chance it lashes out at an ally beside it, or misfires and hurts itself.",
+        Id = "unstable", Name = "Unstable", Atk = 3, Def = 2, Spd = 1, HpPct = 0.1f,
+        Text = "ATK +3, DEF +2, SPD +1, max HP +10%. Unstable: after a battle it fought, 1 in 4 it has an episode: it needs the next battle to recover, its body shifts, or an infusion sours (or its rigs seize).",
     };
+
+    /// <summary>The chance of an abomination's episode after each battle it fights.</summary>
+    public const float EpisodeChance = 0.25f;
 
     static readonly Dictionary<string, PassiveDef> _abominations = new();
 

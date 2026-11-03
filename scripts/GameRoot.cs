@@ -37,9 +37,16 @@ public partial class GameRoot : Node
         catch (Exception e) { GD.PrintErr(e.ToString()); GetTree().Quit(1); }
     }
 
+    /// <summary>
+    /// The game's name (the user's, 2026-11-02). The project's config/name stays "Creature Tactics":
+    /// changing it would move user:// and lose every save, so the window takes this at start instead.
+    /// </summary>
+    public const string Title = "The Farther We Stray";
+
     void Start()
     {
         var args = ParseArgs(OS.GetCmdlineUserArgs());
+        if (DisplayServer.GetName() != "headless") DisplayServer.WindowSetTitle(Title);
         // Sound: every button clicks; N mutes, --mute starts muted.
         AddChild(new Audio.Sound());
         // The player's settings (volumes, mute, text speed, turn timer, fullscreen); --mute mutes on top.
@@ -614,6 +621,28 @@ public partial class GameRoot : Node
             ranch.AfterBattle(costBattle);
             GD.Print($"costs: steeping {steeping}, could rejoin the squad {rejoined}, steeping after the battle {ranch.Record(sq).Steeping}; {string.Join(" ", ranch.Report.Where(l => l.StartsWith("Rig upkeep")))}; {ranch.Record(flier).Name} learns at {Classes.TierBook.GrowthRate(ranch.Get(flier)) * 100:0}%");
 
+            // An abomination's episodes come between missions: about 1 in 4 battles it fights.
+            ranch.Record(n1).Steeping = ranch.Record(n1).Recovering = false;
+            foreach (var id in ranch.Squad.ToList()) ranch.RemoveFromSquad(id);
+            int fought = 0, episodes = 0;
+            var kinds = new HashSet<string>();
+            for (int k = 0; k < 24; k++)
+            {
+                if (!ranch.Squad.Contains(n1) && !ranch.AddToSquad(n1)) { ranch.AfterBattle(new Tactics.Mission { Seed = 900 + (ulong)k, MapName = "Lantern Row", Goal = Tactics.Objective.Rout, Pack = 2 }.CreateBattle(ranch.SquadCreatures())); continue; }
+                foreach (var r in ranch.Creatures.Where(r => r.Id != n1 && ranch.Squad.Count < 3)) ranch.AddToSquad(r.Id);
+                var eb = new Tactics.Mission { Seed = 900 + (ulong)k, MapName = "Lantern Row", Goal = Tactics.Objective.Rout, Pack = 2 }.CreateBattle(ranch.SquadCreatures());
+                ranch.LeadUnits(eb);
+                while (eb.Winner == null && eb.Round <= 30) { var u = eb.NextTurn(); if (u == null) break; eb.AiTurn(u); }
+                ranch.AfterBattle(eb);
+                fought++;
+                foreach (var line in ranch.Report.Where(l => l.Contains("has an episode")))
+                {
+                    episodes++;
+                    kinds.Add(line.Contains("recover") ? "recovers" : line.Contains("body shifts") ? "body shifts" : line.Contains("sours") ? "infusion sours" : "rigs seize");
+                }
+            }
+            GD.Print($"episodes: {ranch.Record(n1).Name} had {episodes} in {fought} battles (about 1 in 4): {string.Join(", ", kinds)}; it's {TierOf(n1)} still");
+
             ranch.Save();
             var back = Ranching.Ranch.Load();
             bool kept = ranch.Creatures.All(r => Classes.TierBook.Of(back.Get(r.Id)) == TierOf(r.Id));
@@ -912,20 +941,25 @@ public partial class GameRoot : Node
                 GD.Print($"quicken: the next turn is {next?.Name}'s (the quickened ally is {friend.Name})");
             }
             {
-                // Gadgets: a coin flip, foes or allies; Loaded Dice tips it to 3 in 4.
-                int foes = 0, lucky = 0;
-                var sk = Classes.ClassBook.Skill("flash_powder");
-                for (int k = 0; k < 400; k++)
-                {
-                    var (b, user, _, _) = Setup((ulong)k + 10);
-                    if (k >= 200) user.Training.Passive = "loaded_dice";
-                    int at = b.Events.Count;
-                    b.UseSkill(user, sk, user.Pos);
-                    var area = b.Events.Skip(at).OfType<Tactics.SkillEvent>().First().Area;
-                    bool atFoes = b.Units.Any(u => u.Side == Tactics.Side.Wild && u.Tiles.Any(area.Contains));
-                    if (k < 200) { if (atFoes) foes++; } else if (atFoes) lucky++;
-                }
-                GD.Print($"gadget: Flash Powder went at the foes {foes}/200 times (about half), {lucky}/200 with Loaded Dice (about 3 in 4)");
+                // Traps: set on a tile, hidden from the foe, sprung by the first foe to step there.
+                var (b, user, foe, _) = Setup(9);
+                var sk = Classes.ClassBook.Skill("snare_trap");
+                var tiles = b.SkillTiles(user, sk);
+                var spot = tiles.Where(t => t != foe.Pos && b.CanStand(foe, t)).OrderBy(t => Math.Abs(t.X - foe.Pos.X) + Math.Abs(t.Y - foe.Pos.Y)).First();
+                b.UseSkill(user, sk, spot);
+                int set = b.Traps.Count, hp = foe.Hp;
+                foe.Moved = false;
+                b.Move(foe, spot);
+                var sprung = b.Events.OfType<Tactics.TrapEvent>().FirstOrDefault();
+                GD.Print($"trap: {set} set; {foe.Name} walked onto it: sprung {sprung != null}, HP {hp} -> {foe.Hp}, rooted {foe.Rooted}; traps left {b.Traps.Count}");
+                var (b2, user2, foe2, _) = Setup(9);
+                var blast = Classes.ClassBook.Skill("blast_trap");
+                var spot2 = b2.SkillTiles(user2, blast).Where(t => b2.CanStand(foe2, t)).OrderBy(t => Math.Abs(t.X - foe2.Pos.X) + Math.Abs(t.Y - foe2.Pos.Y)).First();
+                b2.UseSkill(user2, blast, spot2);
+                var mover = b2.Units.First(u => u.Side == Tactics.Side.Player && u != user2);
+                mover.Moved = false;
+                b2.Move(mover, spot2);
+                GD.Print($"trap: your own creature walks over your Blast Trap without springing it: {b2.Traps.Count == 1}");
             }
             {
                 // Mirror Shape: the foe's form ability, for 3 turns.
@@ -943,31 +977,6 @@ public partial class GameRoot : Node
                 var sk = Classes.ClassBook.Skill("hex_bolt");
                 b.UseSkill(foe, sk, friend.Pos);
                 GD.Print($"mimic: {friend.Name} learned {string.Join(", ", b.Learned.Where(l => l.u == friend).Select(l => Classes.ClassBook.Skill(l.skill).Name))} when a foe used Hex Bolt on it");
-            }
-            {
-                // An abomination: big stats, but now and then it lashes out at an ally beside it or misfires.
-                int turns = 0, fits = 0, lashes = 0;
-                for (ulong k = 1; k <= 30; k++)
-                {
-                    var (b, user, _, friend) = Setup(k);
-                    user.TierPassive = Classes.TierBook.AbominationOf(user.Creature.Species);
-                    user.Training.Passive = null;
-                    for (int step = 0; step < 60 && b.Winner == null; step++)
-                    {
-                        int at = b.Events.Count;
-                        var u = b.NextTurn();
-                        if (u == null) break;
-                        if (u == user)
-                        {
-                            turns++;
-                            var marks = b.Events.Skip(at).OfType<Tactics.StatusEvent>().Where(e => e.U == user).Select(e => e.Text).ToList();
-                            if (marks.Contains("lashes out!")) { fits++; lashes++; } else if (marks.Contains("misfires!")) fits++;
-                        }
-                        b.EndTurn(u);
-                        if (turns >= 200) break;
-                    }
-                }
-                GD.Print($"abomination: {fits}/{turns} of its turns went wrong (about a quarter), {lashes} of them lashing out at an ally");
             }
             {
                 // Trials: a signature class stays locked until its trial is won.

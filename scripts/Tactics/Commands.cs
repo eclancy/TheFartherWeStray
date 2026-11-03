@@ -63,6 +63,7 @@ public sealed partial class Battle
             foreach (var (stat, amount, turns) in u.Buffs) Mix((int)stat * 10000 + amount * 100 + turns);
             foreach (var cd in u.Cooldowns) Mix(cd.Value);
         }
+        foreach (var t in Traps) { Mix(t.Tile.X * 1000 + t.Tile.Y); Mix(Units.IndexOf(t.Owner)); }
         return h;
     }
 

@@ -494,6 +494,7 @@ public partial class RanchScreen : Control
         if (InSquad(id)) Ranch.RemoveFromSquad(id);
         else if (Ranch.Away.TryGetValue(id, out var away)) { Flash($"{Ranch.Get(id).Name} is away on a dispatch until day {away.BackOn}."); return; }
         else if (Ranch.Record(id).Steeping) { Flash($"{Ranch.Get(id).Name} is steeping: a new infusion is taking. It can fight again after the next battle."); return; }
+        else if (Ranch.Record(id).Recovering) { Flash($"{Ranch.Get(id).Name} is recovering from an episode. It can fight again after the next battle."); return; }
         else if (Ranch.AddToSquad(id)) Flash($"{Ranch.Get(id).Name} joins {Ranch.LeaderOf(id).Name}'s squad.");
         else { Flash("Every tamer leads three already: take someone out first, or field another tamer (P)."); return; }
         Ranch.Save();
@@ -624,6 +625,7 @@ public partial class RanchScreen : Control
         if (c.Generation > 0) tags.Add(new Chip("paw", $"gen {c.Generation}: {c.ParentA} + {c.ParentB}", Dim, "bred in the vats"));
         if (!rec.Rested) tags.Add(new Chip("clock", "resting", Gold, "can breed again after the next battle"));
         if (rec.Steeping) tags.Add(new Chip("flask", "steeping", Color.FromHtml(TierBook.Hex(Tier.Infused)), "a new infusion is taking: it sits out the next battle"));
+        if (rec.Recovering) tags.Add(new Chip("skull", "recovering", Color.FromHtml(TierBook.Hex(Tier.Abomination)), "an abomination's episode: it sits out the next battle"));
         if (TierBook.GrowthRate(c) < 1) tags.Add(new Chip("down", $"learns at {TierBook.GrowthRate(c) * 100:0}%", Dim, "its rigs slow how fast it learns (JP)"));
         if (tags.Count > 0) _detail.AddChild(Ui.Chips(tags, 14));
     }
@@ -743,6 +745,7 @@ public partial class RanchCard : Control
         string tag = Screen.IsNew(Id) ? "NEW" : c.Generation > 0 ? $"GEN {c.Generation}" : "";
         if (tag != "") DrawString(font, new Vector2(0, 20), tag, HorizontalAlignment.Right, Size.X - 8, 13, Color.FromHtml("#f2c14e"));
         if (rec.Steeping) DrawString(font, new Vector2(0, 38), "steeping", HorizontalAlignment.Right, Size.X - 8, 12, Color.FromHtml("#4ff0a0"));
+        else if (rec.Recovering) DrawString(font, new Vector2(0, 38), "recovering", HorizontalAlignment.Right, Size.X - 8, 12, Color.FromHtml("#ff5a6a"));
         else if (!rec.Rested) DrawString(font, new Vector2(0, 38), "resting", HorizontalAlignment.Right, Size.X - 8, 12, Color.FromHtml("#9a91b4"));
     }
 }

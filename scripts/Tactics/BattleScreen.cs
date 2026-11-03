@@ -468,7 +468,7 @@ public partial class BattleScreen : Control
 
     /// <summary>Where the aimed skill would land for the hovered tile (self-centred skills ignore the cursor).</summary>
     Vector2I? SkillAim() => _skill == null ? null
-        : _skill.AroundSelf || _skill.AllFoes || _skill.Gamble || _skill.Target == Classes.TargetKind.Self ? _active.Pos
+        : _skill.AroundSelf || _skill.AllFoes || _skill.Target == Classes.TargetKind.Self ? _active.Pos
         : _hoverTile is { } h && _skillTiles.Contains(h) ? h : null;
 
     async void PlayerAct(System.Action act)
@@ -630,7 +630,7 @@ public partial class BattleScreen : Control
         {
             // Self-centred skills go off on a click anywhere in their area; aimed ones on a valid tile.
             var aim = SkillAim();
-            bool selfish = _skill.AroundSelf || _skill.AllFoes || _skill.Gamble || _skill.Target == Classes.TargetKind.Self;
+            bool selfish = _skill.AroundSelf || _skill.AllFoes || _skill.Target == Classes.TargetKind.Self;
             if (aim != null && (!selfish || _battle.SkillArea(_active, _skill, aim.Value).Contains(tile) || _active.Tiles.Contains(tile)))
             {
                 var s = _skill;
@@ -673,6 +673,8 @@ public partial class BattleScreen : Control
             if (SkillAim() is { } aim)
                 foreach (var t in _battle.SkillArea(_active, _skill, aim)) yield return (t, new Color(Gold, 0.55f));
         }
+        // Your traps, where they lie (the other side's stay hidden).
+        foreach (var trap in _battle.Traps.Where(t => t.Owner.Side == Side.Player)) yield return (trap.Tile, new Color(1f, 0.35f, 0.65f, 0.4f));
         // Skills going off: their area flashes for a moment.
         double now = Time.GetTicksMsec() / 1000.0;
         _flashes.RemoveAll(f => f.until < now);
@@ -989,10 +991,26 @@ public partial class BattleScreen : Control
                     _flashes.Add((sk.Area, color, Time.GetTicksMsec() / 1000.0 + 0.45));
                     _overlay.QueueRedraw();
                     var target = sk.Center != sk.U.Pos ? _views.Values.FirstOrDefault(x => x.Unit.Tiles.Contains(sk.Center) && x != view) : null;
-                    bool melee = sk.Skill.Power > 0 && (sk.Skill.Range <= 1 || sk.Skill.Leap) && !sk.Skill.AroundSelf && !sk.Skill.AllFoes && !sk.Skill.Gamble;
+                    bool melee = sk.Skill.Power > 0 && (sk.Skill.Range <= 1 || sk.Skill.Leap) && !sk.Skill.AroundSelf && !sk.Skill.AllFoes && !sk.Skill.Trap;
                     if (target != null) view.Face(target.Position - view.Position);
                     else if (sk.Center != sk.U.Pos) view.Face(FeetAt(sk.U, sk.Center) - view.Position);
                     await SkillEffect(sk, view, target, melee);
+                    break;
+                }
+                case TrapEvent tr:
+                {
+                    // A trap springs under a foe: its tile flashes, it bursts in its theme.
+                    var victim = _views[tr.Victim];
+                    _follow = null;
+                    _look = Clamped(Body(victim));
+                    Popup(victim, tr.Skill.Name + "!", Color.FromHtml("#ff6fa8"), -10, SkillIcons.Skill(tr.Skill, 1));
+                    _flashes.Add((tr.Area, Color.FromHtml("#ff6fa8"), Time.GetTicksMsec() / 1000.0 + 0.5));
+                    var theme = SkillFx.ThemeOf(tr.Skill, tr.Victim);
+                    Audio.Sound.Fx(theme);
+                    if (tr.Area.Count > 1) _fx.Wave(TileMid(tr.Tile), (tr.Skill.Radius + 0.6f) * IsoArt.TW / 2f, theme);
+                    _fx.Burst(Body(victim, 0.3f), victim.Position, theme, null, 1f);
+                    _overlay.QueueRedraw();
+                    await Wait(0.35f);
                     break;
                 }
                 case StatusEvent st:
@@ -1045,7 +1063,7 @@ public partial class BattleScreen : Control
         {
             if (kind == SkillIcons.Kind.Boost) Audio.Sound.Fx(theme == FxTheme.Strike ? FxTheme.Boost : theme);
             if (sk.Skill.AroundSelf) _fx.Wave(view.Position, (sk.Skill.Radius + 0.6f) * IsoArt.TW / 2f, theme, element);
-            foreach (var v in reached.Where(v => sk.Skill.Gamble || v.Unit.Side == sk.U.Side))
+            foreach (var v in reached.Where(v => v.Unit.Side == sk.U.Side))
             {
                 if (kind == SkillIcons.Kind.Heal) _fx.Burst(Body(v), v.Position, FxTheme.Holy, element, 0.5f);
                 else _fx.Rise(Body(v), v.Position, theme == FxTheme.Strike ? FxTheme.Boost : theme, element);
@@ -1063,13 +1081,13 @@ public partial class BattleScreen : Control
             await Wait(0.12f);
             foreach (var v in reached.Where(v => v != view)) _fx.Burst(Body(v), v.Position, theme, element, 0.8f);
         }
-        else if (sk.Skill.AllFoes || sk.Skill.Gamble)
+        else if (sk.Skill.AllFoes)
         {
             // An illusion: it spreads out from the caster, then takes every foe on the field at once.
             Audio.Sound.Fx(theme);
             _fx.Wave(view.Position, 1.2f * IsoArt.TW, theme, element);
             await Wait(0.22f);
-            foreach (var v in reached.Where(v => sk.Skill.Gamble ? v != view || reached.Count == 1 : v.Unit.Side != sk.U.Side))
+            foreach (var v in reached.Where(v => v.Unit.Side != sk.U.Side))
             {
                 _fx.Wave(v.Position, 0.8f * IsoArt.TW / 2f, theme, element);
                 _fx.Burst(Body(v), v.Position, theme, element, 0.7f);

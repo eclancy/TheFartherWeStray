@@ -100,7 +100,7 @@ Four more after FFTA's blue mage, time mage, gadgeteer and morpher (the user's y
 |---|---|---|---|---|
 | **Mimic** | Mystic + Hunter | blue mage | Copycat (x0.9, steals boosts), Mock (ATK and DEF -2), Study (harder to hit, SPD +1) | learns any skill a foe uses on it while it trains as a Mimic (main or secondary), kept after the battle (`Training.Learned`, `Battle.Learned`) and usable as a Mimic |
 | **Horologist** | Mystic + Tinker | time mage | Haste (SPD +4), Stop, Quicken | `Stop` (frozen for 2 of its turns; hits don't free it), `Quicken` (the ally goes next) |
-| **Saboteur** | Tinker + Rogue | gadgeteer | Scatter Charge (x0.8), Flash Powder (40% stun), Mender Mist (heal 25%) | `Gamble`: a coin flip sends each gadget at every foe or every ally (a heal the other way round); Loaded Dice (`Lucky`) tips it to 3 in 4 |
+| **Saboteur** | Tinker + Rogue | trapper (rethought from the gadgeteer, the user's call) | Snare Trap (x0.6, rooted), Blast Trap (x1 to every foe within 1), Gas Trap (poison 4 for 3 turns, 30% stun) | `Trap`: set on a tile within 3, hidden from the other side; the first foe to walk onto it (fliers pass over) stops there and springs it (`Battle.Traps`, three each, `TrapEvent`). Trapwright: skills and traps hit 15% harder |
 | **Skinchanger** | Brawler + Mystic | morpher | Mirror Shape, Beast Shape (ATK +3, DEF +2, SPD -1), Wisp Shape (harder to hit, MOVE +1) | `CopyForm`: a foe's form ability is its own for 3 turns (`Unit.Borrowed`) |
 
 **Trials (the user's call, 2026-11-02):** certain classes open only once a certain mission is won,

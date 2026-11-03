@@ -1,4 +1,7 @@
-# Creature Tactics
+# The Farther We Stray
+
+_The game's name (the user's pick, 2026-11-02). The project, solution and folder keep the working
+name Creature Tactics._
 
 An FFTA-style isometric tactics game where your units are procedurally generated creatures you
 recruit, breed and train. A creature's body plan works like an FFTA race, its parts are its
@@ -177,7 +180,7 @@ needed):
 | Reaper | Rogue + Hunter | Death Mark (the foe falls after 3 of its turns unless cleansed), Last Breath (a strike that may finish a foe under a quarter of its HP), Sleep Dart (sleeps up to 2 turns; a hit wakes it) |
 | Mimic | Mystic + Hunter | Copycat, Mock, Study; and it learns any skill a foe uses on it, to use as a Mimic |
 | Horologist | Mystic + Tinker | Haste, Stop (frozen 2 turns, hits don't free it), Quicken (an ally goes next) |
-| Saboteur | Tinker + Rogue | Scatter Charge, Flash Powder, Mender Mist: gadgets that hit every foe or every ally, on a coin flip |
+| Saboteur | Tinker + Rogue | Snare Trap, Blast Trap, Gas Trap: traps set on tiles, hidden from the foe, sprung by the first foe to walk onto one |
 | Skinchanger | Brawler + Mystic | Mirror Shape (a foe's species ability for 3 turns), Beast Shape, Wisp Shape |
 
 Each signature class opens only after its **trial**, a mission on the map at a place of its side
@@ -244,7 +247,8 @@ A creature goes by the most extreme thing done to it, shown as a chip on the pen
   (the hydra's opens the Hydrarch).
 - **Rigged:** augments bolted on, each an attack no natural creature can learn.
 - **Abomination:** infused, a chimera and rigged, all at once. It gets a perk of its own (big
-  stats) with an unstable cost: now and then it lashes out at an ally beside it, or misfires.
+  stats) with an unstable cost between missions: after a battle, sometimes it has an episode and
+  needs the next battle to recover, its body shifts, or an infusion sours.
 
 Any of these ends the thoroughbred bonus. Altering costs more than chem, too: a new infusion
 steeps, so the creature sits out the next battle; every rig costs upkeep after each battle; and

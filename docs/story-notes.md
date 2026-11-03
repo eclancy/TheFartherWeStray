@@ -5,6 +5,10 @@ at the user's request. Nothing beyond what's marked as the user's direction is d
 
 ## The user's themes (2026-11-02)
 
+- **The game is called The Farther We Stray.**
+- **The city above is just as corrupt as the city below.** The story explores it: the gilded city's
+  rot is as real as the undercity's, only better dressed.
+
 - **Lighthearted to start.** Problems are going on all over the map, and tamers step in: some to
   help the public, some for nefarious purposes.
 - **A glorious city and a nefarious undercity that hate each other**, like Arcane's Piltover and

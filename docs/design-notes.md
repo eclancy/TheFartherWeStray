@@ -56,7 +56,17 @@ upkeep or a cap on growth; none of those is built.
   thoroughbreds, chimeras...).
 
 **Open:**
-- [ ] A title: one of the above, or keep Creature Tactics?
+- [x] A title: **The Farther We Stray** (the user's pick, 2026-11-02). On the title screen and the
+  window; the project, solution and folder keep the working name Creature Tactics.
+- [ ] A name for tamed creatures (strays once caught). Suggestions (Claude's, 2026-11-02, after the
+  user asked for new ones):
+  - Taken in: *Foundlings* (a stray taken in; the industrial age's foundling homes fit the setting,
+    and an abomination is still your foundling), *Fosterlings*, *Wards* (under your protection, and
+    a city word), *Kin*.
+  - Bound to you, darker, fitting the corruption theme: *the Kept* (kept, not free, against the
+    strays), *Charges*, *Bondlings*.
+  - The age's alchemy: *Familiars*, *Quicklings*.
+  - Claude's pick: *Foundlings*; *the Kept* for a darker edge.
 
 ## Creature tiers (the user's design, 2026-11-02; built)
 
@@ -117,9 +127,11 @@ upkeep or a cap on growth; none of those is built.
   (their species, regenerated from its seed, has other blood). Ones bred before tiers can't be told
   apart and stay as they are.
 - **The abomination's perk** (`TierBook.Unstable`, on top of its chimera abilities): ATK +3, DEF +2,
-  SPD +1, max HP +10%; but each of its turns, a 25% chance it lashes out at an ally beside it (a
-  basic attack at x0.8) or, with none near, misfires and loses 10% of its max HP
-  (`PassiveDef.Unstable`, at the start of its turn in `Battle.NextTurn`).
+  SPD +1, max HP +10%. Its instability comes **between missions, not as losing control in battle**
+  (the user's call, 2026-11-02): after a battle it fought, 1 in 4 it has an episode
+  (`Ranch.Episodes`): it convulses and needs the next battle to recover (`CreatureRecord.Recovering`),
+  its body shifts (a part changes), or something sours (an infusion washes out; with none, its rigs
+  seize and cost up to 15 chem).
 - **The costs.** A new infusion or new blood steeps: out of the squad, it sits out the next battle
   (`CreatureRecord.Steeping`, cleared after a battle). Every rig costs 3 chem upkeep after each battle
   its creature fights (`TierBook.UpkeepPerRig`). Rigged creatures learn at 75% of the JP, an

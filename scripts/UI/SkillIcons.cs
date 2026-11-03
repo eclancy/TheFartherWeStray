@@ -48,7 +48,7 @@ public static class SkillIcons
         ["swoop"] = "dive", ["grapple"] = "hook",
         ["copycat"] = "hand", ["mock"] = "taunt", ["study"] = "eye",
         ["haste"] = "spd", ["stop"] = "clock", ["quicken"] = "cooldown",
-        ["scatter_charge"] = "knock", ["flash_powder"] = "stun", ["mender_mist"] = "heal",
+        ["snare_trap"] = "root", ["blast_trap"] = "knock", ["gas_trap"] = "poison",
         ["mirror_shape"] = "swirl", ["beast_shape"] = "claw", ["wisp_shape"] = "ghost",
         ["spark_coil"] = "stun", ["repair"] = "gear", ["overdrive"] = "spd",
         ["antler_sweep"] = "slash", ["crown_of_thorns"] = "thorns", ["rutting_charge"] = "horn",
@@ -98,7 +98,8 @@ public static class SkillIcons
     public enum Kind { Attack, Heal, Boost, Control, Move }
 
     public static Kind KindOf(SkillDef s) =>
-        s.Target == TargetKind.Tile ? Kind.Move
+        s.Trap ? Kind.Control
+        : s.Target == TargetKind.Tile ? Kind.Move
         : s.Power > 0 ? Kind.Attack
         : s.Heal > 0 ? Kind.Heal
         : s.Target is TargetKind.Ally or TargetKind.Self ? Kind.Boost
@@ -145,7 +146,7 @@ public static class SkillIcons
         if (down && (s.Target is TargetKind.Enemy or TargetKind.Area || !up)) Glyphs.DrawMini(img, "down", 14, 1);
         else if (up) Glyphs.DrawMini(img, "up", 14, 1);
         // Its shape: bottom right.
-        string shape = s.AllFoes || s.Gamble ? "all" : s.AroundSelf ? "ring" : s.Radius > 0 ? "area" : s.Leap ? "leap" : s.Straight ? "line" : null;
+        string shape = s.Trap ? "trap" : s.AllFoes ? "all" : s.AroundSelf ? "ring" : s.Radius > 0 ? "area" : s.Leap ? "leap" : s.Straight ? "line" : null;
         if (shape != null) Glyphs.DrawMini(img, shape, 14, 14);
         return img;
     }

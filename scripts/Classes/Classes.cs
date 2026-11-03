@@ -52,7 +52,7 @@ public sealed class SkillDef
     // And after FFTA's time mage, gadgeteer and morpher (the user's yes, 2026-11-02):
     public int Stop;                 // the target is frozen in time for this many of its turns; hits don't free it
     public bool Quicken;             // the ally targeted takes a turn right after this one
-    public bool Gamble;              // a gadget: a coin flip sends it at every foe or every ally (heals the other way round)
+    public bool Trap;                // set on a tile (Target Tile): the first foe to step there springs it, and the rest of the fields are what it does
     public bool CopyForm;            // takes the targeted foe's form ability for 3 turns
 }
 
@@ -90,8 +90,6 @@ public sealed class PassiveDef
     public int CooldownCut;          // skills cool down sooner
     public int Climb;                // can step up or down this many levels
     public int ChemBonus;            // extra chem after each battle it fights in
-    public float Unstable;           // an abomination's cost: each turn, this chance it lashes out at an ally beside it or misfires
-    public bool Lucky;               // a gadget's coin flip goes its way 3 times in 4
 
     /// <summary>Two support passives in effect at once (a shiny's own on top of the equipped one): numbers add, flags join.</summary>
     public static PassiveDef Merge(PassiveDef a, PassiveDef b)
@@ -107,7 +105,6 @@ public sealed class PassiveDef
             PackBond = a.PackBond || b.PackBond, Regen = a.Regen + b.Regen, Drain = a.Drain + b.Drain,
             SkillPower = a.SkillPower + b.SkillPower, Predator = a.Predator + b.Predator, RangeBonus = a.RangeBonus + b.RangeBonus,
             CooldownCut = a.CooldownCut + b.CooldownCut, Climb = Math.Max(a.Climb, b.Climb), ChemBonus = a.ChemBonus + b.ChemBonus,
-            Unstable = Math.Max(a.Unstable, b.Unstable), Lucky = a.Lucky || b.Lucky,
         };
     }
 }
@@ -339,13 +336,13 @@ public static class ClassBook
             Text = "Range 3: the foe is frozen in time for 2 of its turns; hits don't free it (cleansing does)." },
         new() { Id = "quicken", Name = "Quicken", Class = "Horologist", Cost = 35, Cooldown = 5, Target = TargetKind.Ally, Range = 3, Quicken = true,
             Text = "An ally within 3 takes a turn right after this one." },
-        // Saboteur (Tinker + Rogue), after FFTA's gadgeteer: every gadget is a coin flip, every foe or every ally.
-        new() { Id = "scatter_charge", Name = "Scatter Charge", Class = "Saboteur", Cost = 30, Cooldown = 4, Range = 0, Gamble = true, Power = 0.8f,
-            Text = "A charge with a mind of its own: every foe on the field takes x0.8, or every ally does. A coin flip." },
-        new() { Id = "flash_powder", Name = "Flash Powder", Class = "Saboteur", Cost = 30, Cooldown = 4, Range = 0, Gamble = true, StunChance = 0.4f,
-            Text = "A blinding flash: every foe on the field, or every ally, 40% to be stunned. A coin flip." },
-        new() { Id = "mender_mist", Name = "Mender Mist", Class = "Saboteur", Cost = 30, Cooldown = 4, Target = TargetKind.Ally, Range = 0, Gamble = true, Heal = 0.25f,
-            Text = "A healing mist: every ally on the field heals 25%, or every foe does. A coin flip." },
+        // Saboteur (Tinker + Rogue): traps (the user's call, 2026-11-02). Hidden from the other side; the first foe to step on one springs it.
+        new() { Id = "snare_trap", Name = "Snare Trap", Class = "Saboteur", Cost = 25, Cooldown = 3, Target = TargetKind.Tile, Range = 3, Trap = true, Power = 0.6f, Root = true,
+            Text = "Hides a snare on a tile within 3: the first foe to step there is caught (x0.6) and rooted." },
+        new() { Id = "blast_trap", Name = "Blast Trap", Class = "Saboteur", Cost = 30, Cooldown = 4, Target = TargetKind.Tile, Range = 3, Radius = 1, Trap = true, Power = 1f,
+            Text = "Buries a charge on a tile within 3: when a foe steps there it blows, x1 to every foe within 1." },
+        new() { Id = "gas_trap", Name = "Gas Trap", Class = "Saboteur", Cost = 30, Cooldown = 4, Target = TargetKind.Tile, Range = 3, Trap = true, Poison = 4, PoisonTurns = 3, StunChance = 0.3f,
+            Text = "Plants a canister of gas on a tile within 3: the foe that steps there is poisoned (4 a turn for 3 turns), 30% to be stunned." },
         // Skinchanger (Brawler + Mystic), after FFTA's morpher.
         new() { Id = "mirror_shape", Name = "Mirror Shape", Class = "Skinchanger", Cost = 30, Cooldown = 4, Range = 3, CopyForm = true,
             Text = "Takes the shape of a foe within 3: its kind's ability is its own for 3 turns." },
@@ -679,8 +676,8 @@ public static class ClassBook
         },
         new()
         {
-            Id = "Saboteur", Name = "Saboteur", Blurb = "Throws whatever it rigged up last night, and hopes.", Atk = 2, Def = -1,
-            Skills = new[] { "scatter_charge", "flash_powder", "mender_mist" }, Requires = new[] { ("Tinker", 2), ("Rogue", 2) },
+            Id = "Saboteur", Name = "Saboteur", Blurb = "Rigs the ground, then waits for someone to walk on it.", Atk = 1, Spd = 1,
+            Skills = new[] { "snare_trap", "blast_trap", "gas_trap" }, Requires = new[] { ("Tinker", 2), ("Rogue", 2) },
             Trial = "Saboteur", TrialHint = "the Saboteur's trial at the Undercity Foundry",
         },
         new()
@@ -791,7 +788,7 @@ public static class ClassBook
         new() { Id = "mirror_strike", Name = "Mirror Strike", Class = "Mimic", Kind = PassiveKind.Reaction, React = ReactionKind.Counter, ReactPower = 0.7f, Text = "Hit in melee: strikes back the same way (x0.7)." },
         new() { Id = "second_hand", Name = "Second Hand", Class = "Horologist", Spd = 2, Text = "SPD +2." },
         new() { Id = "rewind", Name = "Rewind", Class = "Horologist", Kind = PassiveKind.Reaction, React = ReactionKind.Adrenaline, ReactPower = 0.25f, Text = "Hit below half HP: it winds back a quarter of its HP, once a battle." },
-        new() { Id = "loaded_dice", Name = "Loaded Dice", Class = "Saboteur", Lucky = true, Text = "Its gadgets' coin flips go its way 3 times in 4." },
+        new() { Id = "trapwright", Name = "Trapwright", Class = "Saboteur", SkillPower = 0.15f, Hit = 5, Text = "Its skills and traps hit 15% harder; +5% to hit." },
         new() { Id = "booby_trap", Name = "Booby Trap", Class = "Saboteur", Kind = PassiveKind.Reaction, React = ReactionKind.DirtyRetort, ReactChance = 0.3f, Text = "Hit in melee: 30% chance a trap goes off and stuns the attacker." },
         new() { Id = "shifting_hide", Name = "Shifting Hide", Class = "Skinchanger", Def = 1, Evade = 5, Text = "DEF +1; 5% harder to hit." },
         new() { Id = "shed_skin", Name = "Shed Skin", Class = "Skinchanger", Kind = PassiveKind.Reaction, React = ReactionKind.Retreat, ReactAmount = 10, Text = "Hit: it slips out of its skin, a tile away and 10% harder to hit." },

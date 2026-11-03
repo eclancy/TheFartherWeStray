@@ -22,6 +22,10 @@ public sealed record LogEvent(string Text) : BattleEvent;
 public sealed record EndEvent(Side Winner) : BattleEvent;
 public sealed record SkillEvent(Unit U, SkillDef Skill, Vector2I Center, List<Vector2I> Area) : BattleEvent;
 public sealed record StatusEvent(Unit U, string Text) : BattleEvent;
+public sealed record TrapEvent(Unit Victim, SkillDef Skill, Vector2I Tile, List<Vector2I> Area) : BattleEvent;
+
+/// <summary>A trap on the board: where it is, what it does (a Saboteur's skill), and who set it.</summary>
+public sealed record Trap(Vector2I Tile, SkillDef Skill, Unit Owner);
 
 /// <summary>
 /// The rules of one battle, with no drawing: FFTA-style individual turns in speed order, move then
@@ -195,23 +199,6 @@ public sealed partial class Battle
             Log($"{next.Name} suffers from poison.");
             Hurt(next, next.PoisonDmg, null);
         }
-        // An abomination's cost: now and then it lashes out at an ally beside it, or misfires.
-        if (!next.Gone && next.Passive is { Unstable: > 0 } wild && _rng.Chance(wild.Unstable))
-        {
-            var near = Alive.FirstOrDefault(o => o != next && o.Side == next.Side && Dist(next, next.Pos, o) == 1);
-            if (near != null)
-            {
-                Status(next, "lashes out!");
-                Log($"{next.Name} lashes out at {near.Name}!");
-                Attack(next, near, counter: true, power: 0.8f);
-            }
-            else
-            {
-                Status(next, "misfires!");
-                Log($"{next.Name}'s parts misfire.");
-                Hurt(next, Math.Max(1, next.MaxHp / 10), null);
-            }
-        }
         // A Reaper's mark counts the creature's own turns; when it runs out, it falls.
         if (!next.Gone && next.DoomTurns > 0 && --next.DoomTurns == 0)
         {
@@ -342,17 +329,82 @@ public sealed partial class Battle
         if (u.Moved || dest == u.Pos) return false;
         var path = PathTo(u, dest);
         if (path == null) return false;
-        u.Pos = dest;
+        // A foe's trap stops it where it lies hidden (fliers pass over), and springs.
+        Trap sprung = null;
+        if (u.MoveType != MoveType.Fly)
+            for (int i = 1; i < path.Count && sprung == null; i++)
+            {
+                var at = path[i];
+                sprung = Traps.FirstOrDefault(t => t.Owner.Side != u.Side && TilesAt(u, at).Contains(t.Tile));
+                if (sprung != null) path = path.Take(i + 1).ToList();
+            }
+        u.Pos = path[^1];
         u.Moved = true;
         Events.Add(new MoveEvent(u, path));
+        if (sprung != null)
+        {
+            u.TurnStart = u.Pos; // no taking that step back
+            Spring(sprung, u);
+        }
         return true;
+    }
+
+    static List<Vector2I> TilesAt(Unit u, Vector2I at)
+    {
+        var tiles = new List<Vector2I>();
+        for (int dy = 0; dy < u.Size; dy++)
+        for (int dx = 0; dx < u.Size; dx++) tiles.Add(at + new Vector2I(dx, dy));
+        return tiles;
+    }
+
+    /// <summary>The traps on the board (the user's call, 2026-11-02: the Saboteur sets traps). Each side's are hidden from the other.</summary>
+    public readonly List<Trap> Traps = new();
+    public const int TrapsEach = 3;
+
+    void SetTrap(Unit u, SkillDef s, Vector2I tile)
+    {
+        Events.Add(new SkillEvent(u, s, tile, new List<Vector2I> { tile }));
+        Log(u.Name + " sets a " + s.Name + ".");
+        Traps.RemoveAll(t => t.Tile == tile);
+        var own = Traps.Where(t => t.Owner == u).ToList();
+        if (own.Count >= TrapsEach) Traps.Remove(own[0]);
+        Traps.Add(new Trap(tile, s, u));
+    }
+
+    /// <summary>A trap goes off under a foe: its effect on every foe of its setter in its reach.</summary>
+    void Spring(Trap trap, Unit victim)
+    {
+        Traps.Remove(trap);
+        var s = trap.Skill;
+        var u = trap.Owner;
+        var area = new List<Vector2I>();
+        for (int y = 0; y < Map.H; y++)
+        for (int x = 0; x < Map.W; x++)
+            if (Math.Abs(x - trap.Tile.X) + Math.Abs(y - trap.Tile.Y) <= s.Radius) area.Add(new Vector2I(x, y));
+        Events.Add(new TrapEvent(victim, s, trap.Tile, area));
+        Log($"{victim.Name} springs {u.Name}'s {s.Name}!");
+        foreach (var t in Alive.Where(o => o.Side != u.Side && o.Tiles.Any(area.Contains)).ToList())
+        {
+            if (s.Power > 0) Hurt(t, Math.Max(1, Mathf.RoundToInt(Preview(u, t).dmg * PowerOn(u, s, t) * _rng.Range(0.9f, 1.1f))), u);
+            if (t.Gone || t.Side == u.Side) continue;
+            if (s.Root)
+            {
+                if (t.Passive is { Unstoppable: true }) Status(t, "unstoppable"); else { t.Rooted = true; Status(t, "snared"); }
+            }
+            if (s.Poison > 0) Poison(t, s);
+            if (s.StunChance > 0 && _rng.Chance(s.StunChance))
+            {
+                if (t.Passive is { NoStun: true }) Status(t, "resists"); else { t.Stunned = true; Status(t, "stunned"); }
+            }
+            foreach (var b in s.Buffs) Apply(u, t, b);
+        }
     }
 
     public bool CanUndo(Unit u) => u.Moved && !u.Acted;
 
     public void UndoMove(Unit u)
     {
-        if (!CanUndo(u)) return;
+        if (!CanUndo(u) || u.Pos == u.TurnStart) return;
         Events.Add(new MoveEvent(u, new List<Vector2I> { u.Pos, u.TurnStart }));
         u.Pos = u.TurnStart;
         u.Moved = false;
@@ -639,7 +691,7 @@ public sealed partial class Battle
     public List<Vector2I> SkillTiles(Unit u, SkillDef s)
     {
         var tiles = new List<Vector2I>();
-        if (s.Target == TargetKind.Self || s.AroundSelf || s.AllFoes || s.Gamble) { tiles.Add(u.Pos); return tiles; }
+        if (s.Target == TargetKind.Self || s.AroundSelf || s.AllFoes) { tiles.Add(u.Pos); return tiles; }
         int range = RangeOf(u, s);
         for (int y = 0; y < Map.H; y++)
         for (int x = 0; x < Map.W; x++)
@@ -664,7 +716,7 @@ public sealed partial class Battle
                 case TargetKind.Area when Map.TerrainAt(p) != Terrain.Pit:
                     tiles.Add(p);
                     break;
-                case TargetKind.Tile when CanStand(u, p):
+                case TargetKind.Tile when s.Trap ? occ == null && !Map.Blocked(p) && Map.TerrainAt(p) is not (Terrain.Pit or Terrain.Water or Terrain.Chem or Terrain.Lava) : CanStand(u, p):
                     tiles.Add(p);
                     break;
             }
@@ -697,7 +749,6 @@ public sealed partial class Battle
     {
         var area = new List<Vector2I>();
         if (s.AllFoes) return Alive.Where(o => o.Side != u.Side).SelectMany(o => o.Tiles).ToList();
-        if (s.Gamble) return Alive.SelectMany(o => o.Tiles).ToList();
         if (s.Radius == 0) { area.Add(s.Target == TargetKind.Self ? u.Pos : tile); return area; }
         for (int y = 0; y < Map.H; y++)
         for (int x = 0; x < Map.W; x++)
@@ -714,7 +765,6 @@ public sealed partial class Battle
     {
         if (s.Target == TargetKind.Tile) return new List<Unit>();
         if (s.AllFoes) return Alive.Where(o => o.Side != u.Side).ToList();
-        if (s.Gamble) return Alive.ToList(); // either side, by a coin flip
         bool friendly = s.Target is TargetKind.Ally or TargetKind.Self;
         if (s.Target == TargetKind.Self) return new List<Unit> { u };
         if (s.Radius == 0)
@@ -758,27 +808,7 @@ public sealed partial class Battle
         Status(u, $"takes the {form.ToString().ToLowerInvariant()}'s shape");
     }
 
-    /// <summary>A gadget: a coin flip sends it at every foe on the field or every ally (a heal the other way round). It always lands.</summary>
-    void Gamble(Unit u, SkillDef s)
-    {
-        bool lucky = _rng.Chance(u.Passive is { Lucky: true } ? 0.75f : 0.5f);
-        bool helps = s.Heal > 0;
-        var side = lucky == helps ? u.Side : (u.Side == Side.Player ? Side.Wild : Side.Player);
-        var hit = Alive.Where(o => o.Side == side).ToList();
-        Events.Add(new SkillEvent(u, s, u.Pos, hit.SelectMany(o => o.Tiles).ToList()));
-        Log($"{u.Name} uses {s.Name}: {(lucky ? "it goes the right way" : "it backfires")}!");
-        Status(u, lucky ? "lucky!" : "backfires!");
-        foreach (var t in hit)
-        {
-            if (t.Gone) continue;
-            if (s.Power > 0) Hurt(t, Math.Max(1, Mathf.RoundToInt(Preview(u, t).dmg * s.Power * _rng.Range(0.9f, 1.1f))), t.Side != u.Side ? u : null);
-            if (!t.Gone && s.StunChance > 0 && _rng.Chance(s.StunChance))
-            {
-                if (t.Passive is { NoStun: true }) Status(t, "resists"); else { t.Stunned = true; Status(t, "stunned"); }
-            }
-            if (s.Heal > 0) HealUnit(t, Mathf.RoundToInt(t.MaxHp * s.Heal));
-        }
-    }
+
 
     /// <summary>The damage multiplier of a skill on a target: its power, plus high-ground and flanking bonuses.</summary>
     float PowerOn(Unit u, SkillDef s, Unit t)
@@ -902,6 +932,7 @@ public sealed partial class Battle
         }
         else u.Cooldowns[s.Id] = Math.Max(1, s.Cooldown - (u.Passive?.CooldownCut ?? 0));
         int range = RangeOf(u, s);
+        if (s.Trap) { SetTrap(u, s, tile); return; }
         if (s.Target == TargetKind.Tile)
         {
             // Teleport.
@@ -911,7 +942,6 @@ public sealed partial class Battle
             u.Pos = tile;
             return;
         }
-        if (s.Gamble) { Gamble(u, s); return; }
         var primary = s.Radius == 0 && s.Target == TargetKind.Enemy ? OccupantOf(tile) : null;
         if (s.Leap && primary != null && LeapSpot(u, primary, range) is { } spot && spot != u.Pos)
         {
@@ -1035,16 +1065,19 @@ public sealed partial class Battle
     /// <summary>How much the AI likes a skill aimed at a tile (0 or less: not worth it).</summary>
     float SkillScore(Unit u, SkillDef s, Vector2I tile)
     {
-        if (s.Target == TargetKind.Tile) return 0; // the AI doesn't teleport (yet)
-        if (s.Gamble)
+        if (s.Trap)
         {
-            // A coin flip: what it would do to the foes, against what it would do to your own.
-            float luck = u.Passive is { Lucky: true } ? 0.75f : 0.5f;
-            float Worth(IEnumerable<Unit> side) => side.Sum(t => (s.Power > 0 ? Math.Min(t.Hp, Preview(u, t).dmg * s.Power) : 0) + s.StunChance * 10
-                + (s.Heal > 0 ? Math.Min(t.MaxHp - t.Hp, t.MaxHp * s.Heal) : 0));
-            float foes = Worth(Alive.Where(o => o.Side != u.Side)), friends = Worth(Alive.Where(o => o.Side == u.Side));
-            return s.Heal > 0 ? luck * friends - (1 - luck) * foes * 1.2f : luck * foes - (1 - luck) * friends * 1.2f;
+            // A trap is worth setting in a foe's way: a tile a step or two from it, nearer your side than it is.
+            if (u.Side == Side.Player && Goal == Objective.Capture && !GivenUp) return 0; // it could fell the quarry
+            if (Traps.Any(t => t.Tile == tile)) return 0;
+            var foe = Alive.Where(o => o.Side != u.Side).OrderBy(o => TileGap(o, o.Pos, tile)).FirstOrDefault();
+            if (foe == null) return 0;
+            int d = TileGap(foe, foe.Pos, tile);
+            var mine = Alive.Where(o => o.Side == u.Side).Min(o => TileGap(o, o.Pos, tile));
+            var gap = Alive.Where(o => o.Side == u.Side).Min(o => Dist(o, o.Pos, foe));
+            return d >= 1 && d <= 2 && mine < gap ? 5 + s.Power * 3 + s.Poison + (s.Root ? 2 : 0) + s.Radius * 2 : 0;
         }
+        if (s.Target == TargetKind.Tile) return 0; // the AI doesn't teleport (yet)
         float score = 0;
         foreach (var t in SkillTargets(u, s, tile))
         {

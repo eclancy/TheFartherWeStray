@@ -93,7 +93,7 @@ public partial class SpriteLabScreen : Control
             ? $"Individuals of {SpeciesView.Name}   [Esc] back to {sheet}"
             : $"{(DrawPets ? "DrawPets cast" : $"Sheet {SheetSeed}")}   [Space] reroll   [Left/Right] prev/next   [D] DrawPets   [Click] see the species";
         string mode = FourColor ? "4-colour (GBC)" : "full palette (GBA)";
-        _header.Text = $"Creature Tactics  -  Sprite Lab      {where}   [C] {mode}   [V] style: {ArtStyle.Current.Name}   [Z] zoom   [P] save PNG"
+        _header.Text = $"{GameRoot.Title}  -  Sprite Lab      {where}   [C] {mode}   [V] style: {ArtStyle.Current.Name}   [Z] zoom   [P] save PNG"
             + (_flash != null ? $"      {_flash}" : "");
     }
 

@@ -48,14 +48,19 @@ stronger it gets, the farther it strays from what it was, which fits The Farther
 - **Infused** stays the chemical word; Tainted, Steeped and Dosed are out.
 - **The two sides:** the undercity goes with rigs, chemicals and experimentation; the city above
   with breeding and keeping creatures natural and purebred.
-- **Names should lean neon punk, not steampunk**, as the game does, and not every one needs
-  "lantern" in it.
+- **Names shouldn't lean steampunk**, and not every one needs "lantern" in it. On the call the
+  user called the game more neon punk; afterwards (2026-11-02) they asked to lean away from neon
+  punk too if it means hacking, and it usually reads that way (cyberpunk: screens, hackers,
+  cyberware). Suggested instead, open: **industrial fantasy**, Arcane's own mix. That means a
+  gilded city above in its golden age, and an undercity of smog, pipes, alchemy and glowing
+  chemicals, with neon signs but no computers.
 
 **Tasks from the call:**
 - [ ] Name the DNA tier. Options so far: Spliced, Chimera (two creatures combined), Mutant (the
   user asked whether it fits creatures whose DNA has been changed).
 - [ ] Write more notes on the chemical path (Infused), as the user asked.
-- [ ] Find a title that fits the neon-punk look, perhaps by naming the creatures as a whole first.
+- [ ] Find a title that fits the look (not steampunk, not hacking), perhaps by naming the
+  creatures as a whole first.
 
 **Against what's built** (for when the user picks this up):
 - *Strain* means two things. In the doc it reads like a creature's line (a set bonus for a squad

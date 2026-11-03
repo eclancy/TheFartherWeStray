@@ -771,7 +771,10 @@ public partial class BattleScreen : Control
 
         // Class, then loadout and temper; the long words live in the tooltips.
         var (weapon, armor, move) = c.Loadout();
-        var kit = new List<UI.Chip>();
+        var kit = new List<UI.Chip>
+        {
+            new(Classes.TierBook.Glyph(u.Tier), u.Tier.ToString(), Color.FromHtml(Classes.TierBook.Hex(u.Tier)), Classes.TierBook.Describe(c, u.Tier)),
+        };
         if (u.Tamer is { } w) kit.Add(new(w.Glyph, w.Name, u.Boost != null ? Cyan : Dim, u.Boost != null ? $"Led by {w.Name}: {w.Text}" : $"Led by {w.Name}, whose boost reaches only {w.LeadsHint}."));
         if (u.ClassName != null) kit.Add(new(SkillIcons.ClassEmblem(u.ClassName), u.ClassName, Gold, "class"));
         if (u.Training?.Secondary != null) kit.Add(new(SkillIcons.ClassEmblem(u.Training.Secondary), u.Training.Secondary, Ink, "secondary skill set"));
@@ -791,8 +794,8 @@ public partial class BattleScreen : Control
             var icons = new HFlowContainer();
             icons.AddThemeConstantOverride("h_separation", 4);
             foreach (var s in u.Skills) icons.AddChild(UI.Ui.Picture(SkillIcons.Skill(s, 2), $"{s.Name} ({s.Class})\n{s.Text}"));
-            foreach (var p in new[] { u.Equipped, u.ShinyPassive, u.GearPassive, u.Reaction }.Concat(u.Traits).Where(p => p != null))
-                icons.AddChild(UI.Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p == u.ShinyPassive ? "shiny" : p == u.GearPassive ? "gear" : p.Class == "Trait" ? "trait" : p.Kind == Classes.PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"));
+            foreach (var p in new[] { u.Equipped, u.ShinyPassive, u.GearPassive, u.TierPassive, u.Reaction }.Concat(u.Traits).Where(p => p != null))
+                icons.AddChild(UI.Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p == u.ShinyPassive ? "shiny" : p == u.GearPassive ? "gear" : p == u.TierPassive ? "tier" : p.Class == "Trait" ? "trait" : p.Kind == Classes.PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"));
             _info.AddChild(icons);
         }
 

@@ -209,6 +209,20 @@ The graft chamber previews the creature with the parts you're considering. Flesh
 grafts belong to that one creature: breeding passes on the parts it was born with. Infusions are
 blood, so the line carries them.
 
+### Creature tiers
+
+A creature goes by the most extreme thing done to it, shown as a chip on the pens and in battle:
+- **Stray:** wild, nobody has caught it.
+- **Thoroughbred:** caught and left natural. It gets a bonus for it: ATK +1, DEF +1, max HP +10%.
+- **Infused:** chemically altered: a lab infusion or a chemical augment.
+- **Chimera:** its DNA altered: bred from two different bloods (or from a chimera), or a part
+  spliced on at the lab.
+- **Rigged:** machinery bolted on: a mechanical augment.
+- **Abomination:** infused, a chimera and rigged, all at once.
+
+Any of these ends the thoroughbred bonus. Breeding natural creatures together keeps them
+thoroughbreds and pleases the city above; chimeras, infusions and splices are undercity work.
+
 ### Mission board and regions
 
 Press **M** at the ranch for the **country map**: the city above, the undercity below, the

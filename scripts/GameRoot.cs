@@ -527,6 +527,83 @@ public partial class GameRoot : Node
             return;
         }
 
+        if (args.ContainsKey("tiers"))
+        {
+            // Creature tiers without a screen: what each piece of lab work makes a creature, what
+            // breeding makes, the thoroughbred bonus, strays in battle, rivals' squads, that tiers
+            // survive a save, and that an old save's infused creatures are found again.
+            Ranching.Ranch.SavePath = "user://tiers_test.json";
+            var ranch = Ranching.Ranch.New();
+            ranch.Chem = 2000;
+            Classes.Tier TierOf(int id) => Classes.TierBook.Of(ranch.Get(id));
+            Creature Caught(Strain strain, ulong from)
+            {
+                for (ulong k = from; ; k++)
+                    if (Species.Generate(SeededRng.Derive(0x71E5, k)) is { } sp && sp.Strain == strain) return Creature.Specimen(sp, 0);
+            }
+            int n1 = ranch.Add(Caught(Strain.Natural, 0)), n2 = ranch.Add(Caught(Strain.Natural, 50)), n3 = ranch.Add(Caught(Strain.Natural, 100));
+            int n4 = ranch.Add(Caught(Strain.Natural, 150)), chem = ranch.Add(Caught(Strain.Chemtech, 0));
+            foreach (var r in ranch.Creatures) Ranching.Lab.Learn(ranch, ranch.Get(r.Id));
+            GD.Print($"caught: {string.Join(", ", ranch.Creatures.Select(r => $"{r.Name} ({r.Species.Strain.Label()}) {TierOf(r.Id)}"))}");
+
+            var plain = Tactics.Unit.From(ranch.Get(n1), Tactics.Side.Player);
+            var wild = Tactics.Unit.From(ranch.Get(n1), Tactics.Side.Wild);
+            GD.Print($"thoroughbred bonus: {ranch.Record(n1).Name} caught ATK {plain.Atk} DEF {plain.Def} HP {plain.MaxHp} ({plain.Tier}); wild ATK {wild.Atk} DEF {wild.Def} HP {wild.MaxHp} ({wild.Tier})");
+
+            GD.Print("  " + Ranching.Lab.Infuse(ranch, n1, Strain.Chemtech));
+            var rec1 = ranch.Record(n1);
+            foreach (var slot in Ranching.Lab.SlotsFor(rec1.Species.Plan))
+            {
+                int now = Ranching.Lab.Get(rec1.Parts, slot.Name);
+                var other = Ranching.Lab.Options(ranch, slot.Name).Where(v => v != now).ToList();
+                if (other.Count == 0) continue;
+                GD.Print("  " + Ranching.Lab.GraftPart(ranch, n1, slot.Name, other[0]));
+                break;
+            }
+            GD.Print($"  {rec1.Name}: {TierOf(n1)}: {Classes.TierBook.Describe(ranch.Get(n1), TierOf(n1))}");
+            foreach (var aug in new[] { "piston_fist", "rivet_gun", "acid_canister" }) ranch.Items[aug] = 1;
+            GD.Print("  " + ranch.Install(n1, "piston_fist"));
+            GD.Print("  " + ranch.Install(n2, "rivet_gun"));
+            GD.Print("  " + ranch.Install(n3, "acid_canister"));
+            var after = Tactics.Unit.From(ranch.Get(n2), Tactics.Side.Player);
+            GD.Print($"lab: {ranch.Record(n1).Name} {TierOf(n1)}, {ranch.Record(n2).Name} {TierOf(n2)} (no bonus: passive {after.TierPassive?.Name ?? "none"}), {ranch.Record(n3).Name} {TierOf(n3)}");
+
+            int city = ranch.CityStanding, under = ranch.UnderStanding;
+            foreach (var r in ranch.Creatures) r.Rested = true;
+            var (true1, res1) = ranch.Breed(n3, n4);
+            GD.Print($"bred natural x natural -> {ranch.Record(true1).Name}: {TierOf(true1)} ({string.Join("; ", res1.Notes)}); standing city {city} -> {ranch.CityStanding}, undercity {under} -> {ranch.UnderStanding}");
+            city = ranch.CityStanding; under = ranch.UnderStanding;
+            var (cross, res2) = ranch.Breed(n2, chem);
+            GD.Print($"bred natural x chemborn -> {ranch.Record(cross).Name}: {TierOf(cross)} ({string.Join("; ", res2.Notes)}); standing city {city} -> {ranch.CityStanding}, undercity {under} -> {ranch.UnderStanding}");
+            var (same, res3) = ranch.Breed(n1, chem);
+            GD.Print($"bred infused chemborn x chemborn -> {ranch.Record(same).Name}: {TierOf(same)} ({string.Join("; ", res3.Notes)})");
+            foreach (var r in ranch.Creatures) r.Rested = true;
+            var (grand, res4) = ranch.Breed(cross, true1);
+            GD.Print($"bred chimera x thoroughbred -> {ranch.Record(grand).Name}: {TierOf(grand)} ({string.Join("; ", res4.Notes)})");
+
+            ranch.Save();
+            var back = Ranching.Ranch.Load();
+            bool kept = ranch.Creatures.All(r => Classes.TierBook.Of(back.Get(r.Id)) == TierOf(r.Id));
+            back.Flags.Remove(Ranching.Ranch.TiersFlag);
+            back.Record(n1).Species.Infused = false;
+            back.Record(n1).Augments.Clear();
+            back.Record(n1).BirthParts = null;
+            back.Refresh(n1);
+            var before = Classes.TierBook.Of(back.Get(n1));
+            back.Tidy();
+            GD.Print($"save: tiers {(kept ? "kept" : "DIFFERENT")} after save and load; an old save's infused {back.Record(n1).Name} reads {before}, then {Classes.TierBook.Of(back.Get(n1))} once tidied; the wild-born chemborn stays {Classes.TierBook.Of(back.Get(chem))}");
+
+            foreach (var (id, wins) in new[] { ("chem_witch", 0), ("brass_baron", 2) })
+            {
+                var squad = Party.RivalBook.Squad(Party.RivalBook.Get(id), 4, wins, 77, 3);
+                GD.Print($"rival {id} (wins {wins}): {string.Join(", ", squad.Select(p => $"{p.creature.Name} {Tactics.Unit.From(p.creature, Tactics.Side.Wild, p.training).Tier}"))}");
+            }
+            var battle = new Tactics.Mission { Seed = 5, MapName = "Lantern Row", Goal = Tactics.Objective.Rout, Pack = 3 }.CreateBattle(ranch.SquadCreatures());
+            GD.Print($"battle: yours {string.Join(", ", battle.Units.Where(u => u.Side == Tactics.Side.Player).Select(u => $"{u.Name} {u.Tier}"))}; the pack {string.Join(", ", battle.Units.Where(u => u.Side == Tactics.Side.Wild).Select(u => $"{u.Name} {u.Tier}"))}");
+            GetTree().Quit();
+            return;
+        }
+
         if (args.ContainsKey("shoptest"))
         {
             // The shops without a screen: buy where you stand (and not elsewhere), wear gear, use items

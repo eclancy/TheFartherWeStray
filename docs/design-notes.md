@@ -4,11 +4,11 @@ _Systems the user has asked for: tamers (first called generals) and the party, o
 says what's decided (the user's words), what was defaulted to build a first version, and what's
 still open. Story themes live in `story-notes.md`; the user will come back to the story later._
 
-## Ideas from the voice call (the user's, 2026-11-02; not decided, not built)
+## Ideas from the voice call (the user's, 2026-11-02)
 
-_Imported from the user's "Game name ideas" doc, written during a voice call with Claude. These are
-ideas to weigh, not decisions, and none of it is built. The doc's Wizard Survivors names belong to
-another game and stay there._
+_Imported from the user's "Game name ideas" doc and the call's transcript (the game part only).
+The title ideas are still ideas; the creature tiers have since been decided and built (below). The
+doc's Wizard Survivors names belong to another game and stay there._
 
 **Title ideas** (the game is still called Creature Tactics):
 - Favourites: **Lanternkin** and **Brassbound Tamers** (liked on the call), and **Above and Below**
@@ -18,36 +18,14 @@ another game and stay there._
   (one of the maps), *Brassbound: Tamers of the Undercity*, *Cogkin* (more clockwork in it).
 - A possible theme or name: **The Farther We Stray**. It needs workshopping so it feels more like
   the game's story.
-- **Strays:** any creature that hasn't been captured is a stray. (The game calls them wild now.)
+- **Strays:** any creature that hasn't been captured is a stray. (Built as its tier: below.)
 
-**The creature ladder (draft).** Each step changes a creature more and costs more to reach. The
-stronger it gets, the farther it strays from what it was, which fits The Farther We Stray.
-1. **Thoroughbred:** a captured stray left as it is. A squad of one strain gets a set bonus, and it
-   keeps its full natural growth. Costs nothing.
-2. **Infused:** soaked in an essence that tunes it without changing what it is: a second element
-   or one boosted stat. It still counts as its strain, so it keeps the thoroughbred bonus. Costs a
-   rare reagent, and it sits out a mission while the infusion takes.
-3. **Spliced (a chimera; the name is still open, below):** two strains made into one creature, by gene splicing or by breeding two
-   different strains. It inherits a skill from each parent and a mixed body, and loses the
-   thoroughbred bonus for good. Costs a second creature, used up, plus lab time.
-4. **Rigged:** brass machinery bolted on. Big stat jumps and new ways to move or fight (flying,
-   climbing, a cannon arm). It can go on any step above; the user liked the idea of a rig on an
-   infused creature. Costs brass parts to build and upkeep after battles, and it wears on the
-   creature's temper or caps how far it can still grow.
+**The creature tiers** from the call are decided and built: see Creature tiers, below. The call's
+first draft also had a set bonus for a squad of one strain (the user replaced it with a bonus per
+creature), an infusion that rests a mission, a chimera that uses up a second creature, and a rig's
+upkeep or a cap on growth; none of those is built.
 
-**From the call's transcript (the user's decisions, 2026-11-02):**
-- **Thoroughbred** is a captured creature left natural: the heroic word for purebred the user
-  wanted instead of "feral".
-- **A creature goes by the most extreme thing done to it.** From least to most: **Infused**
-  (chemical, maybe through something like an equipment panel; it changes less of its natural
-  state, enhancing it or with small trade-offs), then the **DNA tier** (its DNA altered and bred;
-  an infused creature that gets this goes by the DNA tier's name), then **Rigged** (the most
-  unnatural thing on it).
-- **Abomination:** only a creature with all three (infused, DNA-altered and rigged). The user
-  weighed Amalgam, chose it for a moment, then settled on Abomination.
-- **Infused** stays the chemical word; Tainted, Steeped and Dosed are out.
-- **The two sides:** the undercity goes with rigs, chemicals and experimentation; the city above
-  with breeding and keeping creatures natural and purebred.
+**Names and theme (the user's, 2026-11-02):**
 - **Names shouldn't lean steampunk**, and not every one needs "lantern" in it. On the call the
   user called the game more neon punk; afterwards (2026-11-02) they asked to lean away from neon
   punk too if it means hacking, and it usually reads that way (cyberpunk: screens, hackers,
@@ -56,36 +34,60 @@ stronger it gets, the farther it strays from what it was, which fits The Farther
   and glowing chemicals, with neon signs but no computers.
 
 **Tasks from the call:**
-- [ ] Name the DNA tier. Options so far: Spliced, Chimera (two creatures combined), Mutant (the
-  user asked whether it fits creatures whose DNA has been changed).
+- [x] Name the DNA tier: **Chimera** (the user, 2026-11-02).
 - [ ] Write more notes on the chemical path (Infused), as the user asked.
 - [ ] Find a title that fits the look (not steampunk, not hacking), perhaps by naming the
   creatures as a whole first.
 
-**Against what's built** (for when the user picks this up):
-- *Strain* means two things. In the doc it reads like a creature's line (a set bonus for a squad
-  of one strain, two strains spliced into a chimera); in the game it's the five kinds of blood
-  (Natural, Clockwork, Chemborn, Runic, Abyssal). Species would be a third reading.
-- *Thoroughbred:* nothing like it yet. There are no squad set bonuses, and nothing caps growth.
-- *Infused:* the lab's infusions give a natural creature a blood strain (Chemborn, Runic or
-  Abyssal) and its grafts, for 45 chem, at once, and the line carries it. The doc's infusion keeps
-  the strain and adds an element or a stat, for a reagent and a mission's rest.
-- *Spliced:* breeding already makes one child from two parents' parts, but keeps both parents
-  (they rest until the next battle). Splicing would use one up and give the child a skill from
-  each.
-- *Rigged:* close to augments (two slots, each a bolt-on graft and an attack, sold in the
-  undercity, never inherited). The doc adds bigger jumps, new movement, upkeep, and a cost to
-  temper or growth. Chem is the only currency now, so brass parts would be a new one (or chem by
-  another name).
-
-**Open (from the doc, and from fitting it in):**
-- [ ] Can an infusion be undone?
-- [x] Should a rigged chimera have a special name? **No: it goes by Rigged. Only all three steps
-  make an Abomination** (the call's transcript).
-- [ ] Which *strain* does the ladder mean: the five blood strains, species, or something new?
-- [ ] Do the ladder's steps replace the lab's infusions, grafts and augments, or sit beside them?
-- [ ] Call uncaught creatures strays in the game?
+**Open:**
 - [ ] A title: one of the above, or keep Creature Tactics?
+
+## Creature tiers (the user's design, 2026-11-02; built)
+
+**Decided by the user** (on the voice call and after):
+- **A creature goes by the most extreme thing done to it.** From least to most: **Infused**
+  (chemically altered; it changes less of its natural state, enhancing it or with small
+  trade-offs), **Chimera** (its DNA altered and bred; an infused creature that becomes one goes by
+  Chimera), **Rigged** (machinery bolted on, the most unnatural). Only all three at once make an
+  **Abomination**.
+- **Thoroughbred:** caught and left natural, the heroic word for purebred instead of "feral". It
+  gets **a passive bonus of its own for staying natural**, not a squad bonus.
+- **Stray:** a creature nobody has caught.
+- The undercity goes with rigs, chemicals and experimentation; the city above with breeding and
+  keeping creatures natural and purebred.
+
+**Built** (`Classes/Tiers.cs`, `TierBook`), on the lab and breeding as they were:
+- **What counts.** Infused: a lab infusion, or a chemical augment. Chimera: bred from two different
+  bloods (Chemborn, Runic, Abyssal or natural; clockwork counts as natural, being machinery), bred
+  from a chimera, or a part spliced on at the lab (a flesh graft). Rigged: a mechanical augment (or
+  a rival's machine grafts). A creature caught already chemborn, runic or abyssal is a thoroughbred
+  of its own blood.
+- **Passing down.** Infused blood and chimera blood pass to the child (`Species.Infused`,
+  `Species.Chimera`); splices and augments don't, as before. Two natural creatures bred together
+  make a thoroughbred.
+- **The thoroughbred bonus** (`TierBook.Thoroughbred`): ATK +1, DEF +1, max HP +10%, counted like a
+  trait whatever it trains as. Your creatures and rivals' count as caught; wild packs are strays and
+  get none.
+- **Standing.** Breeding a chimera moves the undercity instead of the city; an infusion moves the
+  undercity as an augment does; the first splice that makes a chimera moves it a little
+  (`Standing.Splice`).
+- **On screen.** A tier chip (crown, flask, helix, gear, skull; a paw for strays) on the pens'
+  detail and the battle panel, its meaning in the tooltip; the lab's headings say what each piece
+  of work makes, and its messages say when the tier changes ("It's a chimera now, no longer a
+  thoroughbred."); breeding notes a chimera.
+- **Old saves.** Creatures caught wild and infused at the lab are found and marked infused (their
+  species, regenerated from its seed, has other blood). Ones bred before tiers can't be told apart
+  and stay as they are.
+- `--tiers` checks it all headless.
+
+**Defaulted, open to change:**
+- [ ] The bonus's size and kind (now a flat ATK +1, DEF +1, max HP +10%).
+- [ ] Does an abomination get something of its own (a passive, a look), or is the name enough?
+- [ ] Should the tiers bring costs of their own, like the first draft's (an infusion resting a
+  mission, a rig's upkeep, a cap on growth)? None are built.
+- [ ] Can an infusion be undone? (Now: no.)
+- [ ] Call wild creatures strays everywhere? (Now only their tier chip says so.)
+- [ ] The chemical path's own design (the task from the call).
 
 ## Tamers and the party (the user's direction, 2026-11-02)
 

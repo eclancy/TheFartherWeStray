@@ -66,7 +66,7 @@ public partial class LabPanel : Control
 
         // Every cost is the flask glyph and a number; the buttons say what they fit.
         var flask = Glyphs.Get("flask", 1);
-        _rows.AddChild(Text($"FLESH GRAFTS · {Ranch.Codex.Count} parts in your codex · not inherited", 700, gold));
+        _rows.AddChild(Text($"FLESH GRAFTS · {Ranch.Codex.Count} parts in your codex · a splice makes a chimera · not inherited", 700, gold));
         foreach (var slot in Lab.SlotsFor(plan))
         {
             int current = Lab.Get(rec.Parts, slot.Name), pick = _candidate[slot.Name];
@@ -90,7 +90,7 @@ public partial class LabPanel : Control
         // Augments: bought at undercity shops, bolted on here, two to a creature, never inherited.
         var neon = Color.FromHtml("#4fe3ff");
         string fitted = rec.Augments.Count == 0 ? "none fitted" : string.Join(", ", rec.Augments.Select(a => Classes.AugmentBook.Get(a)?.Name));
-        _rows.AddChild(Text($"AUGMENTS · undercity work · {rec.Augments.Count}/{Classes.AugmentBook.Slots}: {fitted} · not inherited", 700, neon));
+        _rows.AddChild(Text($"AUGMENTS · {rec.Augments.Count}/{Classes.AugmentBook.Slots}: {fitted} · chemical infuse, mechanical rig · not inherited", 700, neon));
         var augments = new HFlowContainer();
         augments.AddThemeConstantOverride("h_separation", 6);
         var inBag = Ranch.Items.Where(kv => Classes.AugmentBook.IsAugment(kv.Key) && kv.Value > 0).ToList();
@@ -109,7 +109,7 @@ public partial class LabPanel : Control
 
         if (rec.Species.Strain == Strain.Natural)
         {
-            _rows.AddChild(Text("INFUSIONS · new blood · inherited by its line", 700, gold));
+            _rows.AddChild(Text("INFUSIONS · new blood: it's infused · inherited by its line", 700, gold));
             var infusions = new HBoxContainer();
             infusions.AddThemeConstantOverride("separation", 6);
             foreach (var (strain, _, cost) in Lab.Infusions)
@@ -151,7 +151,13 @@ public partial class LabPanel : Control
         var font = GetThemeDefaultFont();
         var glow = Color.FromHtml("#4ff0a0");
         var brass = Color.FromHtml("#b2873a");
-        DrawString(font, new Vector2(0, 18), $"GRAFT CHAMBER - {rec.Name}", HorizontalAlignment.Center, Size.X, 17, glow);
+        // Its tier, in its colour: what the work here would change.
+        var tier = Classes.TierBook.Of(Ranch.Get(_id.Value));
+        string title = $"GRAFT CHAMBER - {rec.Name}", tierText = $"  ·  {tier}";
+        float titleW = font.GetStringSize(title, HorizontalAlignment.Left, -1, 17).X, tierW = font.GetStringSize(tierText, HorizontalAlignment.Left, -1, 17).X;
+        float x0 = (Size.X - titleW - tierW) / 2;
+        DrawString(font, new Vector2(x0, 18), title, HorizontalAlignment.Left, -1, 17, glow);
+        DrawString(font, new Vector2(x0 + titleW, 18), tierText, HorizontalAlignment.Left, -1, 17, Color.FromHtml(Classes.TierBook.Hex(tier)));
 
         // A wide tank of chem with brass bands, the creature suspended inside.
         var glass = new Rect2(40, 34, Size.X - 80, ChamberHeight - 54);

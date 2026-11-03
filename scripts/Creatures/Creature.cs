@@ -30,6 +30,10 @@ public sealed class Species
     public Strain Strain;
     public Graft Grafts;
 
+    // Its tier's history (Classes.TierBook): infused blood and chimera blood pass down with the line;
+    // Rigged is machinery a rival bolted on (yours rig through augments) and never passes down.
+    public bool Infused, Chimera, Rigged;
+
     /// <summary>Its silhouette within the body plan, and its mystical flourish (see <see cref="FormOf"/>).</summary>
     public Form Form;
     public Aura Aura;

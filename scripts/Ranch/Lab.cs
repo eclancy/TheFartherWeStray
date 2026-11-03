@@ -14,6 +14,8 @@ namespace CreatureTactics.Ranching;
 /// <item>machine grafts bolt on Piltover brass: plating, a metal limb, a lens visor, a hextech core</item>
 /// <item>infusions put chemtech, arcane or abyssal blood into a natural creature</item>
 /// </list>
+/// Each changes its tier (Classes.TierBook): a splice makes a chimera, an infusion infuses, a chemical
+/// augment infuses and a mechanical one rigs; any of them ends a thoroughbred's bonus.
 /// Flesh and machine grafts aren't inherited (breeding reads birth parts), so the lab is a costly
 /// shortcut for one creature while breeding stays the way to build a line. Infusions are blood, and
 /// they do pass down.
@@ -84,25 +86,39 @@ public static class Lab
         var cost = SlotOf(slot).Cost;
         if (Get(rec.Parts, slot) == value) return "It already has that.";
         if (ranch.Chem < cost) return $"Not enough chem: a {slot.ToLowerInvariant()} graft costs {cost}.";
+        var before = Classes.TierBook.Of(ranch.Get(id));
+        bool spliced = Classes.TierBook.Chimera(ranch.Get(id));
         ranch.Chem -= cost;
         rec.BirthParts ??= rec.Parts;
         rec.Parts = Set(rec.Parts, slot, value);
         ranch.Refresh(id);
-        return $"{rec.Name}: {slot.ToLowerInvariant()} grafted to {Words(slot, value)} (-{cost} chem).";
+        // Splicing a creature into a chimera is undercity work: the undercity takes note the first time.
+        string moved = !spliced && Classes.TierBook.Chimera(ranch.Get(id)) ? $" ({World.Standing.Shift(ranch, 0, World.Standing.Splice)})" : "";
+        return $"{rec.Name}: {slot.ToLowerInvariant()} grafted to {Words(slot, value)} (-{cost} chem).{ranch.TierNote(id, before)}{moved}";
     }
 
     public static string Infuse(Ranch ranch, int id, Strain strain)
     {
         var rec = ranch.Record(id);
-        var (_, grafts, cost) = Infusions.First(i => i.strain == strain);
+        var (_, _, cost) = Infusions.First(i => i.strain == strain);
         if (rec.Species.Strain != Strain.Natural) return "Only a natural creature can take an infusion.";
         if (ranch.Chem < cost) return $"Not enough chem: an infusion costs {cost}.";
+        var before = Classes.TierBook.Of(ranch.Get(id));
         ranch.Chem -= cost;
         rec.Species = rec.Species.Clone();
-        rec.Species.Strain = strain;
-        rec.Species.Grafts |= grafts;
+        Infusion(rec.Species, strain);
         if (strain == Strain.Abyssal) rec.Spec = rec.Spec.Abyssal(new SeededRng(rec.Seed ^ 0xAB15));
         ranch.Refresh(id);
-        return $"{rec.Name} takes the {strain.Label().ToLowerInvariant()} infusion (-{cost} chem). Its line will carry it.";
+        // Chemical work: the undercity takes note, as it does of augments.
+        string moved = World.Standing.Shift(ranch, 0, World.Standing.Augment);
+        return $"{rec.Name} takes the {strain.Label().ToLowerInvariant()} infusion (-{cost} chem). Its line will carry it.{ranch.TierNote(id, before)} ({moved})";
+    }
+
+    /// <summary>Puts a blood strain into a species (a copy of it): the strain, its grafts, and the mark of an infusion, which its line carries.</summary>
+    public static void Infusion(Species sp, Strain strain)
+    {
+        sp.Strain = strain;
+        sp.Grafts |= Infusions.First(i => i.strain == strain).grafts;
+        sp.Infused = true;
     }
 }

@@ -138,9 +138,13 @@ public sealed class Ranch
     }
 
     /// <summary>A fresh ranch with four starters from the DrawPets cast.</summary>
+    /// <summary>Set once a save has been brought up to tiers (new ranches start with it).</summary>
+    public const string TiersFlag = "save:tiers";
+
     public static Ranch New()
     {
         var r = new Ranch();
+        r.Flags.Add(TiersFlag);
         foreach (var (c, t) in Tactics.Encounter.StarterSquad())
         {
             int id = r.Add(c);
@@ -261,6 +265,17 @@ public sealed class Ranch
     {
         // Saves from before traits: every creature gets the ones its seed was born with.
         foreach (var rec in Creatures.Where(rec => rec.Traits == null)) { rec.Traits = Classes.TraitBook.Roll(rec.Seed); _cache.Remove(rec.Id); }
+        // Saves from before tiers: a creature caught wild whose blood isn't the one its species is born
+        // with was infused at the lab. (Ones bred before tiers can't be told apart: they stay as they are.)
+        if (Flags.Add(TiersFlag))
+            foreach (var rec in Creatures.Where(rec => rec.Generation == 0 && rec.Species.Origin == null && !rec.Species.Infused))
+            {
+                var wild = Species.Generate(rec.Species.Seed);
+                if (wild.Name != rec.Species.Name || wild.Strain == rec.Species.Strain) continue;
+                rec.Species = rec.Species.Clone();
+                rec.Species.Infused = true;
+                _cache.Remove(rec.Id);
+            }
         if (World.Country.Get(Location) is not { } here || !World.Country.IsOpen(this, here)) Location = World.Country.Home;
         Wanderers.RemoveAll(w => !World.Roaming.Roams(this, w.At));
         // The first pack is out there from the start (old saves get one too).
@@ -321,6 +336,7 @@ public sealed class Ranch
     public string Install(int id, string augment)
     {
         var rec = Record(id);
+        var before = Classes.TierBook.Of(Get(id));
         var aug = Classes.AugmentBook.Get(augment);
         if (aug == null || Items.GetValueOrDefault(augment) <= 0) return "There's none in the bag: undercity shops sell augments.";
         string an = "AEIOU".Contains(aug.Name[0]) ? "an" : "a";
@@ -333,7 +349,15 @@ public sealed class Ranch
         var skill = Classes.ClassBook.Skill(aug.Skill);
         // Undercity work: the undercity takes note.
         string moved = World.Standing.Shift(this, 0, World.Standing.Augment);
-        return $"{rec.Name} has {an} {aug.Name} bolted on: it can use {skill.Name}.{(scrapped != null ? $" The {scrapped} is scrapped." : "")} ({moved})";
+        return $"{rec.Name} has {an} {aug.Name} bolted on: it can use {skill.Name}.{(scrapped != null ? $" The {scrapped} is scrapped." : "")}{TierNote(id, before)} ({moved})";
+    }
+
+    /// <summary>A line for when work at the lab changes a creature's tier ("" if it doesn't).</summary>
+    public string TierNote(int id, Classes.Tier before)
+    {
+        var now = Classes.TierBook.Of(Get(id));
+        if (now == before) return "";
+        return before == Classes.Tier.Thoroughbred ? $" It's {Classes.TierBook.Words(now)} now, no longer a thoroughbred." : $" It's {Classes.TierBook.Words(now)} now.";
     }
 
     /// <summary>Sends a creature off on a dispatch (out of the squad, if it was in it).</summary>
@@ -415,7 +439,9 @@ public sealed class Ranch
         var result = Breeding.Breed(Record(a).ToCreature(augmented: false), Record(b).ToCreature(augmented: false), SeededRng.Derive(Encounter * 7919UL + (ulong)Bred, (ulong)(a * 131 + b)));
         Bred++;
         Record(a).Rested = Record(b).Rested = false;
-        World.Standing.Shift(this, World.Standing.Breeding, 0); // breeding is the city's way
+        // Breeding true is the city's way; crossing strains into a chimera is the undercity's.
+        if (Classes.TierBook.Chimera(result.Child)) World.Standing.Shift(this, 0, World.Standing.Breeding);
+        else World.Standing.Shift(this, World.Standing.Breeding, 0);
         Number(result.Child.Species);
         int id = Add(result.Child, rested: false);
 

@@ -188,11 +188,7 @@ public static class RivalBook
             int pick = options.Length > 0 ? rng.Weighted(options) : 0;
             var sp = cands[pick];
             cands.RemoveAt(pick);
-            if (r.Infuse != Strain.Natural && sp.Strain == Strain.Natural)
-            {
-                sp.Strain = r.Infuse;
-                sp.Grafts |= Ranching.Lab.Infusions.First(x => x.strain == r.Infuse).grafts;
-            }
+            if (r.Infuse != Strain.Natural && sp.Strain == Strain.Natural) Ranching.Lab.Infusion(sp, r.Infuse);
             return Creature.Specimen(sp, 0);
         }
         var c = Breeding.Breed(Parent(), Parent(), SeededRng.Derive(seed, 0xE667)).Child;
@@ -261,12 +257,8 @@ public static class RivalBook
             int pick = options.Length > 0 ? rng.Weighted(options) : 0;
             var sp = cands[pick];
             cands.RemoveAt(pick);
-            if (r.Infuse != Strain.Natural && sp.Strain == Strain.Natural)
-            {
-                sp.Strain = r.Infuse;
-                sp.Grafts |= Ranching.Lab.Infusions.First(x => x.strain == r.Infuse).grafts;
-            }
-            if (n <= wins) sp.Grafts |= r.Grafts;
+            if (r.Infuse != Strain.Natural && sp.Strain == Strain.Natural) Ranching.Lab.Infusion(sp, r.Infuse);
+            if (n <= wins && r.Grafts != Graft.None) { sp.Grafts |= r.Grafts; sp.Rigged = true; }
             var c = Creature.Specimen(sp, 0);
             // Their ace, first in line, is trained the furthest.
             int jp = jpBase + (n == 0 ? AceJp : 0);

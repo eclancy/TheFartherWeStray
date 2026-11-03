@@ -46,6 +46,8 @@ public sealed class Unit
     public PassiveDef ShinyPassive;                  // a shiny's own second passive, on top of the equipped one
     public PassiveDef GearPassive;                   // what its gear does
     public readonly List<PassiveDef> Traits = new(); // what it was born with
+    public PassiveDef TierPassive;                   // a thoroughbred's bonus for being kept natural
+    public Tier Tier;                                // what's been done to it (TierBook)
     /// <summary>The support passive equipped in its training.</summary>
     public PassiveDef Equipped => ClassBook.Passive(Training?.Passive);
     /// <summary>Every support passive in effect, as one: the equipped one, plus a shiny's own, its gear's and its traits.</summary>
@@ -53,10 +55,10 @@ public sealed class Unit
     {
         get
         {
-            if (ShinyPassive == null && GearPassive == null && Traits.Count == 0) return Equipped;
+            if (ShinyPassive == null && GearPassive == null && TierPassive == null && Traits.Count == 0) return Equipped;
             if (_merged == null || _mergedFor != Training?.Passive)
             {
-                _merged = new[] { ShinyPassive, GearPassive }.Concat(Traits).Aggregate(Equipped, PassiveDef.Merge);
+                _merged = new[] { ShinyPassive, GearPassive, TierPassive }.Concat(Traits).Aggregate(Equipped, PassiveDef.Merge);
                 _mergedFor = Training?.Passive;
             }
             return _merged;
@@ -151,7 +153,11 @@ public sealed class Unit
         var shine = ClassBook.ShinyPassive(c);
         var gear = ClassBook.Passive(training?.Gear);
         var traits = c.Traits.Select(ClassBook.Passive).Where(p => p != null).ToList();
-        foreach (var extra in traits.Prepend(gear).Prepend(shine))
+        // A thoroughbred's bonus for being kept natural (the user's call, 2026-11-02). It counts as
+        // caught if it's yours or a rival trained it; a wild one is a stray and gets none.
+        var tier = TierBook.Of(c, tamed: side == Side.Player || training != null);
+        var natural = tier == Tier.Thoroughbred ? TierBook.Thoroughbred : null;
+        foreach (var extra in traits.Prepend(gear).Prepend(shine).Prepend(natural))
         {
             if (extra == null) continue;
             atk += extra.Atk; def += extra.Def; spd += extra.Spd; move += extra.Move; hit += extra.Hit; hp *= 1 + extra.HpPct;
@@ -185,6 +191,8 @@ public sealed class Unit
         u.Training = training;
         u.ShinyPassive = shine;
         u.GearPassive = gear;
+        u.TierPassive = natural;
+        u.Tier = tier;
         u.Traits.AddRange(traits);
         if (training != null) u.Skills = training.Usable().ToList();
         else if (ClassBook.WildSkill(c) is { } wild) u.Skills.Add(ClassBook.Skill(wild));

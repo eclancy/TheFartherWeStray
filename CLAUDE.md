@@ -266,6 +266,19 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   only past the three every battle brings). The AI never uses items. Shop button (S) on the map's
   place panel (it can travel you there); Gear button on the ranch. `--shoptest` checks it all;
   `--shopdemo` and `--battle=N --bag` are for screenshots.
+- **Creature tiers (2026-11-02, the user's design, built):** `Classes/Tiers.cs` (`TierBook`). A
+  creature goes by the most extreme thing done to it: a **stray** (uncaught), a **thoroughbred**
+  (caught and left natural: a passive bonus of its own, `TierBook.Thoroughbred`, merged into
+  `Unit.Passive` like a trait), **infused** (a lab infusion or a chemical augment), a **chimera**
+  (bred from two different bloods, clockwork counting as natural, or from a chimera, or a part
+  spliced on at the lab), **rigged** (a mechanical augment, or a rival's machine grafts); all three
+  make an **abomination**. `Species.Infused` and `Species.Chimera` pass down; `Species.Rigged` is
+  only for rivals. `Unit.From` counts a creature as caught if it's yours or trained (a rival's);
+  wild ones are strays. Breeding a chimera, infusions and the first splice move the undercity.
+  Tier chips on the pens and the battle panel; lab messages say when a tier changes
+  (`Ranch.TierNote`). `--tiers` checks it all; old saves are brought up once (`Ranch.TiersFlag`).
+  With the bonus (2026-11-02): rival duels 51% straight, 73% after a loss, 91% after two;
+  captures proud 9/10, skittish 8, curious 10, aggressive 10, loyal 5; battles 3 to 10 rounds; no stalls.
 - **Traits and augments (2026-11-02, built; the user's city/undercity split):** traits
   (`Classes/Traits.cs`) are biological, born with (`Creature.Traits`, rolled from the seed for
   wild ones) and passed down (`TraitBook.Inherit` in `Breeding`), each a passive merged into
@@ -318,10 +331,9 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   match can't be replayed from its commands. `BattleScreen.TurnSeconds` is the turn timer
   (`--timer=N`).
 - **Ideas from the voice call (2026-11-02, the user's; not decided, not built):** title ideas
-  (Lanternkin, Brassbound Tamers, Above and Below), "strays" for uncaught creatures, The Farther We
-  Stray as a theme, and the creature tiers (thoroughbred, infused, a DNA tier still to name,
-  rigged; a creature goes by its most extreme step, and all three make an abomination) with the
-  tasks the call left, in `docs/design-notes.md`. Ask before building any of it.
+  (Lanternkin, Brassbound Tamers, Above and Below), "strays" for uncaught creatures and The Farther
+  We Stray as a theme, with the tasks the call left, in `docs/design-notes.md`. Ask before building
+  any of it. (The call's creature tiers are built: below.)
 - Not built yet: the story itself (themes and three endings set by the user, in
   `docs/story-notes.md`; the flags, standing and endings machinery and the cutscene player are
   built) and the network side of PvP. The

@@ -15,6 +15,8 @@ namespace CreatureTactics.Creatures;
 /// <item>colours from either parent, sometimes blended</item>
 /// <item>size and proportions in between</item>
 /// <item>blood strains (arcane, chemtech, abyssal) are inherited; clockwork is machinery and isn't</item>
+/// <item>tiers: two different blood strains make a chimera, as does a chimera parent; infused blood
+/// stays infused (Classes.TierBook)</item>
 /// </list>
 /// </summary>
 public static class Breeding
@@ -90,6 +92,12 @@ public static class Breeding
             if (grafts == Graft.None) grafts = strain switch { Strain.Arcane => Graft.Runes, Strain.Chemtech => Graft.Veins, _ => Graft.Cracks };
         }
         if (A.Strain == Strain.Clockwork || B.Strain == Strain.Clockwork) r.Notes.Add("clockwork grafts aren't inherited");
+        // Tiers: two different bloods (clockwork counts as natural: it's machinery) make a chimera.
+        bool crossed = (Blood(A.Strain) ? A.Strain : Strain.Natural) != (Blood(B.Strain) ? B.Strain : Strain.Natural);
+        bool chimera = crossed || A.Chimera || B.Chimera, infused = strainParent?.Infused == true;
+        if (crossed) r.Notes.Add("a chimera: two strains crossed");
+        else if (chimera) r.Notes.Add("a chimera, like its parent");
+        if (infused) r.Notes.Add("its parent's infusion passes down");
 
         float Mix(float x, float y) => Mathf.Lerp(x, y, rng.Range(0.3f, 0.7f)) * rng.Range(0.96f, 1.04f);
         var style = CreaturePainter.StyleOf(planParent);
@@ -106,7 +114,7 @@ public static class Breeding
             HeadSize = Mix(A.HeadSize, B.HeadSize), NeckLen = Mix(A.NeckLen, B.NeckLen), SnoutLen = Mix(A.SnoutLen, B.SnoutLen),
             EyeSize = Mix(A.EyeSize, B.EyeSize), WingSpread = Mix(A.WingSpread, B.WingSpread), HornCurve = Mix(A.HornCurve, B.HornCurve),
             WingsFolded = planParent.WingsFolded, MuzzleSecond = rng.Chance(0.5f) ? A.MuzzleSecond : B.MuzzleSecond,
-            Strain = strain, Grafts = grafts,
+            Strain = strain, Grafts = grafts, Infused = infused, Chimera = chimera,
             // The body plan's parent passes on its silhouette; either parent its aura.
             Form = Species.FormOf(planParent), Aura = Species.AuraOf(rng.Chance(0.5f) ? A : B),
             SpikeMat = style.spike, ShellMat = style.shell, FeatherMat = style.feather, SailMat = style.sail, TuftMat = style.tuft, CrestMat = style.crest,

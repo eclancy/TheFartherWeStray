@@ -577,6 +577,8 @@ public partial class RanchScreen : Control
             + (s.Strain != Strain.Natural ? $" · {s.Strain.Label().ToLowerInvariant()}" : "")
             + (s.Origin != null ? $" · from {s.Origin}" : "");
         var head = Row(Ui.Text(c.Name, 22, Ink), Ui.Text(what, 15, Dim, 4));
+        var tier = TierBook.Of(c);
+        head.AddChild(Ui.ChipView(new Chip(TierBook.Glyph(tier), tier.ToString(), Color.FromHtml(TierBook.Hex(tier)), TierBook.Describe(c, tier)), 15));
         if (c.Shiny) head.AddChild(Ui.ChipView(new Chip("sparkle", "shiny", Gold), 15));
         if (c.Mutation != null) head.AddChild(Ui.ChipView(new Chip("swirl", c.Mutation.ToString().ToLowerInvariant(), Ui.Pink, "mutation"), 15));
         _detail.AddChild(head);

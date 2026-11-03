@@ -27,13 +27,35 @@ stronger it gets, the farther it strays from what it was, which fits The Farther
 2. **Infused:** soaked in an essence that tunes it without changing what it is: a second element
    or one boosted stat. It still counts as its strain, so it keeps the thoroughbred bonus. Costs a
    rare reagent, and it sits out a mission while the infusion takes.
-3. **Spliced (a chimera):** two strains made into one creature, by gene splicing or by breeding two
+3. **Spliced (a chimera; the name is still open, below):** two strains made into one creature, by gene splicing or by breeding two
    different strains. It inherits a skill from each parent and a mixed body, and loses the
    thoroughbred bonus for good. Costs a second creature, used up, plus lab time.
 4. **Rigged:** brass machinery bolted on. Big stat jumps and new ways to move or fight (flying,
    climbing, a cannon arm). It can go on any step above; the user liked the idea of a rig on an
    infused creature. Costs brass parts to build and upkeep after battles, and it wears on the
    creature's temper or caps how far it can still grow.
+
+**From the call's transcript (the user's decisions, 2026-11-02):**
+- **Thoroughbred** is a captured creature left natural: the heroic word for purebred the user
+  wanted instead of "feral".
+- **A creature goes by the most extreme thing done to it.** From least to most: **Infused**
+  (chemical, maybe through something like an equipment panel; it changes less of its natural
+  state, enhancing it or with small trade-offs), then the **DNA tier** (its DNA altered and bred;
+  an infused creature that gets this goes by the DNA tier's name), then **Rigged** (the most
+  unnatural thing on it).
+- **Abomination:** only a creature with all three (infused, DNA-altered and rigged). The user
+  weighed Amalgam, chose it for a moment, then settled on Abomination.
+- **Infused** stays the chemical word; Tainted, Steeped and Dosed are out.
+- **The two sides:** the undercity goes with rigs, chemicals and experimentation; the city above
+  with breeding and keeping creatures natural and purebred.
+- **Names should lean neon punk, not steampunk**, as the game does, and not every one needs
+  "lantern" in it.
+
+**Tasks from the call:**
+- [ ] Name the DNA tier. Options so far: Spliced, Chimera (two creatures combined), Mutant (the
+  user asked whether it fits creatures whose DNA has been changed).
+- [ ] Write more notes on the chemical path (Infused), as the user asked.
+- [ ] Find a title that fits the neon-punk look, perhaps by naming the creatures as a whole first.
 
 **Against what's built** (for when the user picks this up):
 - *Strain* means two things. In the doc it reads like a creature's line (a set bonus for a squad
@@ -53,7 +75,8 @@ stronger it gets, the farther it strays from what it was, which fits The Farther
 
 **Open (from the doc, and from fitting it in):**
 - [ ] Can an infusion be undone?
-- [ ] Should a rigged chimera have a special name?
+- [x] Should a rigged chimera have a special name? **No: it goes by Rigged. Only all three steps
+  make an Abomination** (the call's transcript).
 - [ ] Which *strain* does the ladder mean: the five blood strains, species, or something new?
 - [ ] Do the ladder's steps replace the lab's infusions, grafts and augments, or sit beside them?
 - [ ] Call uncaught creatures strays in the game?

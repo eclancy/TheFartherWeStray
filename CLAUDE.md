@@ -313,8 +313,9 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   (`--timer=N`).
 - **Ideas from the voice call (2026-11-02, the user's; not decided, not built):** title ideas
   (Lanternkin, Brassbound Tamers, Above and Below), "strays" for uncaught creatures, The Farther We
-  Stray as a theme, and a draft creature ladder (thoroughbred with a squad set bonus, infused,
-  spliced chimera, rigged) in `docs/design-notes.md`. Ask before building any of it.
+  Stray as a theme, and the creature tiers (thoroughbred, infused, a DNA tier still to name,
+  rigged; a creature goes by its most extreme step, and all three make an abomination) with the
+  tasks the call left, in `docs/design-notes.md`. Ask before building any of it.
 - Not built yet: the story itself (themes and three endings set by the user, in
   `docs/story-notes.md`; the flags, standing and endings machinery and the cutscene player are
   built) and the network side of PvP. The

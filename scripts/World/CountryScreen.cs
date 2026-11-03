@@ -128,13 +128,20 @@ public partial class CountryScreen : Control
         }
 
         var here = _board.Where(m => m.Location == id).ToList();
-        _missions.Visible = l.MapName != null;
+        bool hires = Country.Hires(Ranch, l);
+        _missions.Visible = l.MapName != null && hires;
         if (l.MapName == null)
             _place.AddChild(Wrap("Home. Back at the ranch (Esc) your beasts rest, breed and train.", 16, Ink));
+        else if (!hires)
+        {
+            // The city's board, shut until someone with connections up here brings you in (wording is a placeholder for the story's).
+            _place.AddChild(Wrap("The city's board is shut to you: nobody up here hires from below without someone to vouch for them.", 16, Gold));
+            _place.AddChild(Wrap($"First: {StoryBook.Get(Country.CityBoardOpenedBy).Title}.", 16, Dim));
+        }
         else
         {
             _missions.Source = () => here;
-            _missions.Heading = here.Count == 0 ? "NOTHING ON OFFER HERE TODAY" : $"ON OFFER AT {l.Name.ToUpperInvariant()}";
+            _missions.Heading = here.Count == 0 ? "NOTHING ON OFFER HERE TODAY" : $"{Country.BoardOf(l.Side)} · {l.Name}".ToUpperInvariant();
             string f = Phone.On ? "" : "  (F)";
             _missions.DepartLabelFor = m => m.Dispatch != null ? $"Send a beast{f}" : id == Ranch.Location ? $"Depart{f}" : $"Travel {days}d & depart{f}";
             _missions.Selected = 0;

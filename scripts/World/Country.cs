@@ -80,6 +80,23 @@ public static class Country
     public static bool IsOpen(Ranch r, LocationDef l) => l.OpenedBy == null || r.Story.Contains(l.OpenedBy);
     public static IEnumerable<LocationDef> Open(Ranch r) => Locations.Where(l => IsOpen(r, l));
 
+    /// <summary>
+    /// The two boards (the user's direction, 2026-11-03): the undercity's work and the city above's
+    /// are separate boards, and the city's is shut to you until someone with connections up there
+    /// brings you in. In the story that's the friend from your past, after the Lantern Row job
+    /// (docs/story-notes.md, act one); until her scene exists, winning that job opens it. The
+    /// undercity's board and work in the wilds are yours from the start.
+    /// </summary>
+    public const string CityBoardOpenedBy = "main_foundry";
+
+    public static bool CityBoardOpen(Ranch r) => r.Story.Contains(CityBoardOpenedBy);
+
+    /// <summary>Whether a place gives you work: it's open, and its board is open to you.</summary>
+    public static bool Hires(Ranch r, LocationDef l) => IsOpen(r, l) && (l.Side != Side.City || CityBoardOpen(r));
+
+    /// <summary>Whose board a place's work is on, as the map names it.</summary>
+    public static string BoardOf(Side side) => side switch { Side.City => "the city's board", Side.Undercity => "the undercity's board", _ => "work in the wilds" };
+
     /// <summary>The way from one place to another along open roads (both ends included), or null.</summary>
     public static List<string> Route(Ranch r, string from, string to)
     {
@@ -119,7 +136,7 @@ public static class Country
         var list = new List<Mission>();
         var sighted = new HashSet<string>(); // no two contracts promise the same part
         var underway = r.Away.Values.Select(a => a.Job).ToHashSet();
-        var open = Open(r).Where(l => l.MapName != null).ToList();
+        var open = Open(r).Where(l => l.MapName != null && Hires(r, l)).ToList();
         foreach (var l in open)
         {
             ulong place = (ulong)Array.IndexOf(Locations, l);
@@ -142,8 +159,8 @@ public static class Country
         if (RivalBook.Challenger(enc) is { } rival)
         {
             var duel = Mission.Duel(rival, enc, r.Rivals.GetValueOrDefault(rival.Id), SeededRng.Derive(enc * 977UL, 0xD0E1), r.RivalLosses.GetValueOrDefault(rival.Id));
-            var at = rival.Turf.Select(ByMap).FirstOrDefault(l => l != null && IsOpen(r, l))
-                ?? Open(r).Where(l => l.MapName != null).OrderBy(l => Days(r, l.Id)).First();
+            var at = rival.Turf.Select(ByMap).FirstOrDefault(l => l != null && Hires(r, l))
+                ?? open.OrderBy(l => Days(r, l.Id)).First();
             duel.MapName = at.MapName;
             duel.Location = at.Id;
             list.Add(duel);
@@ -151,6 +168,7 @@ public static class Country
         list.AddRange(StoryBook.Ready(r).Select(StoryBook.ToMission));
         list.AddRange(StoryBook.Heard(r).Select(StoryBook.RumourMission));
         list.AddRange(TrialBook.Open(r).Select(TrialBook.ToMission));
+        list.RemoveAll(m => Get(m.Location) is { } here && !Hires(r, here)); // nothing from a board that's shut to you
         list.AddRange(r.Wanderers.Where(w => Roaming.Roams(r, w.At)).Select(Roaming.Battle));
         return list;
     }

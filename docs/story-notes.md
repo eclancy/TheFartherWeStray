@@ -110,6 +110,10 @@ earlier "no human unit" assumption. See `design-notes.md` for the mechanics as t
       appear on the map as milestones are met, among contracts, dispatches, duels and more.
 - [ ] Does the story explain the procedural species, as the "frontier" and "mutating world"
       seeds both do?
+- [ ] From the voice call (2026-11-02): **The Farther We Stray** as a theme or name (the stronger a
+      creature gets, the farther it strays from what it was; uncaught creatures are strays). The
+      user says it needs workshopping to feel more like the game's story. See `design-notes.md`,
+      Ideas from the voice call.
 
 ## Tech the story will need (when it's time)
 

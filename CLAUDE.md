@@ -311,6 +311,10 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   state after each turn. Never change battle state from a screen except through `Order`, or a
   match can't be replayed from its commands. `BattleScreen.TurnSeconds` is the turn timer
   (`--timer=N`).
+- **Ideas from the voice call (2026-11-02, the user's; not decided, not built):** title ideas
+  (Lanternkin, Brassbound Tamers, Above and Below), "strays" for uncaught creatures, The Farther We
+  Stray as a theme, and a draft creature ladder (thoroughbred with a squad set bonus, infused,
+  spliced chimera, rigged) in `docs/design-notes.md`. Ask before building any of it.
 - Not built yet: the story itself (themes and three endings set by the user, in
   `docs/story-notes.md`; the flags, standing and endings machinery and the cutscene player are
   built) and the network side of PvP. The

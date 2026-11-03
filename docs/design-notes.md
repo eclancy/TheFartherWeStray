@@ -4,6 +4,61 @@ _Systems the user has asked for: tamers (first called generals) and the party, o
 says what's decided (the user's words), what was defaulted to build a first version, and what's
 still open. Story themes live in `story-notes.md`; the user will come back to the story later._
 
+## Ideas from the voice call (the user's, 2026-11-02; not decided, not built)
+
+_Imported from the user's "Game name ideas" doc, written during a voice call with Claude. These are
+ideas to weigh, not decisions, and none of it is built. The doc's Wizard Survivors names belong to
+another game and stay there._
+
+**Title ideas** (the game is still called Creature Tactics):
+- Favourites: **Lanternkin** and **Brassbound Tamers** (liked on the call), and **Above and Below**
+  (it fits the city and the undercity).
+- Built on those: *Lanternkin: Brassbound Tamers* (the creatures are Lanternkin, you're a
+  Brassbound Tamer), *Brassbound Lanternkin*, *Lanternkin Tactics*, *Lanternkin of Lantern Row*
+  (one of the maps), *Brassbound: Tamers of the Undercity*, *Cogkin* (more clockwork in it).
+- A possible theme or name: **The Farther We Stray**. It needs workshopping so it feels more like
+  the game's story.
+- **Strays:** any creature that hasn't been captured is a stray. (The game calls them wild now.)
+
+**The creature ladder (draft).** Each step changes a creature more and costs more to reach. The
+stronger it gets, the farther it strays from what it was, which fits The Farther We Stray.
+1. **Thoroughbred:** a captured stray left as it is. A squad of one strain gets a set bonus, and it
+   keeps its full natural growth. Costs nothing.
+2. **Infused:** soaked in an essence that tunes it without changing what it is: a second element
+   or one boosted stat. It still counts as its strain, so it keeps the thoroughbred bonus. Costs a
+   rare reagent, and it sits out a mission while the infusion takes.
+3. **Spliced (a chimera):** two strains made into one creature, by gene splicing or by breeding two
+   different strains. It inherits a skill from each parent and a mixed body, and loses the
+   thoroughbred bonus for good. Costs a second creature, used up, plus lab time.
+4. **Rigged:** brass machinery bolted on. Big stat jumps and new ways to move or fight (flying,
+   climbing, a cannon arm). It can go on any step above; the user liked the idea of a rig on an
+   infused creature. Costs brass parts to build and upkeep after battles, and it wears on the
+   creature's temper or caps how far it can still grow.
+
+**Against what's built** (for when the user picks this up):
+- *Strain* means two things. In the doc it reads like a creature's line (a set bonus for a squad
+  of one strain, two strains spliced into a chimera); in the game it's the five kinds of blood
+  (Natural, Clockwork, Chemborn, Runic, Abyssal). Species would be a third reading.
+- *Thoroughbred:* nothing like it yet. There are no squad set bonuses, and nothing caps growth.
+- *Infused:* the lab's infusions give a natural creature a blood strain (Chemborn, Runic or
+  Abyssal) and its grafts, for 45 chem, at once, and the line carries it. The doc's infusion keeps
+  the strain and adds an element or a stat, for a reagent and a mission's rest.
+- *Spliced:* breeding already makes one child from two parents' parts, but keeps both parents
+  (they rest until the next battle). Splicing would use one up and give the child a skill from
+  each.
+- *Rigged:* close to augments (two slots, each a bolt-on graft and an attack, sold in the
+  undercity, never inherited). The doc adds bigger jumps, new movement, upkeep, and a cost to
+  temper or growth. Chem is the only currency now, so brass parts would be a new one (or chem by
+  another name).
+
+**Open (from the doc, and from fitting it in):**
+- [ ] Can an infusion be undone?
+- [ ] Should a rigged chimera have a special name?
+- [ ] Which *strain* does the ladder mean: the five blood strains, species, or something new?
+- [ ] Do the ladder's steps replace the lab's infusions, grafts and augments, or sit beside them?
+- [ ] Call uncaught creatures strays in the game?
+- [ ] A title: one of the above, or keep Creature Tactics?
+
 ## Tamers and the party (the user's direction, 2026-11-02)
 
 **Name:** **Tamer**, the user's pick (2026-11-02): "something friendlier to the creatures, something

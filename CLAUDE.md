@@ -284,7 +284,11 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   and what's on offer (`Country.Board`: contracts at every open place, a rival's duel, ready main
   missions). `StoryBook` holds the main missions: each opens a place and waits for the one before
   plus milestones (contracts won, creatures, codex parts, rival wins), so the story can't be
-  rushed. `CountryScreen` (M at the ranch, `--mapmode`) shows it all and travels before a battle.
+  rushed. **Two boards** (the user's direction, 2026-11-03): the undercity's work and the city
+  above's are separate boards, and the city's offers nothing (no contracts, regular jobs, duels,
+  trials, rumours or main missions) until someone with connections brings you in: `Country.Hires`,
+  opened by `CityBoardOpenedBy` (`main_foundry` until the story's scene; story-notes, act one).
+  `CountryScreen` (M at the ranch, `--mapmode`) shows it all, names each place's board, and travels before a battle.
   `Ranch` saves `Location`, `Day`, `ContractsWon`, `Story`. `Mission.Board` is still the test
   board for `--autoboard`. `--country=N` plays the loop headless (it retrains its squad as a player
   would, tries a cup at most every fourth battle, and takes `--save`); run it after touching missions,
@@ -425,14 +429,23 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   with its password beside it (`.secret`), never in the repo; Android only installs an update
   signed with the same key, so it must be backed up off this machine. `--icon` paints the launcher
   icons into `icon/` (Blaze on the night colour).
-- **Windows export and releases (2026-11-03):** `tools/windows-build.sh` writes
-  `build/windows/TheFartherWeStray-windows.zip` (a folder to unzip and run: `TheFartherWeStray.exe`,
-  its `.pck` and the .NET assemblies) from the `Windows Desktop` preset (x86_64; the exe takes the
-  project icon and `config/version`). It isn't code-signed, so SmartScreen warns on first run. A
-  release is a GitHub release `vX.Y.Z` on eclancy/TheFartherWeStray (public) carrying
-  `TheFartherWeStray-android.apk` and `TheFartherWeStray-windows.zip` by those names:
-  ecec.dev/the-farther-we-stray/download links to `releases/latest/download/NAME`. Bump
-  `config/version` and the APK's version code together.
+- **Windows export, releases and updates (2026-11-03; `docs/releasing.md`):** the `Windows Desktop`
+  preset (x86_64; `icon/icon.ico` from `--icon`, `config/version`); not code-signed, so SmartScreen
+  warns. **Release with `bash tools/release/release.sh X.Y.Z "What changed"`** (`--dry-run` first): it
+  bumps the version and the APK's version code, exports, packages (`package.py`: the portable zip,
+  the patch zip, `version.json`), compiles the installer (`installer.iss`, Inno Setup; its `AppId`
+  never changes), exports and checks the signed APK, commits, tags, pushes and makes the GitHub
+  release on eclancy/TheFartherWeStray. **Downloaded copies update** the way The One He Missed's do
+  (the user's ask): `UI/UpdateScreen.cs` over the title of an exported Windows build fetches
+  `ecec.dev/the-farther-we-stray/version.json` (a redirect to the newest release's), downloads the
+  patch (or the full zip on another engine) and restarts through `apply.cmd`; `UI/UpdateBanner.cs`
+  on Android shows a strip offering the APK. Every failure just goes to the title. `--no-update`,
+  `--update-screen=9.9.9`, `--update-banner=9.9.9`, `THEFARTHERWESTRAY_UPDATE_URL`. A release is
+  built from what's committed (docs aside). `tools/windows-build.sh` and `android-build.sh` stay
+  for one-off builds.
+- **The shader cache is off** (`rendering/shader_compiler/shader_cache/enabled=false`): with it on,
+  an exported build crashed on every second launch (the cache the first run wrote; found
+  2026-11-03, `docs/releasing.md`). Don't turn it back on without testing two launches of an export.
 - Not built yet: the story itself (themes and three endings set by the user, in
   `docs/story-notes.md`; the flags, standing and endings machinery and the cutscene player are
   built) and the network side of PvP. The

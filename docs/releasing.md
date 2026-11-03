@@ -68,6 +68,16 @@ over the old one, saves and all.
 build without the network (screenshots). `THEFARTHERWESTRAY_UPDATE_URL` points the check at a
 test server.
 
+## The shader cache is off
+
+Found 2026-11-03, testing the updater: an exported build crashed (a segfault after `shader_gles3.cpp:800`
+errors) **every second time it started**, here on Intel Iris Plus graphics: the GL shader cache the
+first run wrote, the second couldn't load. Runs from the editor never did it. So `project.godot`
+turns it off (`rendering/shader_compiler/shader_cache/enabled=false`); the cost is compiling the
+game's few 2D shaders at start. Keep it off unless a later Godot fixes it, and test two launches in
+a row of an exported build before turning it back on. Copies of 0.2.0 still have the cache on and no
+updater: their players need 0.3.0 from the download page once.
+
 ## Making a release
 
 ```sh

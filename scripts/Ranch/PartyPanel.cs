@@ -42,7 +42,7 @@ public partial class PartyPanel : Control
     {
         if (_box == null) return;
         foreach (var child in _box.GetChildren()) { _box.RemoveChild(child); child.QueueFree(); }
-        _box.AddChild(Ui.Text($"PARTY · {Ranch.Fielded.Count}/{TamerBook.MaxFielded} tamers leading · {Ranch.Squad.Count}/{Ranch.SquadSize} creatures", 17, Gold));
+        _box.AddChild(Ui.Text($"PARTY · {Ranch.Fielded.Count}/{TamerBook.MaxFielded} tamers leading · {Ranch.Squad.Count}/{Ranch.SquadSize} beasts", 17, Gold));
         var joined = Ranch.Party.Select(w => w.Id).ToHashSet();
         foreach (var w in TamerBook.All)
         {
@@ -67,7 +67,7 @@ public partial class PartyPanel : Control
             var names = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
             names.AddThemeConstantOverride("separation", 0);
             names.AddChild(Ui.Text(w.Name, 19, fielded ? Gold : isIn ? Ink : Dim));
-            names.AddChild(Ui.Text(isIn ? $"{w.Specialty} · leads {w.LeadsHint ?? "any creature"}" : $"joins at encounter {w.JoinsAt}", 14, Dim, 4));
+            names.AddChild(Ui.Text(isIn ? $"{w.Specialty} · leads {w.LeadsHint ?? "any beast"}" : $"joins at encounter {w.JoinsAt}", 14, Dim, 4));
             head.AddChild(names);
             if (isIn)
             {
@@ -108,7 +108,7 @@ public partial class PartyPanel : Control
     {
         bool was = Ranch.Fielded.Contains(tamer);
         if (!Ranch.ToggleField(tamer)) return;
-        Done(was ? $"{TamerBook.Get(tamer).Name} stands down; their creatures return to the ranch." : $"{TamerBook.Get(tamer).Name} will lead in the next battle.");
+        Done(was ? $"{TamerBook.Get(tamer).Name} stands down; their beasts return to the ranch." : $"{TamerBook.Get(tamer).Name} will lead in the next battle.");
     }
 
     void Remove(int id)

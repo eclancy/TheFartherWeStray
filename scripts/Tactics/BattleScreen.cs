@@ -222,7 +222,7 @@ public partial class BattleScreen : Control
             _banner.Text = $"{rival.Name.ToUpperInvariant()}\nchallenges you";
             _banner.Visible = true;
             Audio.Sound.Play("gong");
-            AddLog($"{rival.Name} sends out {_battle.Units.Count(u => u.Side == Side.Wild)} creatures (a tamer's can't be recruited). {rival.Specialty}: {rival.Text}");
+            AddLog($"{rival.Name} sends out {_battle.Units.Count(u => u.Side == Side.Wild)} beasts (a tamer's beasts can't be recruited). {rival.Specialty}: {rival.Text}");
             await Wait(1.6f);
             _banner.Visible = false;
         }
@@ -503,7 +503,7 @@ public partial class BattleScreen : Control
         int n = _battle.Recruited.Count;
         _banner.Text = _battle.Winner != Side.Player ? "DEFEAT"
             : _battle.Rival is { } rival ? $"VICTORY\n{rival.Name} is beaten"
-            : $"VICTORY\n{(n == 0 ? "no creatures recruited" : n == 1 ? "1 creature joins you" : $"{n} creatures join you")}";
+            : $"VICTORY\n{(n == 0 ? "no strays recruited" : n == 1 ? "1 stray joins you" : $"{n} strays join you")}";
         _banner.Visible = true;
         AddLog(Finished != null ? "Enter: back to the ranch" : "R: next encounter    Tab: Sprite Lab");
         if (AutoPlay && Finished != null) GetTree().CreateTimer(2.5).Timeout += () => { if (IsInsideTree()) Finished(_battle); };

@@ -17,9 +17,9 @@ public static class PvpRules
     public static List<string> Problems(IReadOnlyCollection<Creature> squad, int tamers)
     {
         var problems = new List<string>();
-        if (squad.Count == 0) problems.Add("Bring at least one creature.");
+        if (squad.Count == 0) problems.Add("Bring at least one beast.");
         if (tamers > Party.TamerBook.MaxFielded) problems.Add($"At most {Party.TamerBook.MaxFielded} tamers.");
-        if (squad.Count > Party.TamerBook.CreaturesEach * tamers) problems.Add($"Each tamer leads at most {Party.TamerBook.CreaturesEach} creatures.");
+        if (squad.Count > Party.TamerBook.CreaturesEach * tamers) problems.Add($"Each tamer leads at most {Party.TamerBook.CreaturesEach} beasts.");
         int shinies = squad.Count(c => c.Shiny);
         if (shinies > MaxShinies) problems.Add($"Only {MaxShinies} shiny may be fielded at a time ({shinies} in the squad).");
         return problems;

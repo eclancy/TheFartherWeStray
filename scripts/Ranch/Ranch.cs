@@ -208,7 +208,7 @@ public sealed class Ranch
 
     /// <summary>A slot in a line: where you are, the day, the roster, the story so far.</summary>
     public string Summary() =>
-        $"{World.Country.Get(Location)?.Name ?? "The Ranch"}  ·  day {Day}  ·  {Creatures.Count} creatures  ·  {Chem} chem  ·  {Plural(Story.Count(m => World.StoryBook.Get(m)?.Ending == null), "main mission")}"
+        $"{World.Country.Get(Location)?.Name ?? "The Ranch"}  ·  day {Day}  ·  {Creatures.Count} beasts  ·  {Chem} chem  ·  {Plural(Story.Count(m => World.StoryBook.Get(m)?.Ending == null), "main mission")}"
         + (Ending != null ? $"  ·  ending: {World.StoryBook.Get(Ending)?.Ending}" : "");
 
     public int Add(Creature c, bool rested = true)
@@ -622,7 +622,7 @@ public sealed class Ranch
             {
                 // A trial opens its class, and its side takes note.
                 string shift = World.Standing.Shift(this, def.Side == World.Side.City ? World.TrialBook.Standing : 0, def.Side == World.Side.Undercity ? World.TrialBook.Standing : 0);
-                Report.Add($"Trial won: the {trial} class is open to your creatures. ({shift})");
+                Report.Add($"Trial won: the {trial} class is open to your beasts. ({shift})");
             }
             if (mission.Rumour is { } rumour && battle.Target is { Side: Tactics.Side.Player })
             {
@@ -646,7 +646,7 @@ public sealed class Ranch
                 else RivalLosses[rival.Id] = RivalLosses.GetValueOrDefault(rival.Id) + 1;
                 int fewer = RivalBook.Fewer(RivalLosses.GetValueOrDefault(rival.Id));
                 Report.Add(won ? $"{rival.Name} is beaten ({wins} {(wins == 1 ? "win" : "wins")}); they'll train harder for next time."
-                    : $"{rival.Name} wins this time, and grows cocky: they'll bring {(fewer == 1 ? "one creature" : "two creatures")} fewer next time.");
+                    : $"{rival.Name} wins this time, and grows cocky: they'll bring {(fewer == 1 ? "one beast" : "two beasts")} fewer next time.");
                 // Every win draws a prize from their hoard, by rarity.
                 ulong roll = SeededRng.Derive(SeededRng.Hash(rival.Id) ^ Encounter, (ulong)wins);
                 if (won) Report.Add(Award(rival, RivalBook.Draw(rival, Titles, roll), roll));

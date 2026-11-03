@@ -79,6 +79,6 @@ public static class ShopBook
 
     public static string Text(string id) => id == Berry
         ? "A lure for the curious: set it down where a curious creature will come for it. Every battle brings 3; these are extra."
-        : AugmentBook.Get(id) is { } aug ? AugmentBook.Text(aug) + " Fitted at the lab; two to a creature; not inherited."
+        : AugmentBook.Get(id) is { } aug ? AugmentBook.Text(aug) + " Fitted at the lab; two to a beast; not inherited."
         : ClassBook.Passive(id)?.Text ?? ClassBook.Skill(id).Text;
 }

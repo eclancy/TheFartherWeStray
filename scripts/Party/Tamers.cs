@@ -35,21 +35,21 @@ public static class TamerBook
     public static readonly TamerDef[] All =
     {
         new() { Id = You, Name = "You", Specialty = "Steady Hand", Glyph = "crown", Atk = 1, Def = 1,
-            Text = "ATK +1 and DEF +1 for every creature you lead." },
+            Text = "ATK +1 and DEF +1 for every beast you lead." },
         new() { Id = "beastmaster", Name = "The Beastmaster", Specialty = "Call of the Wild", Glyph = "paw", JoinsAt = 3,
-            Leads = c => c.Species.Strain == Strain.Natural, LeadsHint = "natural creatures", Atk = 2, HpPct = 0.1f,
-            Text = "Natural creatures: ATK +2 and max HP +10%." },
+            Leads = c => c.Species.Strain == Strain.Natural, LeadsHint = "natural beasts", Atk = 2, HpPct = 0.1f,
+            Text = "Natural beasts: ATK +2 and max HP +10%." },
         new() { Id = "tinker", Name = "The Tinker", Specialty = "Fine Tuning", Glyph = "gear", JoinsAt = 6,
-            Leads = c => c.Species.Strain == Strain.Clockwork || (c.Species.Grafts & Brass) != 0, LeadsHint = "clockwork or brass-grafted creatures",
-            Def = 3, Spd = 1, Text = "Clockwork and brass-grafted creatures: DEF +3 and SPD +1." },
+            Leads = c => c.Species.Strain == Strain.Clockwork || (c.Species.Grafts & Brass) != 0, LeadsHint = "clockwork or brass-grafted beasts",
+            Def = 3, Spd = 1, Text = "Clockwork and brass-grafted beasts: DEF +3 and SPD +1." },
         new() { Id = "chemist", Name = "The Chemist", Specialty = "Volatile Doses", Glyph = "flask", JoinsAt = 9,
-            Leads = c => c.Species.Strain is Strain.Chemtech or Strain.Abyssal, LeadsHint = "chemborn or abyssal creatures",
-            SkillPower = 0.15f, Regen = 0.03f, Text = "Chemborn and abyssal creatures: skills hit 15% harder; heal 3% of max HP each turn." },
+            Leads = c => c.Species.Strain is Strain.Chemtech or Strain.Abyssal, LeadsHint = "chemborn or abyssal beasts",
+            SkillPower = 0.15f, Regen = 0.03f, Text = "Chemborn and abyssal beasts: skills hit 15% harder; heal 3% of max HP each turn." },
         new() { Id = "arcanist", Name = "The Arcanist", Specialty = "Ley Sight", Glyph = "rune", JoinsAt = 12,
-            Leads = c => c.Species.Strain == Strain.Arcane || Species.AuraOf(c.Species) != Aura.None, LeadsHint = "runic creatures, or any with an aura",
-            SkillPower = 0.2f, Evade = 5, Text = "Runic creatures and any with an aura: skills hit 20% harder; 5% harder to hit." },
+            Leads = c => c.Species.Strain == Strain.Arcane || Species.AuraOf(c.Species) != Aura.None, LeadsHint = "runic beasts, or any with an aura",
+            SkillPower = 0.2f, Evade = 5, Text = "Runic beasts and any with an aura: skills hit 20% harder; 5% harder to hit." },
         new() { Id = "drillmaster", Name = "The Drillmaster", Specialty = "Forced March", Glyph = "move", JoinsAt = 15,
-            Move = 1, Spd = 1, Text = "MOVE +1 and SPD +1 for every creature it leads." },
+            Move = 1, Spd = 1, Text = "MOVE +1 and SPD +1 for every beast it leads." },
     };
 
     static readonly Dictionary<string, TamerDef> ById = All.ToDictionary(w => w.Id);

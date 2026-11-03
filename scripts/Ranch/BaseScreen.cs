@@ -188,7 +188,7 @@ public partial class BaseScreen : Control
         ui.AddChild(title);
         var chips = Ui.Chips(new List<Chip>
         {
-            new("paw", Ranch.Creatures.Count.ToString(), Ink, "creatures"),
+            new("paw", Ranch.Creatures.Count.ToString(), Ink, "your beasts"),
             new("fist", $"{Ranch.Squad.Count}/{Ranch.SquadSize}", Ranch.Squad.Count == 0 ? Ui.Bad : Ink, "squad, picked at the pens"),
             new("flask", Ranch.Chem.ToString(), Gold, "chem"),
             new("clock", "day " + Ranch.Day, Ink, "the day"),

@@ -83,7 +83,7 @@ public static class DispatchBook
             Suits = new[] { Has("a swimmer", c => c.MoveType == MoveType.Swim), Plan(BodyPlan.Aquatic, "a sea creature"), Of(Element.Tide) },
             Success = "Saved three swimmers and a hat.", Failure = "Napped in the shallows. Got sunburnt on one side." },
         new() { Id = "fangs", Title = "Fangs for the Memories", Days = 1, Reward = 16,
-            Ask = "A retired tamer wants to reminisce with a fierce creature.",
+            Ask = "A retired tamer wants to reminisce with a fierce beast.",
             Suits = new[] { Has("a bite", c => c.Weapon == Weapon.Bite), Temper(Attitude.Aggressive), Has("an old line", c => c.Generation >= 2) },
             Success = "Heard forty stories. Was in three of them.", Failure = "Growled at the scrapbook. Tea was cut short." },
         new() { Id = "lamp", Title = "Light Reading", Days = 2, Reward = 18,
@@ -145,9 +145,9 @@ public static class CupBook
             Id = "bronze", Name = "Bronze Cup", Level = 6, Prize = 80, Needs = new[] { (Milestone.Contracts, 5) },
             Contenders = new[]
             {
-                Contender("kid_kettle", "Kid Kettle", "Full Steam", "gear", "SPD +1 for every creature.", new[] { "Tinker", "Skirmisher" }, s => s.Strain == Strain.Clockwork ? 4 : 1, spd: 1),
-                Contender("mama_mudpie", "Mama Mudpie", "Tough Love", "shell", "DEF +1 for every creature.", new[] { "Guardian", "Brawler" }, s => s.Strain == Strain.Natural ? 3 : 1, def: 1),
-                Contender("tumble_twins", "The Tumble Twins", "Double Trouble", "wind", "ATK +1 for every creature.", new[] { "Skirmisher", "Hunter" }, s => s.BaseSize <= SizeClass.Small ? 4 : 0.5f, atk: 1),
+                Contender("kid_kettle", "Kid Kettle", "Full Steam", "gear", "SPD +1 for every beast.", new[] { "Tinker", "Skirmisher" }, s => s.Strain == Strain.Clockwork ? 4 : 1, spd: 1),
+                Contender("mama_mudpie", "Mama Mudpie", "Tough Love", "shell", "DEF +1 for every beast.", new[] { "Guardian", "Brawler" }, s => s.Strain == Strain.Natural ? 3 : 1, def: 1),
+                Contender("tumble_twins", "The Tumble Twins", "Double Trouble", "wind", "ATK +1 for every beast.", new[] { "Skirmisher", "Hunter" }, s => s.BaseSize <= SizeClass.Small ? 4 : 0.5f, atk: 1),
             },
         },
         new()
@@ -155,9 +155,9 @@ public static class CupBook
             Id = "silver", Name = "Silver Cup", After = "bronze", Level = 12, Prize = 140, Needs = new[] { (Milestone.Contracts, 10), (Milestone.Creatures, 8) },
             Contenders = new[]
             {
-                Contender("barb", "Barb the Brisk", "Tailwind", "wing", "SPD +1 and ATK +1 for every creature.", new[] { "Skirmisher", "Skydiver", "Hunter" }, s => s.Plan == BodyPlan.Avian ? 4 : 1, atk: 1, spd: 1),
-                Contender("sootcheek", "Dame Sootcheek", "Smoke and Mirrors", "flask", "ATK +1 and DEF +1 for every creature.", new[] { "Alchemist", "Chemist", "Rogue" }, s => s.Strain == Strain.Chemtech ? 4 : 1, atk: 1, def: 1),
-                Contender("reginald", "Sir Reginald Fang", "Old Money", "fang", "ATK +2 for every creature.", new[] { "Brawler", "Champion", "Packleader" }, s => s.Plan == BodyPlan.Quadruped ? 3 : 1, atk: 2),
+                Contender("barb", "Barb the Brisk", "Tailwind", "wing", "SPD +1 and ATK +1 for every beast.", new[] { "Skirmisher", "Skydiver", "Hunter" }, s => s.Plan == BodyPlan.Avian ? 4 : 1, atk: 1, spd: 1),
+                Contender("sootcheek", "Dame Sootcheek", "Smoke and Mirrors", "flask", "ATK +1 and DEF +1 for every beast.", new[] { "Alchemist", "Chemist", "Rogue" }, s => s.Strain == Strain.Chemtech ? 4 : 1, atk: 1, def: 1),
+                Contender("reginald", "Sir Reginald Fang", "Old Money", "fang", "ATK +2 for every beast.", new[] { "Brawler", "Champion", "Packleader" }, s => s.Plan == BodyPlan.Quadruped ? 3 : 1, atk: 2),
             },
         },
         new()
@@ -165,9 +165,9 @@ public static class CupBook
             Id = "gold", Name = "Gold Cup", After = "silver", Level = 20, Prize = 220, Needs = new[] { (Milestone.Contracts, 15), (Milestone.RivalWins, 2) },
             Contenders = new[]
             {
-                Contender("bolt", "Bertram Bolt", "Live Wire", "bolt", "ATK +1 and SPD +2 for every creature.", new[] { "Mystic", "Tinker", "Hexwarden" }, s => s.Element == Element.Spark ? 4 : 1, atk: 1, spd: 2),
-                Contender("lumen", "Lady Lumen", "Footlights", "sun", "DEF +2 and max HP +10% for every creature.", new[] { "Mystic", "Saint", "Runeweaver" }, s => s.Strain == Strain.Arcane ? 4 : 1, def: 2, hp: 0.1f),
-                Contender("ironjaw", "Old Ironjaw", "Undefeated", "crown", "ATK +2, DEF +2 and max HP +10% for every creature.", new[] { "Titan", "Juggernaut", "Brawler", "Guardian" }, s => s.BaseSize >= SizeClass.Large ? 4 : 1, atk: 2, def: 2, hp: 0.1f),
+                Contender("bolt", "Bertram Bolt", "Live Wire", "bolt", "ATK +1 and SPD +2 for every beast.", new[] { "Mystic", "Tinker", "Hexwarden" }, s => s.Element == Element.Spark ? 4 : 1, atk: 1, spd: 2),
+                Contender("lumen", "Lady Lumen", "Footlights", "sun", "DEF +2 and max HP +10% for every beast.", new[] { "Mystic", "Saint", "Runeweaver" }, s => s.Strain == Strain.Arcane ? 4 : 1, def: 2, hp: 0.1f),
+                Contender("ironjaw", "Old Ironjaw", "Undefeated", "crown", "ATK +2, DEF +2 and max HP +10% for every beast.", new[] { "Titan", "Juggernaut", "Brawler", "Guardian" }, s => s.BaseSize >= SizeClass.Large ? 4 : 1, atk: 2, def: 2, hp: 0.1f),
             },
         },
     };

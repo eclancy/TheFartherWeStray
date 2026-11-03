@@ -3,7 +3,9 @@
 **The game is called The Farther We Stray** (the user, 2026-11-02): `GameRoot.Title`, on the title
 screen and the window. The project, solution, folder and `config/name` keep Creature Tactics:
 changing `config/name` moves `user://` and loses every save. The story's theme: the city above is
-just as corrupt as the city below (`docs/story-notes.md`).
+just as corrupt as the city below (`docs/story-notes.md`). **Words on screen** (the user, for now):
+your tamed creatures (and a tamer's) are **beasts** ("your beasts"); uncaught ones are **strays**;
+general rules text and the code say creature. No automatic nicknames: players name their beasts.
 
 FFTA-style isometric tactics with procedurally generated creature units. Godot 4.5 .NET, **C#**,
 2D, GL Compatibility, built in code (`scenes/Main.tscn` only attaches `GameRoot`). The design is

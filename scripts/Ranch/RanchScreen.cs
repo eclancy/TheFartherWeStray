@@ -210,15 +210,15 @@ public partial class RanchScreen : Control
             "pens" => "Click: select    S: squad    Delete twice: release    Esc: back to the base    N: sound",
             "vats" => "Click: select    Right-click: into a vat    Enter: breed    Esc: back to the base    N: sound",
             "armory" => "Click: select    Gear: next piece from the bag    Esc: back to the base    N: sound",
-            _ => "Click: select a creature    Esc: back to the base    N: sound",
+            _ => "Click: select a beast    Esc: back to the base    N: sound",
         };
         Flash(Station switch
         {
-            "pens" => "The pens: pick the squad (S), name your creatures, or let one go.",
-            "vats" => "The vats: right-click two creatures into the vats, then Enter to breed.",
+            "pens" => "The pens: pick the squad (S), name your beasts, or let one go.",
+            "vats" => "The vats: right-click two beasts into the vats, then Enter to breed.",
             "armory" => "The armory: fit gear from the bag (Gear cycles through it).",
-            "yard" => "The training yard: every class this creature could train, and what each still needs.",
-            "war" => "The war table: your tamers lead from off the field, up to two, three creatures each.",
+            "yard" => "The training yard: every class this beast could train, and what each still needs.",
+            "war" => "The war table: your tamers lead from off the field, up to two, three beasts each.",
             "lab" => "The lab (chem): tune stats with infusions, put in new blood, splice in another species' ability, fit augments from the bag, or graft parts.",
             _ => "",
         });
@@ -312,8 +312,8 @@ public partial class RanchScreen : Control
         _headerChips?.QueueFree();
         var chips = new List<Chip>
         {
-            new Chip("paw", Ranch.Creatures.Count.ToString(), Ink, "creatures"),
-            new Chip("fist", $"{Ranch.Squad.Count}/{Ranch.SquadSize}", Ranch.Squad.Count == 0 ? Ui.Bad : Ink, "squad: three creatures for each tamer leading (P)"),
+            new Chip("paw", Ranch.Creatures.Count.ToString(), Ink, "your beasts"),
+            new Chip("fist", $"{Ranch.Squad.Count}/{Ranch.SquadSize}", Ranch.Squad.Count == 0 ? Ui.Bad : Ink, "squad: three beasts for each tamer leading (P)"),
             new Chip("flask", Ranch.Chem.ToString(), Gold, "chem, for the lab"),
             new Chip("mountain", "#" + Ranch.Encounter, Ink, "next encounter"),
             new Chip("sun", Ranch.CityStanding.ToString(), Gold, "standing with the city above"),
@@ -437,15 +437,15 @@ public partial class RanchScreen : Control
         Flash(p switch
         {
             Panel.Lab => "The lab (chem): tune stats with infusions, put in new blood, splice in another species' ability, fit augments from the bag, or graft parts.",
-            Panel.Jobs => "The job tree: every class this creature could ever train, and what each still needs.",
-            Panel.Party => "Your tamers lead from off the field: up to two, three creatures each.",
+            Panel.Jobs => "The job tree: every class this beast could ever train, and what each still needs.",
+            Panel.Party => "Your tamers lead from off the field: up to two, three beasts each.",
             _ => "",
         });
     }
 
     void GoToMap()
     {
-        if (Ranch.Squad.Count == 0) { Flash("Pick at least one creature for the squad (S) first."); return; }
+        if (Ranch.Squad.Count == 0) { Flash("Pick at least one beast for the squad (S) first."); return; }
         Ranch.Save();
         OpenMap?.Invoke();
     }
@@ -519,7 +519,7 @@ public partial class RanchScreen : Control
 
     void Breed()
     {
-        if (_pen.Count < 2) { Flash("Put two rested creatures in the vats first (right-click)."); return; }
+        if (_pen.Count < 2) { Flash("Put two rested beasts in the vats first (right-click)."); return; }
         var a = Ranch.Get(_pen[0]);
         var b = Ranch.Get(_pen[1]);
         var (id, result) = Ranch.Breed(_pen[0], _pen[1]);
@@ -539,7 +539,7 @@ public partial class RanchScreen : Control
 
     void Release(int id)
     {
-        if (Ranch.Creatures.Count <= 1) { Flash("You can't release your last creature."); return; }
+        if (Ranch.Creatures.Count <= 1) { Flash("You can't release your last beast."); return; }
         if (_releaseArmed != id)
         {
             _releaseArmed = id;

@@ -1192,7 +1192,7 @@ public sealed partial class Battle
     /// <summary>A short note on what it takes to recruit a wild unit, with progress.</summary>
     public string RecruitHint(Unit u) => u.Attitude switch
     {
-        Attitude.Proud => u.HitBy.Count <= 1 ? "Proud: defeat it using only one of your creatures" : "Proud: too many hands on it - it will flee",
+        Attitude.Proud => u.HitBy.Count <= 1 ? "Proud: defeat it using only one of your beasts" : "Proud: too many hands on it - it will flee",
         Attitude.Skittish => "Skittish: corner it so it has nowhere to step",
         Attitude.Curious => $"Curious: lure it with a glowberry ({Berries} left, B to set one down)",
         Attitude.Aggressive => $"Aggressive: survive its attacks without falling ({u.Weathered}/3)",

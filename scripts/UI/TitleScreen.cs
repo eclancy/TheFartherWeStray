@@ -225,7 +225,7 @@ public partial class TitleScreen : Control
         back.Pressed += ShowMenu;
         col.AddChild(back);
         (firstUsable ?? back).CallDeferred(Control.MethodName.GrabFocus);
-        _hint.Text = fresh ? "A new game starts at your home base with four creatures." : "";
+        _hint.Text = fresh ? "A new game starts at your home base with four beasts." : "";
     }
 
     public override void _UnhandledInput(InputEvent e)

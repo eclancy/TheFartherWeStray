@@ -235,6 +235,9 @@ blood, so the line carries them.
 
 ### Creature tiers
 
+On screen, the creatures you've tamed are **your beasts**, and ones nobody has caught are
+**strays**. A beast goes by its species' name until you give it a nickname.
+
 A creature goes by the most extreme thing done to it, shown as a chip on the pens and in battle:
 - **Stray:** wild, nobody has caught it.
 - **Thoroughbred:** caught and left natural. It gets a bonus from its species: its kind's ability

@@ -36,7 +36,7 @@ public static class Country
     public static readonly LocationDef[] Locations =
     {
         new() { Id = Home, Name = "The Ranch", Glyph = "paw", Side = Side.Wilds, At = new(36, 128),
-            Blurb = "Your ranch on the outskirts, between the city and the undercity. Creatures rest and breed here." },
+            Blurb = "Your ranch on the outskirts, between the city and the undercity. Your beasts rest and breed here." },
         new() { Id = "gardens", Name = "Gilded Gardens", MapName = "Gilded Gardens", Glyph = "sun", Side = Side.City, At = new(78, 52),
             Regular = "Weed Whacking", RegularAsk = "Pests are at the prize roses again. Shoo them off." },
         new() { Id = "lantern", Name = "Lantern Row", MapName = "Lantern Row", Glyph = "flame", Side = Side.Undercity, At = new(98, 168),

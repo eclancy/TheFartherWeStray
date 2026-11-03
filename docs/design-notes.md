@@ -58,7 +58,10 @@ upkeep or a cap on growth; none of those is built.
 **Open:**
 - [x] A title: **The Farther We Stray** (the user's pick, 2026-11-02). On the title screen and the
   window; the project, solution and folder keep the working name Creature Tactics.
-- [ ] A name for tamed creatures (strays once caught). Suggestions (Claude's, 2026-11-02, after the
+- [x] A name for tamed creatures: **"your beasts", for now** (the user, 2026-11-02). On screen,
+  your tamed creatures (and a tamer's) are beasts; uncaught ones are strays; general rules text and
+  the code keep "creature". The rounds of suggestions, kept for later:
+- Earlier suggestions (Claude's, 2026-11-02, after the
   user asked for new ones):
   - Taken in: *Foundlings* (a stray taken in; the industrial age's foundling homes fit the setting,
     and an abomination is still your foundling), *Fosterlings*, *Wards* (under your protection, and

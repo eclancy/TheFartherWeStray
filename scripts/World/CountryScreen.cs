@@ -119,12 +119,12 @@ public partial class CountryScreen : Control
         var here = _board.Where(m => m.Location == id).ToList();
         _missions.Visible = l.MapName != null;
         if (l.MapName == null)
-            _place.AddChild(Wrap("Home. Back at the ranch (Esc) your creatures rest, breed and train.", 16, Ink));
+            _place.AddChild(Wrap("Home. Back at the ranch (Esc) your beasts rest, breed and train.", 16, Ink));
         else
         {
             _missions.Source = () => here;
             _missions.Heading = here.Count == 0 ? "NOTHING ON OFFER HERE TODAY" : $"ON OFFER AT {l.Name.ToUpperInvariant()}";
-            _missions.DepartLabelFor = m => m.Dispatch != null ? "Send a creature  (F)" : id == Ranch.Location ? "Depart  (F)" : $"Travel {days}d & depart  (F)";
+            _missions.DepartLabelFor = m => m.Dispatch != null ? "Send a beast  (F)" : id == Ranch.Location ? "Depart  (F)" : $"Travel {days}d & depart  (F)";
             _missions.Selected = 0;
             _missions.Refresh();
             _missions.QueueRedraw();
@@ -144,7 +144,7 @@ public partial class CountryScreen : Control
     {
         if (_travelling || _chooser != null) return;
         if (m.Dispatch != null) { Choose(m.Dispatch); return; }
-        if (Ranch.Squad.Count == 0) { _status.Text = "Pick at least one creature for the squad at the ranch (S)."; return; }
+        if (Ranch.Squad.Count == 0) { _status.Text = "Pick at least one beast for the squad at the ranch (S)."; return; }
         _travelling = true;
         Audio.Sound.Play("depart");
         if (await WalkTo(m.Location, m.Roamer)) return;

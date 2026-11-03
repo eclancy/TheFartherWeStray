@@ -55,8 +55,8 @@ public static class RivalBook
         {
             Tamer = new() { Id = "brass_baron", Name = "The Brass Baron", Specialty = "Precision Gears", Glyph = "chain",
                 Leads = c => c.Species.Strain == Strain.Clockwork || (c.Species.Grafts & Ranching.Lab.MachineGrafts) != 0,
-                LeadsHint = "clockwork or brass-fitted creatures", Spd = 1, Hit = 10,
-                Text = "Clockwork and brass-fitted creatures: SPD +1 and +10 to hit." },
+                LeadsHint = "clockwork or brass-fitted beasts", Spd = 1, Hit = 10,
+                Text = "Clockwork and brass-fitted beasts: SPD +1 and +10 to hit." },
             Ideal = "Breeds armoured clockwork, plated in brass.", AppearsAt = 2,
             Taste = s => s.Strain == Strain.Clockwork ? 6 : s.Strain == Strain.Natural ? 1 : 0.3f,
             Grafts = Graft.Plating | Graft.Visor,
@@ -73,9 +73,9 @@ public static class RivalBook
         new()
         {
             Tamer = new() { Id = "chem_witch", Name = "The Chem Witch", Specialty = "Bubbling Vials", Glyph = "poison",
-                Leads = c => c.Species.Strain is Strain.Chemtech or Strain.Abyssal, LeadsHint = "chemborn or abyssal creatures",
-                SkillPower = 0.2f, Spd = 1, Text = "Chemborn and abyssal creatures: skills hit 20% harder; SPD +1." },
-            Ideal = "Breeds creatures brimming with glowing chem.", AppearsAt = 4,
+                Leads = c => c.Species.Strain is Strain.Chemtech or Strain.Abyssal, LeadsHint = "chemborn or abyssal beasts",
+                SkillPower = 0.2f, Spd = 1, Text = "Chemborn and abyssal beasts: skills hit 20% harder; SPD +1." },
+            Ideal = "Breeds beasts brimming with glowing chem.", AppearsAt = 4,
             Taste = s => s.Strain == Strain.Chemtech ? 6 : s.Strain == Strain.Abyssal ? 2 : s.Strain == Strain.Natural ? 1 : 0,
             Infuse = Strain.Chemtech,
             Classes = new[] { "Chemist", "Venomtail", "Swarmlord", "Stalker", "Alchemist", "Rogue", "Hunter" },
@@ -91,8 +91,8 @@ public static class RivalBook
         new()
         {
             Tamer = new() { Id = "huntress", Name = "The Huntress", Specialty = "Blood Scent", Glyph = "claw",
-                Leads = c => c.Species.Strain == Strain.Natural, LeadsHint = "natural creatures", Atk = 2, Spd = 1,
-                Text = "Natural creatures: ATK +2 and SPD +1." },
+                Leads = c => c.Species.Strain == Strain.Natural, LeadsHint = "natural beasts", Atk = 2, Spd = 1,
+                Text = "Natural beasts: ATK +2 and SPD +1." },
             Ideal = "Breeds the perfect predator: claws, horns and speed.", AppearsAt = 6,
             Taste = s => (s.Strain == Strain.Natural ? 4 : 0.2f) * (s.Plan is BodyPlan.Quadruped or BodyPlan.Avian ? 2 : 1)
                 * (s.Parts.Limbs == Limbs.Clawed || s.Parts.Horns != Horns.None ? 2 : 1),
@@ -110,8 +110,8 @@ public static class RivalBook
         {
             Tamer = new() { Id = "occultist", Name = "The Occultist", Specialty = "Old Rites", Glyph = "eye",
                 Leads = c => c.Species.Strain is Strain.Arcane or Strain.Abyssal || Species.AuraOf(c.Species) != Aura.None,
-                LeadsHint = "runic or abyssal creatures, or any with an aura", SkillPower = 0.15f, Evade = 8,
-                Text = "Runic and abyssal creatures, and any with an aura: skills hit 15% harder; 8% harder to hit." },
+                LeadsHint = "runic or abyssal beasts, or any with an aura", SkillPower = 0.15f, Evade = 8,
+                Text = "Runic and abyssal beasts, and any with an aura: skills hit 15% harder; 8% harder to hit." },
             Ideal = "Breeds beasts touched by old magic: runes, halos, third eyes.", AppearsAt = 8,
             Taste = s => (s.Strain == Strain.Arcane ? 5 : s.Strain == Strain.Abyssal ? 2 : s.Strain == Strain.Natural ? 0.6f : 0.2f)
                 * (Species.AuraOf(s) != Aura.None ? 3 : 1),
@@ -129,8 +129,8 @@ public static class RivalBook
         new()
         {
             Tamer = new() { Id = "wyrm_lord", Name = "The Wyrm Lord", Specialty = "Giant's Blood", Glyph = "fang",
-                Leads = c => c.Size >= SizeClass.Large, LeadsHint = "large and huge creatures", HpPct = 0.1f, Atk = 1,
-                Text = "Large and huge creatures: max HP +10% and ATK +1." },
+                Leads = c => c.Size >= SizeClass.Large, LeadsHint = "large and huge beasts", HpPct = 0.1f, Atk = 1,
+                Text = "Large and huge beasts: max HP +10% and ATK +1." },
             Ideal = "Breeds the biggest beasts alive: wyrms, drakes and hydras.", AppearsAt = 10,
             Taste = s => (s.BaseSize >= SizeClass.Large ? 4 : s.BaseSize == SizeClass.Medium ? 1 : 0.1f)
                 * (Species.FormOf(s) is Form.Wyrm or Form.Lung or Form.Drake or Form.Behemoth or Form.Hydra or Form.Naga ? 3 : 1),

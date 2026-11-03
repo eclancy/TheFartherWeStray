@@ -33,6 +33,8 @@ public sealed class Species
     // Its tier's history (Classes.TierBook): infused blood and chimera blood pass down with the line;
     // Rigged is machinery a rival bolted on (yours rig through augments) and never passes down.
     public bool Infused, Chimera, Rigged;
+    /// <summary>Other species' abilities a chimera carries (their forms), bred in or spliced at the lab. Replaced, never changed in place: clones share it.</summary>
+    public Form[] Spliced;
 
     /// <summary>Its silhouette within the body plan, and its mystical flourish (see <see cref="FormOf"/>).</summary>
     public Form Form;
@@ -269,6 +271,7 @@ public sealed class Creature
     public string Nickname; // the name you gave it, if any
     public List<string> Traits = new();   // biological quirks it was born with (TraitBook), passed down when bred
     public List<string> Augments = new(); // mechanical and chemical work bolted on at the lab (AugmentBook), never passed down
+    public List<string> Infusions = new(); // draughts brewed at the lab that tune its stats (InfusionBook), never passed down
     /// <summary>What to call it: the name you gave it, or its species' name.</summary>
     public string Name => Nickname ?? Species.Name;
     public float BodyJitter, LegJitter, HeadJitter;

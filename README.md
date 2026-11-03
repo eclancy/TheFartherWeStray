@@ -192,7 +192,10 @@ natural ones swing heavy blows.
 Press **L** at the ranch (or the Lab button). The lab changes parts without breeding, at a price
 in **chem**. You earn chem each battle: 8 for a win, 2 for a loss, 2 for every wild creature driven
 off, and 5 for each creature you release.
-- **Flesh grafts:** swap a part slot (horns, wings, shell...) for any variant in your **codex**,
+- **Infusions:** tune its stats, an upside and a trade-off each, two at a time (30 chem each).
+- **Splices:** give it another species' ability, from any kind of creature you've met (50 chem, up
+  to two); it becomes a chimera and its line carries the ability.
+- **Part grafts:** swap a part slot (horns, wings, shell...) for any variant in your **codex**,
   the parts you've met on creatures you fought or recruited. Wings cost the most (40), since they
   give flight and open Skydiver.
 - **Augments:** bought at undercity shops and fitted here, two to a creature, never inherited.
@@ -203,7 +206,7 @@ off, and 5 for each creature you release.
   a steaming stack, copper pipes and a pressure gauge.
 - **Traits** aren't made here: creatures are born with them (Keen Nose, Quick Healer, Stout...) and
   pass them down when bred.
-- **Infusions:** chemborn, runic or abyssal blood for a natural creature.
+- **New blood:** chemborn, runic or abyssal blood for a natural creature.
 
 The graft chamber previews the creature with the parts you're considering. Flesh and machine
 grafts belong to that one creature: breeding passes on the parts it was born with. Infusions are
@@ -213,15 +216,18 @@ blood, so the line carries them.
 
 A creature goes by the most extreme thing done to it, shown as a chip on the pens and in battle:
 - **Stray:** wild, nobody has caught it.
-- **Thoroughbred:** caught and left natural. It gets a bonus for it: ATK +1, DEF +1, max HP +10%.
-- **Infused:** chemically altered: a lab infusion or a chemical augment.
-- **Chimera:** its DNA altered: bred from two different bloods (or from a chimera), or a part
-  spliced on at the lab.
-- **Rigged:** machinery bolted on: a mechanical augment.
+- **Thoroughbred:** caught and left natural. It gets a bonus from its species: its kind's ability
+  (a hound's Pack Blood, a drake's Dragon Hide, a wraith's Unseen...) and a touch of its element.
+- **Infused:** its stats tuned at the lab with infusions (Rage Serum: ATK +2, DEF -1; Bulk Tonic:
+  max HP +20%, SPD -1...; two at a time), or new blood put in.
+- **Chimera:** it carries the abilities of other species: bred from two different bloods (it takes
+  the other parent's kind), or an ability spliced in at the lab from a kind you've met, or a part
+  grafted on. Its line carries the abilities.
+- **Rigged:** augments bolted on, each an attack no natural creature can learn.
 - **Abomination:** infused, a chimera and rigged, all at once.
 
 Any of these ends the thoroughbred bonus. Breeding natural creatures together keeps them
-thoroughbreds and pleases the city above; chimeras, infusions and splices are undercity work.
+thoroughbreds and pleases the city above; infusions, chimeras and augments are undercity work.
 
 ### Mission board and regions
 

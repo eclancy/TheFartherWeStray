@@ -794,8 +794,8 @@ public partial class BattleScreen : Control
             var icons = new HFlowContainer();
             icons.AddThemeConstantOverride("h_separation", 4);
             foreach (var s in u.Skills) icons.AddChild(UI.Ui.Picture(SkillIcons.Skill(s, 2), $"{s.Name} ({s.Class})\n{s.Text}"));
-            foreach (var p in new[] { u.Equipped, u.ShinyPassive, u.GearPassive, u.TierPassive, u.Reaction }.Concat(u.Traits).Where(p => p != null))
-                icons.AddChild(UI.Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p == u.ShinyPassive ? "shiny" : p == u.GearPassive ? "gear" : p == u.TierPassive ? "tier" : p.Class == "Trait" ? "trait" : p.Kind == Classes.PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"));
+            foreach (var p in new[] { u.Equipped, u.ShinyPassive, u.GearPassive, u.TierPassive, u.Reaction }.Concat(u.Traits).Concat(u.Infusions).Where(p => p != null))
+                icons.AddChild(UI.Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p == u.ShinyPassive ? "shiny" : p == u.GearPassive ? "gear" : p == u.TierPassive ? "tier" : p.Class == "Trait" ? "trait" : p.Class == "Infusion" ? "infusion" : p.Kind == Classes.PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"));
             _info.AddChild(icons);
         }
 

@@ -34,6 +34,7 @@ public sealed class CreatureRecord
     public string Nickname;   // the name you gave it (null: its species' name)
     public List<string> Traits;           // born with, passed down (null in saves from before traits: rolled on load)
     public List<string> Augments = new(); // bolted on at the lab, not passed down
+    public List<string> Infusions = new(); // brewed at the lab to tune its stats, not passed down
     [JsonIgnore] public string Name => Nickname ?? Species.Name;
     public float BodyJitter = 1, LegJitter = 1, HeadJitter = 1;
     public int Generation;
@@ -45,7 +46,7 @@ public sealed class CreatureRecord
         Id = id, Species = c.Species, Seed = c.Seed, Size = c.Size, Attitude = c.Attitude, Parts = c.Parts, Spec = c.Spec, BirthParts = c.BirthParts,
         Shiny = c.Shiny, Mutation = c.Mutation, BodyJitter = c.BodyJitter, LegJitter = c.LegJitter, HeadJitter = c.HeadJitter,
         Generation = c.Generation, ParentA = c.ParentA, ParentB = c.ParentB, Nickname = c.Nickname,
-        Traits = new List<string>(c.Traits), Augments = new List<string>(c.Augments),
+        Traits = new List<string>(c.Traits), Augments = new List<string>(c.Augments), Infusions = new List<string>(c.Infusions),
     };
 
     /// <summary>The creature itself; its augments bolted on (their grafts on a copy of its species) unless <paramref name="augmented"/> is false, as for breeding.</summary>
@@ -64,6 +65,7 @@ public sealed class CreatureRecord
             BodyJitter = BodyJitter, LegJitter = LegJitter, HeadJitter = HeadJitter,
             Generation = Generation, ParentA = ParentA, ParentB = ParentB,
             Traits = new List<string>(Traits ?? new List<string>()), Augments = augmented ? new List<string>(Augments) : new List<string>(),
+            Infusions = augmented ? new List<string>(Infusions ?? new List<string>()) : new List<string>(),
         };
     }
 }
@@ -88,6 +90,7 @@ public sealed class Ranch
     public int Bred;
     public int Chem;                              // lab currency, earned in battle
     public HashSet<string> Codex = new();          // parts met in battle, graftable at the lab ("Wings.Bat")
+    public HashSet<Form> Forms = new();            // kinds of creature met, whose abilities the lab can splice in
     public Dictionary<string, int> Rivals = new();  // times you've beaten each rival tamer (their squads grow)
     public Dictionary<string, int> RivalLosses = new();  // duels lost to each in a row since (they bring fewer)
     public HashSet<string> Titles = new();         // titles won from rivals
@@ -267,6 +270,7 @@ public sealed class Ranch
         foreach (var rec in Creatures.Where(rec => rec.Traits == null)) { rec.Traits = Classes.TraitBook.Roll(rec.Seed); _cache.Remove(rec.Id); }
         // Saves from before tiers: a creature caught wild whose blood isn't the one its species is born
         // with was infused at the lab. (Ones bred before tiers can't be told apart: they stay as they are.)
+        foreach (var rec in Creatures) Forms.Add(Species.FormOf(rec.Species));
         if (Flags.Add(TiersFlag))
             foreach (var rec in Creatures.Where(rec => rec.Generation == 0 && rec.Species.Origin == null && !rec.Species.Infused))
             {

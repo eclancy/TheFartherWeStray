@@ -74,6 +74,7 @@ public static class Lab
     /// <summary>Adds every part a creature carries to the codex.</summary>
     public static int Learn(Ranch ranch, Creature c)
     {
+        ranch.Forms.Add(Species.FormOf(c.Species)); // its kind, whose ability can be spliced in
         int added = 0;
         foreach (var s in Slots)
             if (ranch.Codex.Add(Key(s.Name, Get(c.Parts, s.Name)))) added++;
@@ -112,6 +113,51 @@ public static class Lab
         // Chemical work: the undercity takes note, as it does of augments.
         string moved = World.Standing.Shift(ranch, 0, World.Standing.Augment);
         return $"{rec.Name} takes the {strain.Label().ToLowerInvariant()} infusion (-{cost} chem). Its line will carry it.{ranch.TierNote(id, before)} ({moved})";
+    }
+
+    /// <summary>Brews an infusion into a creature: its stats tuned, two at most (a third washes out the oldest). It's infused after.</summary>
+    public static string Brew(Ranch ranch, int id, string infusion)
+    {
+        var rec = ranch.Record(id);
+        var p = Classes.InfusionBook.Get(infusion);
+        if (p == null) return "There's no such infusion.";
+        if (rec.Infusions.Contains(infusion)) return $"{rec.Name} already has {p.Name} in it.";
+        if (ranch.Chem < Classes.InfusionBook.Cost) return $"Not enough chem: an infusion costs {Classes.InfusionBook.Cost}.";
+        var before = Classes.TierBook.Of(ranch.Get(id));
+        ranch.Chem -= Classes.InfusionBook.Cost;
+        string washed = null;
+        if (rec.Infusions.Count >= Classes.InfusionBook.Slots) { washed = Classes.InfusionBook.Get(rec.Infusions[0])?.Name; rec.Infusions.RemoveAt(0); }
+        rec.Infusions.Add(infusion);
+        ranch.Refresh(id);
+        string moved = World.Standing.Shift(ranch, 0, World.Standing.Infusion);
+        return $"{rec.Name} takes {p.Name} (-{Classes.InfusionBook.Cost} chem): {p.Text}{(washed != null ? $" The {washed} washes out." : "")}{ranch.TierNote(id, before)} ({moved})";
+    }
+
+    /// <summary>
+    /// Splices another species' ability into a creature (one met in battle): it's a chimera after, and
+    /// its line carries it. Two at most; a third replaces the oldest.
+    /// </summary>
+    public static string Splice(Ranch ranch, int id, Form form)
+    {
+        var rec = ranch.Record(id);
+        int cost = Classes.TierBook.SpliceCost;
+        string ability = Classes.TierBook.Ability(form);
+        if (!ranch.Forms.Contains(form)) return $"You haven't met a {form.ToString().ToLowerInvariant()} to take it from.";
+        if (Species.FormOf(rec.Species) == form || rec.Species.Spliced?.Contains(form) == true) return $"{rec.Name} already has {ability}.";
+        if (ranch.Chem < cost) return $"Not enough chem: a splice costs {cost}.";
+        var before = Classes.TierBook.Of(ranch.Get(id));
+        bool wasChimera = Classes.TierBook.Chimera(ranch.Get(id));
+        ranch.Chem -= cost;
+        rec.Species = rec.Species.Clone();
+        var spliced = (rec.Species.Spliced ?? Array.Empty<Form>()).ToList();
+        string lost = null;
+        if (spliced.Count >= Classes.TierBook.MaxSpliced) { lost = Classes.TierBook.Ability(spliced[0]); spliced.RemoveAt(0); }
+        spliced.Add(form);
+        rec.Species.Spliced = spliced.ToArray();
+        rec.Species.Chimera = true;
+        ranch.Refresh(id);
+        string moved = !wasChimera ? $" ({World.Standing.Shift(ranch, 0, World.Standing.Splice)})" : "";
+        return $"{rec.Name} takes the {form.ToString().ToLowerInvariant()}'s {ability} (-{cost} chem): {Classes.TierBook.AbilityText(form)}.{(lost != null ? $" It loses {lost}." : "")} Its line will carry it.{ranch.TierNote(id, before)}{moved}";
     }
 
     /// <summary>Puts a blood strain into a species (a copy of it): the strain, its grafts, and the mark of an infusion, which its line carries.</summary>

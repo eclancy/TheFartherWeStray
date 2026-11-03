@@ -219,7 +219,7 @@ public partial class RanchScreen : Control
             "armory" => "The armory: fit gear from the bag (Gear cycles through it).",
             "yard" => "The training yard: every class this creature could train, and what each still needs.",
             "war" => "The war table: your tamers lead from off the field, up to two, three creatures each.",
-            "lab" => "The lab: graft parts from your codex (chem), fit augments from the bag, or infuse new blood (chem).",
+            "lab" => "The lab (chem): tune stats with infusions, put in new blood, splice in another species' ability, fit augments from the bag, or graft parts.",
             _ => "",
         });
     }
@@ -403,10 +403,12 @@ public partial class RanchScreen : Control
         }
         var shine = ClassBook.ShinyPassive(c);
         var gear = ClassBook.Passive(t.Gear);
-        foreach (var p in new[] { ClassBook.Passive(t.Passive), shine, gear, ClassBook.Passive(t.Reaction) }.Where(p => p != null))
+        var tierNow = TierBook.Of(c);
+        var natural = TierBook.PassiveOf(c, tierNow);
+        foreach (var p in new[] { ClassBook.Passive(t.Passive), shine, gear, natural, ClassBook.Passive(t.Reaction) }.Where(p => p != null))
         {
-            extras.AddChild(Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p == shine ? "shiny, its own" : p == gear ? "gear" : p.Kind == PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"));
-            extras.AddChild(Ui.Text(p.Name, 14, p == shine || p == gear ? Gold : p.Kind == PassiveKind.Reaction ? Ui.Pink : Ui.Good, 4));
+            extras.AddChild(Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p == shine ? "shiny, its own" : p == gear ? "gear" : p == natural ? (tierNow == Tier.Thoroughbred ? "thoroughbred, its species' own" : "chimera, other species' abilities") : p.Kind == PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"));
+            extras.AddChild(Ui.Text(p.Name, 14, p == shine || p == gear ? Gold : p == natural ? Color.FromHtml(TierBook.Hex(tierNow == Tier.Thoroughbred ? Tier.Thoroughbred : Tier.Chimera)) : p.Kind == PassiveKind.Reaction ? Ui.Pink : Ui.Good, 4));
         }
         if (extras.GetChildCount() > 0) _training.AddChild(extras);
 
@@ -434,7 +436,7 @@ public partial class RanchScreen : Control
         if (p == Panel.Lab && _selected is { } id) _lab.ShowCreature(id);
         Flash(p switch
         {
-            Panel.Lab => "The lab: graft parts from your codex (chem), fit augments from the bag, or infuse new blood (chem).",
+            Panel.Lab => "The lab (chem): tune stats with infusions, put in new blood, splice in another species' ability, fit augments from the bag, or graft parts.",
             Panel.Jobs => "The job tree: every class this creature could ever train, and what each still needs.",
             Panel.Party => "Your tamers lead from off the field: up to two, three creatures each.",
             _ => "",
@@ -585,7 +587,10 @@ public partial class RanchScreen : Control
         // What it was born with (natural, passed down), and what's bolted on (neon and brass, not).
         var born = c.Traits.Select(ClassBook.Passive).Where(p => p != null).Select(p => new Chip("paw", p.Name, Color.FromHtml("#9ac25a"), $"Trait: {p.Text} Passed down when bred."));
         var fitted = c.Augments.Select(AugmentBook.Get).Where(a => a != null).Select(a => new Chip(a.Chem ? "flask" : "gear", a.Name, Color.FromHtml(a.Chem ? "#4ff0a0" : "#4fe3ff"), AugmentBook.Text(a)));
-        var marks = born.Concat(fitted).ToList();
+        var tuned = c.Infusions.Select(InfusionBook.Get).Where(p => p != null).Select(p => new Chip("flask", p.Name, Color.FromHtml(TierBook.Hex(Tier.Infused)), $"Infusion: {p.Text} Not passed down."));
+        var spliced = (c.Species.Spliced ?? Array.Empty<Form>()).Select(f => new Chip("helix", TierBook.Ability(f), Color.FromHtml(TierBook.Hex(Tier.Chimera)),
+            $"Spliced in from a {f.ToString().ToLowerInvariant()}: {TierBook.AbilityText(f)}. Passed down."));
+        var marks = born.Concat(spliced).Concat(tuned).Concat(fitted).ToList();
         if (marks.Count > 0) _detail.AddChild(Ui.Chips(marks, 15));
 
         _detail.AddChild(Ui.Chips(new[]

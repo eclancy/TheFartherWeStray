@@ -97,6 +97,15 @@ public static class Breeding
         bool chimera = crossed || A.Chimera || B.Chimera, infused = strainParent?.Infused == true;
         if (crossed) r.Notes.Add("a chimera: two strains crossed");
         else if (chimera) r.Notes.Add("a chimera, like its parent");
+        // A chimera carries the abilities of other species: the other parent's kind, and what its parents carried.
+        Form[] spliced = null;
+        if (chimera)
+        {
+            var own = Species.FormOf(planParent);
+            spliced = new[] { Species.FormOf(planParent == A ? B : A) }.Concat(A.Spliced ?? Array.Empty<Form>()).Concat(B.Spliced ?? Array.Empty<Form>())
+                .Where(f => f != own).Distinct().Take(Classes.TierBook.MaxSpliced).ToArray();
+            if (spliced.Length > 0) r.Notes.Add($"carries {string.Join(" and ", spliced.Select(Classes.TierBook.Ability))}");
+        }
         if (infused) r.Notes.Add("its parent's infusion passes down");
 
         float Mix(float x, float y) => Mathf.Lerp(x, y, rng.Range(0.3f, 0.7f)) * rng.Range(0.96f, 1.04f);
@@ -114,7 +123,7 @@ public static class Breeding
             HeadSize = Mix(A.HeadSize, B.HeadSize), NeckLen = Mix(A.NeckLen, B.NeckLen), SnoutLen = Mix(A.SnoutLen, B.SnoutLen),
             EyeSize = Mix(A.EyeSize, B.EyeSize), WingSpread = Mix(A.WingSpread, B.WingSpread), HornCurve = Mix(A.HornCurve, B.HornCurve),
             WingsFolded = planParent.WingsFolded, MuzzleSecond = rng.Chance(0.5f) ? A.MuzzleSecond : B.MuzzleSecond,
-            Strain = strain, Grafts = grafts, Infused = infused, Chimera = chimera,
+            Strain = strain, Grafts = grafts, Infused = infused, Chimera = chimera, Spliced = spliced,
             // The body plan's parent passes on its silhouette; either parent its aura.
             Form = Species.FormOf(planParent), Aura = Species.AuraOf(rng.Chance(0.5f) ? A : B),
             SpikeMat = style.spike, ShellMat = style.shell, FeatherMat = style.feather, SailMat = style.sail, TuftMat = style.tuft, CrestMat = style.crest,

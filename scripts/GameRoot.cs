@@ -549,6 +549,11 @@ public partial class GameRoot : Node
             var plain = Tactics.Unit.From(ranch.Get(n1), Tactics.Side.Player);
             var wild = Tactics.Unit.From(ranch.Get(n1), Tactics.Side.Wild);
             GD.Print($"thoroughbred bonus: {ranch.Record(n1).Name} caught ATK {plain.Atk} DEF {plain.Def} HP {plain.MaxHp} ({plain.Tier}); wild ATK {wild.Atk} DEF {wild.Def} HP {wild.MaxHp} ({wild.Tier})");
+            foreach (var r in ranch.Creatures)
+                GD.Print($"  {r.Name} ({Species.FormOf(r.Species)}, {r.Species.Element}): {Classes.TierBook.ThoroughbredOf(r.Species).Text}");
+            var forms = Enum.GetValues<Form>().Where(f => f != Form.Auto).ToList();
+            var bare = forms.Where(f => Classes.TierBook.ThoroughbredOf(new Species { Form = f, Plan = Enum.GetValues<BodyPlan>().First(pl => Species.AllFormsFor(pl).Contains(f)) }).Name == "Thoroughbred: Hardy").ToList();
+            GD.Print($"forms with a bonus of their own: {forms.Count - bare.Count}/{forms.Count}{(bare.Count > 0 ? $"; missing: {string.Join(", ", bare)}" : "")}");
 
             GD.Print("  " + Ranching.Lab.Infuse(ranch, n1, Strain.Chemtech));
             var rec1 = ranch.Record(n1);
@@ -560,13 +565,21 @@ public partial class GameRoot : Node
                 GD.Print("  " + Ranching.Lab.GraftPart(ranch, n1, slot.Name, other[0]));
                 break;
             }
+            var other1 = ranch.Forms.First(f => f != Species.FormOf(rec1.Species));
+            GD.Print("  " + Ranching.Lab.Splice(ranch, n1, other1));
             GD.Print($"  {rec1.Name}: {TierOf(n1)}: {Classes.TierBook.Describe(ranch.Get(n1), TierOf(n1))}");
             foreach (var aug in new[] { "piston_fist", "rivet_gun", "acid_canister" }) ranch.Items[aug] = 1;
             GD.Print("  " + ranch.Install(n1, "piston_fist"));
             GD.Print("  " + ranch.Install(n2, "rivet_gun"));
-            GD.Print("  " + ranch.Install(n3, "acid_canister"));
+            var tunedBefore = Tactics.Unit.From(ranch.Get(n3), Tactics.Side.Player);
+            GD.Print("  " + Ranching.Lab.Brew(ranch, n3, "rage_serum"));
+            GD.Print("  " + Ranching.Lab.Brew(ranch, n3, "quickblood"));
+            GD.Print("  " + Ranching.Lab.Brew(ranch, n3, "bulk_tonic"));
+            var tunedAfter = Tactics.Unit.From(ranch.Get(n3), Tactics.Side.Player);
+            GD.Print($"  infusions: {ranch.Record(n3).Name} ATK {tunedBefore.Atk} -> {tunedAfter.Atk}, SPD {tunedBefore.Spd} -> {tunedAfter.Spd}, HP {tunedBefore.MaxHp} -> {tunedAfter.MaxHp}, DEF {tunedBefore.Def} -> {tunedAfter.Def} (its {tunedBefore.TierPassive?.Name} gone: {tunedAfter.TierPassive?.Name ?? "none"})");
             var after = Tactics.Unit.From(ranch.Get(n2), Tactics.Side.Player);
-            GD.Print($"lab: {ranch.Record(n1).Name} {TierOf(n1)}, {ranch.Record(n2).Name} {TierOf(n2)} (no bonus: passive {after.TierPassive?.Name ?? "none"}), {ranch.Record(n3).Name} {TierOf(n3)}");
+            var abom = Tactics.Unit.From(ranch.Get(n1), Tactics.Side.Player);
+            GD.Print($"lab: {ranch.Record(n1).Name} {TierOf(n1)} ({abom.TierPassive?.Name}; skills {string.Join(", ", abom.Skills.Select(sk => sk.Name))}), {ranch.Record(n2).Name} {TierOf(n2)} (passive {after.TierPassive?.Name ?? "none"}), {ranch.Record(n3).Name} {TierOf(n3)}");
 
             int city = ranch.CityStanding, under = ranch.UnderStanding;
             foreach (var r in ranch.Creatures) r.Rested = true;
@@ -574,18 +587,21 @@ public partial class GameRoot : Node
             GD.Print($"bred natural x natural -> {ranch.Record(true1).Name}: {TierOf(true1)} ({string.Join("; ", res1.Notes)}); standing city {city} -> {ranch.CityStanding}, undercity {under} -> {ranch.UnderStanding}");
             city = ranch.CityStanding; under = ranch.UnderStanding;
             var (cross, res2) = ranch.Breed(n2, chem);
-            GD.Print($"bred natural x chemborn -> {ranch.Record(cross).Name}: {TierOf(cross)} ({string.Join("; ", res2.Notes)}); standing city {city} -> {ranch.CityStanding}, undercity {under} -> {ranch.UnderStanding}");
+            GD.Print($"bred natural x chemborn -> {ranch.Record(cross).Name}: {TierOf(cross)}, {Classes.TierBook.PassiveOf(ranch.Get(cross), TierOf(cross))?.Name} ({string.Join("; ", res2.Notes)}); standing city {city} -> {ranch.CityStanding}, undercity {under} -> {ranch.UnderStanding}");
+            GD.Print("  " + ranch.Install(n4, "acid_canister") + $" -> {TierOf(n4)}");
             var (same, res3) = ranch.Breed(n1, chem);
             GD.Print($"bred infused chemborn x chemborn -> {ranch.Record(same).Name}: {TierOf(same)} ({string.Join("; ", res3.Notes)})");
             foreach (var r in ranch.Creatures) r.Rested = true;
             var (grand, res4) = ranch.Breed(cross, true1);
-            GD.Print($"bred chimera x thoroughbred -> {ranch.Record(grand).Name}: {TierOf(grand)} ({string.Join("; ", res4.Notes)})");
+            GD.Print($"bred chimera x thoroughbred -> {ranch.Record(grand).Name}: {TierOf(grand)}, {Classes.TierBook.PassiveOf(ranch.Get(grand), TierOf(grand))?.Name} ({string.Join("; ", res4.Notes)})");
 
             ranch.Save();
             var back = Ranching.Ranch.Load();
             bool kept = ranch.Creatures.All(r => Classes.TierBook.Of(back.Get(r.Id)) == TierOf(r.Id));
             back.Flags.Remove(Ranching.Ranch.TiersFlag);
             back.Record(n1).Species.Infused = false;
+            back.Record(n1).Species.Chimera = false;
+            back.Record(n1).Species.Spliced = null;
             back.Record(n1).Augments.Clear();
             back.Record(n1).BirthParts = null;
             back.Refresh(n1);

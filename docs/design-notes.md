@@ -35,7 +35,8 @@ upkeep or a cap on growth; none of those is built.
 
 **Tasks from the call:**
 - [x] Name the DNA tier: **Chimera** (the user, 2026-11-02).
-- [ ] Write more notes on the chemical path (Infused), as the user asked.
+- [x] More on the chemical path: the user set it (2026-11-02): infusions adjust its natural stats.
+  Built as the lab's infusions (Creature tiers, below).
 - [ ] Find a title that fits the look (not steampunk, not hacking), perhaps by naming the
   creatures as a whole first.
 
@@ -45,49 +46,64 @@ upkeep or a cap on growth; none of those is built.
 ## Creature tiers (the user's design, 2026-11-02; built)
 
 **Decided by the user** (on the voice call and after):
-- **A creature goes by the most extreme thing done to it.** From least to most: **Infused**
-  (chemically altered; it changes less of its natural state, enhancing it or with small
-  trade-offs), **Chimera** (its DNA altered and bred; an infused creature that becomes one goes by
-  Chimera), **Rigged** (machinery bolted on, the most unnatural). Only all three at once make an
-  **Abomination**.
+- **A creature goes by the most extreme thing done to it.** From least to most: **Infused**,
+  **Chimera** (an infused creature that becomes one goes by Chimera), **Rigged** (the most
+  unnatural). Only all three at once make an **Abomination**.
 - **Thoroughbred:** caught and left natural, the heroic word for purebred instead of "feral". It
-  gets **a passive bonus of its own for staying natural**, not a squad bonus.
+  gets **a passive bonus of its own for staying natural**, not a squad bonus, and **the bonus is
+  based on its species**.
+- **Infusion adjusts its natural stats** (it changes less of its natural state, enhancing it or
+  with small trade-offs; maybe through something like an equipment panel).
+- **A chimera can have the abilities of different species.**
+- **Rigging gives abilities no natural creature can have.**
 - **Stray:** a creature nobody has caught.
 - The undercity goes with rigs, chemicals and experimentation; the city above with breeding and
   keeping creatures natural and purebred.
 
-**Built** (`Classes/Tiers.cs`, `TierBook`), on the lab and breeding as they were:
-- **What counts.** Infused: a lab infusion, or a chemical augment. Chimera: bred from two different
-  bloods (Chemborn, Runic, Abyssal or natural; clockwork counts as natural, being machinery), bred
-  from a chimera, or a part spliced on at the lab (a flesh graft). Rigged: a mechanical augment (or
-  a rival's machine grafts). A creature caught already chemborn, runic or abyssal is a thoroughbred
-  of its own blood.
-- **Passing down.** Infused blood and chimera blood pass to the child (`Species.Infused`,
-  `Species.Chimera`); splices and augments don't, as before. Two natural creatures bred together
-  make a thoroughbred.
-- **The thoroughbred bonus** (`TierBook.Thoroughbred`): ATK +1, DEF +1, max HP +10%, counted like a
-  trait whatever it trains as. Your creatures and rivals' count as caught; wild packs are strays and
-  get none.
-- **Standing.** Breeding a chimera moves the undercity instead of the city; an infusion moves the
-  undercity as an augment does; the first splice that makes a chimera moves it a little
-  (`Standing.Splice`).
+**Built** (`Classes/Tiers.cs`: `TierBook`, `InfusionBook`), on the lab and breeding as they were:
+- **The thoroughbred bonus, from its species** (`TierBook.ThoroughbredOf`): its form's ability (each
+  of the 30 forms has one: a hound's Pack Blood, ATK +1 for each ally beside it and SPD +1; a
+  drake's Dragon Hide, DEF +2; a wraith's Unseen, harder to hit and healing from its bites; a
+  kelpie's Tide Runner, MOVE +1...) and a touch of its element's blood (ember ATK +1, stone DEF +1,
+  spark SPD +1, leaf healing...). Counted like a trait whatever it trains as. Your creatures and
+  rivals' count as caught; wild packs are strays and get none.
+- **Infused:** infusions brewed at the lab (`InfusionBook`, 30 chem each, two slots, a third washes
+  out the oldest, not passed down), each an upside and a trade-off: Rage Serum (ATK +2, DEF -1),
+  Iron Tincture (DEF +2, SPD -1), Quickblood (SPD +2, max HP -10%), Bulk Tonic (max HP +20%, SPD -1),
+  Keen Drops (+12% to hit, 4% easier to hit), Ghost Vapour (10% harder to hit, DEF -1), Stride
+  Elixir (MOVE +1, max HP -10%), Mending Draught (heals 4% a turn, ATK -1). New blood (the lab's
+  chemborn, runic or abyssal for a natural creature) counts too, and its line carries it.
+- **Chimera:** it carries the abilities of other species (`TierBook.ChimeraOf`): its own form's,
+  plus up to two more (`Species.Spliced`). Bred across bloods (or from a chimera), it takes the
+  other parent's kind and what its parents carried; at the lab (50 chem) you splice in the ability
+  of any kind of creature you've met (`Ranch.Forms`); a grafted part makes one too. Its line
+  carries the abilities. It trades the thoroughbred's element touch for them.
+- **Rigged:** any augment, mechanical or chemical: each teaches an attack no natural creature can
+  learn (Piston Punch, Acid Spray...). A rival's machine grafts count.
+- **Passing down.** New blood and chimera DNA (crossed bloods, spliced abilities) pass to the child;
+  infusions, grafted parts and augments don't. Two natural creatures bred together make a
+  thoroughbred.
+- **Standing.** Breeding a chimera moves the undercity instead of the city; new blood moves it as
+  an augment does; each infusion a little (`Standing.Infusion`); the first splice that makes a
+  chimera a little more (`Standing.Splice`).
 - **On screen.** A tier chip (crown, flask, helix, gear, skull; a paw for strays) on the pens'
-  detail and the battle panel, its meaning in the tooltip; the lab's headings say what each piece
-  of work makes, and its messages say when the tier changes ("It's a chimera now, no longer a
-  thoroughbred."); breeding notes a chimera.
-- **Old saves.** Creatures caught wild and infused at the lab are found and marked infused (their
-  species, regenerated from its seed, has other blood). Ones bred before tiers can't be told apart
-  and stay as they are.
-- `--tiers` checks it all headless.
+  detail and the battle panel; the pens list a creature's spliced abilities, infusions and
+  augments as chips and its species bonus or chimera abilities among its passives. The lab runs
+  from the least change to the most (infusions, new blood, splices, augments, part grafts), shows
+  the tier on the chamber, and says when it changes ("It's a chimera now, no longer a
+  thoroughbred.").
+- **Old saves.** Creatures caught wild and given new blood at the lab are found and marked infused
+  (their species, regenerated from its seed, has other blood). Ones bred before tiers can't be told
+  apart and stay as they are.
+- `--tiers` checks it all headless (every form has an ability of its own).
 
 **Defaulted, open to change:**
-- [ ] The bonus's size and kind (now a flat ATK +1, DEF +1, max HP +10%).
+- [ ] The numbers: each form's ability, each element's touch, each infusion's trade-off.
 - [ ] Does an abomination get something of its own (a passive, a look), or is the name enough?
+- [ ] Rigs that change how it moves (wings to fly, climbing claws), from the call's first draft?
 - [ ] Should the tiers bring costs of their own, like the first draft's (an infusion resting a
   mission, a rig's upkeep, a cap on growth)? None are built.
-- [ ] Can an infusion be undone? (Now: no.)
 - [ ] Call wild creatures strays everywhere? (Now only their tier chip says so.)
-- [ ] The chemical path's own design (the task from the call).
 
 ## Tamers and the party (the user's direction, 2026-11-02)
 

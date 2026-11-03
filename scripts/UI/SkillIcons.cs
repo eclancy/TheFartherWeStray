@@ -186,14 +186,15 @@ public static class SkillIcons
     public static Texture2D Passive(PassiveDef p, int scale = 2) => Cached("passive:" + p.Id, scale, () =>
     {
         var img = Image.CreateEmpty(BadgeSize, BadgeSize, false, Image.Format.Rgba8);
-        Frame(img, 0, 0, BadgeSize, Color.FromHtml(p.Class switch { "Shiny" => "#f2c14e", "Gear" => "#c9a24a", "Trait" => "#8a9a4a", "Tier" => "#9ac25a", _ => p.Kind == PassiveKind.Reaction ? "#d84f8f" : "#3faa6a" }));
+        Frame(img, 0, 0, BadgeSize, Color.FromHtml(p.Class switch { "Shiny" => "#f2c14e", "Gear" => "#c9a24a", "Trait" => "#8a9a4a", "Tier" => p.Id.StartsWith("chimera") ? "#8a5ac8" : "#9ac25a", "Infusion" => "#3fbf8a", _ => p.Kind == PassiveKind.Reaction ? "#d84f8f" : "#3faa6a" }));
         Glyphs.Draw(img, PassiveGlyph(p), 2, 2);
         return img;
     });
 
     public static string PassiveGlyph(PassiveDef p)
     {
-        if (p.Class == "Tier") return TierBook.Glyph(Tier.Thoroughbred);
+        if (p.Class == "Tier") return TierBook.Glyph(p.Id.StartsWith("chimera") ? Tier.Chimera : Tier.Thoroughbred);
+        if (p.Class == "Infusion") return "flask";
         if (p.Kind == PassiveKind.Reaction)
             return p.React switch
             {

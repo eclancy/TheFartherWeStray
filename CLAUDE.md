@@ -266,19 +266,25 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   only past the three every battle brings). The AI never uses items. Shop button (S) on the map's
   place panel (it can travel you there); Gear button on the ranch. `--shoptest` checks it all;
   `--shopdemo` and `--battle=N --bag` are for screenshots.
-- **Creature tiers (2026-11-02, the user's design, built):** `Classes/Tiers.cs` (`TierBook`). A
-  creature goes by the most extreme thing done to it: a **stray** (uncaught), a **thoroughbred**
-  (caught and left natural: a passive bonus of its own, `TierBook.Thoroughbred`, merged into
-  `Unit.Passive` like a trait), **infused** (a lab infusion or a chemical augment), a **chimera**
-  (bred from two different bloods, clockwork counting as natural, or from a chimera, or a part
-  spliced on at the lab), **rigged** (a mechanical augment, or a rival's machine grafts); all three
-  make an **abomination**. `Species.Infused` and `Species.Chimera` pass down; `Species.Rigged` is
-  only for rivals. `Unit.From` counts a creature as caught if it's yours or trained (a rival's);
-  wild ones are strays. Breeding a chimera, infusions and the first splice move the undercity.
-  Tier chips on the pens and the battle panel; lab messages say when a tier changes
-  (`Ranch.TierNote`). `--tiers` checks it all; old saves are brought up once (`Ranch.TiersFlag`).
-  With the bonus (2026-11-02): rival duels 51% straight, 73% after a loss, 91% after two;
-  captures proud 9/10, skittish 8, curious 10, aggressive 10, loyal 5; battles 3 to 10 rounds; no stalls.
+- **Creature tiers (2026-11-02, the user's design, built):** `Classes/Tiers.cs` (`TierBook`,
+  `InfusionBook`). A creature goes by the most extreme thing done to it: a **stray** (uncaught), a
+  **thoroughbred** (caught and left natural: a bonus **from its species**, its form's ability plus a
+  touch of its element, `TierBook.ThoroughbredOf`; new forms want a `FormBonus` entry), **infused**
+  (its stats tuned by lab infusions, `CreatureRecord.Infusions`, two slots, or new blood), a
+  **chimera** (**the abilities of other species**: its form's plus up to two in `Species.Spliced`,
+  `TierBook.ChimeraOf`; bred across bloods, clockwork counting as natural, or from a chimera, or
+  spliced at the lab from `Ranch.Forms`, or a grafted part), **rigged** (any augment: **abilities
+  no natural creature has**; or a rival's machine grafts); all three make an **abomination**. The
+  tier passive (`TierBook.PassiveOf`) and infusions merge into `Unit.Passive` like traits.
+  `Species.Infused`, `Chimera` and `Spliced` pass down; infusions, grafted parts and augments
+  don't; `Species.Rigged` is only for rivals. `Unit.From` counts a creature as caught if it's yours
+  or trained (a rival's); wild ones are strays. Breeding a chimera, new blood, infusions and the
+  first splice move the undercity. Tier chips on the pens and the battle panel; lab messages say
+  when a tier changes (`Ranch.TierNote`). `--tiers` checks it all; old saves are brought up once
+  (`Ranch.TiersFlag`).
+  With species bonuses and chimera abilities (2026-11-02): rival duels 47% straight, 65% after a
+  loss, 87% after two; captures proud 10/10, skittish 9, curious 10, aggressive 8, loyal 8; battles
+  3 to 9 rounds; no stalls.
 - **Traits and augments (2026-11-02, built; the user's city/undercity split):** traits
   (`Classes/Traits.cs`) are biological, born with (`Creature.Traits`, rolled from the seed for
   wild ones) and passed down (`TraitBook.Inherit` in `Breeding`), each a passive merged into

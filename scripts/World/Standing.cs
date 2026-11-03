@@ -16,7 +16,7 @@ public static class Standing
     public const int Min = -100, Max = 100;
 
     // What moves it, and by how much (to the side the work was for).
-    public const int Contract = 2, Regular = 1, MainMission = 5, Dispatch = 1, Cup = 4, Augment = 3, Breeding = 1, Splice = 2;
+    public const int Contract = 2, Regular = 1, MainMission = 5, Dispatch = 1, Cup = 4, Augment = 3, Breeding = 1, Splice = 2, Infusion = 1;
     /// <summary>At this standing a side's shops take 15% off.</summary>
     public const int Friendly = 50;
 

@@ -39,7 +39,7 @@ public static class HomeBase
         new() { Id = "war", Name = "War Table", Glyph = "crown", Prop = 'W', Built = r => Party.TamerBook.Joined(r.Encounter).Count() >= 2,
             Blurb = "your tamers and who each leads", Needs = "a second tamer joining you" },
         new() { Id = "lab", Name = "The Lab", Glyph = "flask", Prop = 'Q', Built = r => r.Story.Contains("main_foundry"),
-            Blurb = "graft parts, fit augments, infuse new blood", Needs = "the road to the Foundry" },
+            Blurb = "infuse, splice, fit augments, graft parts", Needs = "the road to the Foundry" },
     };
 
     public static StationDef Get(string id) => Stations.FirstOrDefault(s => s.Id == id);

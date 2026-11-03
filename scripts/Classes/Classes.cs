@@ -43,6 +43,12 @@ public sealed class SkillDef
     public float Desperate;          // extra damage multiplier while the user is below half HP
     public float Execute;            // extra damage multiplier against a foe below 40% HP
     public float Catch, CatchChance; // a snare: below this share of its HP, a free wild creature is caught with this chance
+    // Signature styles after FFTA's summoner, illusionist and assassin (the user's ask, 2026-11-02):
+    public string Phantom;           // a summon: the great beast (a form's name) that rises over the area; looks only
+    public bool AllFoes;             // reaches every foe on the field, wherever it stands; no aiming
+    public int Doom;                 // the target falls once this many of its turns have passed (cleansing lifts it)
+    public int Sleep;                // the target sleeps through up to this many of its turns; any hit wakes it
+    public float Finish;             // after the hit, a foe left under a quarter of its HP falls at once with this chance
 }
 
 
@@ -286,6 +292,27 @@ public static class ClassBook
         new() { Id = "dread", Name = "Dread", Class = "Voidcaller", Cost = 30, Cooldown = 4, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 2, Root = true, Buffs = new[] { (StatKind.Spd, -3, 2) }, Text = "Foes within 2 freeze in terror: rooted, SPD -3." },
         new() { Id = "siphon", Name = "Siphon", Class = "Voidcaller", Cost = 30, Cooldown = 2, Range = 2, Power = 1f, Drain = 0.5f, Text = "Range 2 (x1): heal for half the damage." },
         new() { Id = "maw", Name = "Maw", Class = "Voidcaller", Cost = 35, Cooldown = 3, Power = 1.8f, HitBonus = -10, HealOnKill = 0.3f, Text = "A huge bite (x1.8); a kill heals 30% of max HP." },
+        // Conjurer (Mystic + Howler): summons. A great beast's ghost rises over the area and hits only foes (or helps only friends).
+        new() { Id = "cinder_drake", Name = "Cinder Drake", Class = "Conjurer", Cost = 30, Cooldown = 5, Target = TargetKind.Area, Range = 4, Radius = 2, Power = 1.2f, HitBonus = 20, Phantom = "Drake",
+            Text = "Calls the ghost of a cinder drake: fire on every foe within 2 of a tile in range 4 (x1.2)." },
+        new() { Id = "storm_roc", Name = "Storm Roc", Class = "Conjurer", Cost = 30, Cooldown = 5, Target = TargetKind.Area, Range = 4, Radius = 2, Power = 0.7f, StunChance = 0.3f, HitBonus = 20, Phantom = "Hawk",
+            Text = "Calls the ghost of a storm roc: lightning on every foe within 2 of a tile in range 4 (x0.7), 30% to stun." },
+        new() { Id = "grove_stag", Name = "Grove Stag", Class = "Conjurer", Cost = 35, Cooldown = 5, Target = TargetKind.Ally, Range = 4, Radius = 2, Heal = 0.3f, Cleanse = true, Phantom = "Stag",
+            Text = "Calls the ghost of a grove stag: every ally within 2 of an ally in range 4 heals 30% of max HP and is cleansed." },
+        // Mesmer (Mystic + Rogue): illusions that reach every foe on the field at once.
+        new() { Id = "fever_dream", Name = "Fever Dream", Class = "Mesmer", Cost = 30, Cooldown = 5, Range = 0, AllFoes = true, Power = 0.55f, HitBonus = 15,
+            Text = "Every foe on the field dreams it's burning (x0.55), wherever it stands." },
+        new() { Id = "winter_trance", Name = "Winter Trance", Class = "Mesmer", Cost = 30, Cooldown = 5, Range = 0, AllFoes = true, Power = 0.35f, HitBonus = 15, Buffs = new[] { (StatKind.Spd, -2, 2) },
+            Text = "Every foe on the field feels the cold (x0.35) and slows: SPD -2 for 2 turns." },
+        new() { Id = "night_terrors", Name = "Night Terrors", Class = "Mesmer", Cost = 35, Cooldown = 5, Range = 0, AllFoes = true, Power = 0.25f, HitBonus = 15, Buffs = new[] { (StatKind.Atk, -2, 2) },
+            Text = "Every foe on the field sees its worst fear (x0.25): ATK -2 for 2 turns." },
+        // Reaper (Rogue + Hunter): doom, sleep, and the finishing blow.
+        new() { Id = "death_mark", Name = "Death Mark", Class = "Reaper", Cost = 35, Cooldown = 6, Range = 3, Doom = 3, HitBonus = -10,
+            Text = "Marks a foe in range 3: once 3 of its turns have passed, it falls. Cleansing lifts the mark." },
+        new() { Id = "last_breath", Name = "Last Breath", Class = "Reaper", Cost = 30, Cooldown = 3, Power = 0.8f, Finish = 0.5f,
+            Text = "A quiet strike (x0.8); a foe left under a quarter of its HP has a 50% chance to fall then and there." },
+        new() { Id = "sleep_dart", Name = "Sleep Dart", Class = "Reaper", Cost = 30, Cooldown = 4, Range = 4, Sleep = 2, HitBonus = 10,
+            Text = "Range 4: the foe sleeps through up to 2 of its turns; any hit wakes it." },
         // Artificer (Tinker + two machine grafts).
         new() { Id = "spark_coil", Name = "Spark Coil", Class = "Artificer", Cost = 30, Cooldown = 3, Target = TargetKind.Area, Range = 4, Radius = 1, Power = 0.6f, StunChance = 0.3f, Text = "A coil discharges across a cross at range 4 (x0.6), 30% to stun." },
         new() { Id = "repair", Name = "Repair", Class = "Artificer", Cost = 30, Cooldown = 2, Target = TargetKind.Ally, Range = 2, Heal = 0.45f, Cleanse = true, Text = "An ally within 2: recovers 45% of max HP and is cleansed." },
@@ -527,37 +554,37 @@ public static class ClassBook
         {
             Id = "Hydrarch", Name = "Hydrarch", Blurb = "Every head hungry, every head awake.", Atk = 2, Hp = 6,
             Skills = new[] { "hydra_snap", "regrow", "chorus_roar" }, Requires = new[] { ("Brawler", 2), ("Howler", 2) },
-            NeedsPart = c => Species.FormOf(c.Species) == Form.Hydra, PartHint = "the hydra's form",
+            NeedsPart = c => HasForm(c, Form.Hydra), PartHint = "the hydra's form, or its ability spliced in",
         },
         new()
         {
             Id = "Stoneguard", Name = "Stoneguard", Blurb = "Perched, watching, as still as the stone.", Def = 3, Hp = 4, Spd = -1,
             Skills = new[] { "turn_to_stone", "plunge", "grotesque_glare" }, Requires = new[] { ("Guardian", 2), ("Mystic", 2) },
-            NeedsPart = c => Species.FormOf(c.Species) == Form.Gargoyle, PartHint = "the gargoyle's form",
+            NeedsPart = c => HasForm(c, Form.Gargoyle), PartHint = "the gargoyle's form, or its ability spliced in",
         },
         new()
         {
             Id = "Coilbinder", Name = "Coilbinder", Blurb = "Holds the eye, then holds the body.", Spd = 2, Atk = 1,
             Skills = new[] { "constrict", "hypnotic_sway", "serpents_embrace" }, Requires = new[] { ("Rogue", 2), ("Mystic", 2) },
-            NeedsPart = c => Species.FormOf(c.Species) == Form.Naga, PartHint = "the naga's form",
+            NeedsPart = c => HasForm(c, Form.Naga), PartHint = "the naga's form, or its ability spliced in",
         },
         new()
         {
             Id = "Venomtail", Name = "Venomtail", Blurb = "The tail curls, and waits.", Atk = 2, Spd = 1,
             Skills = new[] { "sting", "pincer_grip", "neurotoxin" }, Requires = new[] { ("Alchemist", 2), ("Hunter", 2) },
-            NeedsPart = c => Species.FormOf(c.Species) == Form.Scorpion, PartHint = "the scorpion's form",
+            NeedsPart = c => HasForm(c, Form.Scorpion), PartHint = "the scorpion's form, or its ability spliced in",
         },
         new()
         {
             Id = "Lurelight", Name = "Lurelight", Blurb = "A small light in the dark, and a mouth behind it.", Atk = 2, Hp = 4,
             Skills = new[] { "lure", "abyssal_maw", "glow_flash" }, Requires = new[] { ("Hunter", 2), ("Mystic", 2) },
-            NeedsPart = c => Species.FormOf(c.Species) == Form.Angler, PartHint = "the angler's form",
+            NeedsPart = c => HasForm(c, Form.Angler), PartHint = "the angler's form, or its ability spliced in",
         },
         new()
         {
             Id = "Oculus", Name = "Oculus", Blurb = "One eye, and it misses nothing.", Atk = 2, Spd = 1,
             Skills = new[] { "gaze_beam", "petrifying_stare", "inner_eye" }, Requires = new[] { ("Mystic", 2), ("Hunter", 2) },
-            NeedsPart = c => Species.FormOf(c.Species) == Form.Watcher, PartHint = "the watcher's form",
+            NeedsPart = c => HasForm(c, Form.Watcher), PartHint = "the watcher's form, or its ability spliced in",
         },
         new()
         {
@@ -575,7 +602,25 @@ public static class ClassBook
         {
             Id = "Basilisk", Name = "Basilisk", Blurb = "Half bird, half serpent, and its peck turns flesh to stone.", Atk = 2, Spd = 1,
             Skills = new[] { "stone_peck", "serpent_lash", "dread_crow" }, Requires = new[] { ("Brawler", 2), ("Howler", 2) },
-            NeedsPart = c => Species.FormOf(c.Species) == Form.Cockatrice, PartHint = "the cockatrice's form",
+            NeedsPart = c => HasForm(c, Form.Cockatrice), PartHint = "the cockatrice's form, or its ability spliced in",
+        },
+
+        // Signature classes after FFTA's summoner, illusionist and assassin (the user's ask, 2026-11-02),
+        // made this game's own: two base classes mastered, no part needed.
+        new()
+        {
+            Id = "Conjurer", Name = "Conjurer", Blurb = "Calls up the ghosts of great beasts.", Hp = 2, Atk = 1, Spd = -1,
+            Skills = new[] { "cinder_drake", "storm_roc", "grove_stag" }, Requires = new[] { ("Mystic", 2), ("Howler", 2) },
+        },
+        new()
+        {
+            Id = "Mesmer", Name = "Mesmer", Blurb = "Shows every foe a different nightmare, all at once.", Spd = 2, Atk = 1, Hp = -2,
+            Skills = new[] { "fever_dream", "winter_trance", "night_terrors" }, Requires = new[] { ("Mystic", 2), ("Rogue", 2) },
+        },
+        new()
+        {
+            Id = "Reaper", Name = "Reaper", Blurb = "Marks one, and waits.", Atk = 2, Spd = 2, Hp = -4,
+            Skills = new[] { "death_mark", "last_breath", "sleep_dart" }, Requires = new[] { ("Rogue", 2), ("Hunter", 2) },
         },
 
         // Blood classes: one base class mastered, and the strain in its veins.
@@ -606,6 +651,9 @@ public static class ClassBook
     };
 
     const Graft MachineGrafts = Graft.Plating | Graft.MetalLimb | Graft.Visor | Graft.Core;
+
+    /// <summary>Whether it has a form's shape, or (a chimera) that form's ability spliced in: either opens the form's class.</summary>
+    public static bool HasForm(Creature c, Form f) => Species.FormOf(c.Species) == f || c.Species.Spliced?.Contains(f) == true;
 
     /// <summary>Tinkering needs something to work a lever with.</summary>
     static bool Hands(Creature c) => c.Species.Plan == BodyPlan.Biped || c.Parts.Limbs == Limbs.Clawed && c.Species.Plan is not (BodyPlan.Serpent or BodyPlan.Aquatic);
@@ -666,6 +714,12 @@ public static class ClassBook
         new() { Id = "shimmer_blood", Name = "Chem Blood", Class = "Chemist", Regen = 0.08f, NoPoison = true, Text = "Heals 8% of max HP each turn; immune to poison." },
         new() { Id = "runic_skin", Name = "Runic Skin", Class = "Runeweaver", NoStun = true, Def = 1, Text = "Immune to stun; DEF +1." },
         new() { Id = "bloodthirst", Name = "Bloodthirst", Class = "Voidcaller", Drain = 0.25f, Text = "Basic attacks heal 25% of the damage." },
+        new() { Id = "old_pact", Name = "Old Pact", Class = "Conjurer", CooldownCut = 1, Text = "The old beasts answer sooner: skills cool down a turn sooner." },
+        new() { Id = "spirit_ward", Name = "Spirit Ward", Class = "Conjurer", Kind = PassiveKind.Reaction, React = ReactionKind.Brace, ReactAmount = 3, Text = "Hit: a ghost shields it, DEF +3 until its next turn." },
+        new() { Id = "afterimage", Name = "Afterimage", Class = "Mesmer", Evade = 12, Text = "12% harder to hit: there's always one more of it than there seems." },
+        new() { Id = "mirror_image", Name = "Mirror Image", Class = "Mesmer", Kind = PassiveKind.Reaction, React = ReactionKind.Dodge, ReactChance = 0.25f, Text = "A hit that would land: 25% chance it strikes an illusion." },
+        new() { Id = "cold_blood", Name = "Cold Blood", Class = "Reaper", Hit = 10, Predator = 0.2f, Text = "+10% to hit; 20% more damage to foes under half HP." },
+        new() { Id = "slip_away", Name = "Slip Away", Class = "Reaper", Kind = PassiveKind.Reaction, React = ReactionKind.Retreat, ReactAmount = 10, Text = "Hit: slip a tile away and become 10% harder to hit." },
         new() { Id = "brass_frame", Name = "Brass Frame", Class = "Artificer", Def = 2, NoPoison = true, Text = "DEF +2; immune to poison." },
         // Reactions (FFTA's R-abilities): one equipped, set off when the creature is hit.
         new() { Id = "counter", Name = "Counter", Class = "Brawler", Kind = PassiveKind.Reaction, React = ReactionKind.Counter, ReactPower = 0.7f, Text = "Hit in melee: strike back (x0.7)." },

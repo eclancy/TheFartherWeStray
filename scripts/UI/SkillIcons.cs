@@ -42,6 +42,9 @@ public static class SkillIcons
         ["shimmer_dose"] = "flask", ["caustic_cloud"] = "smoke", ["mutagen"] = "question",
         ["glyph_snare"] = "rune", ["glyph_shield"] = "def", ["arcane_surge"] = "cooldown",
         ["dread"] = "skull", ["siphon"] = "swirl", ["maw"] = "fang",
+        ["cinder_drake"] = "flame", ["storm_roc"] = "storm", ["grove_stag"] = "horn",
+        ["fever_dream"] = "flame", ["winter_trance"] = "crystal", ["night_terrors"] = "ghost",
+        ["death_mark"] = "skull", ["last_breath"] = "fang", ["sleep_dart"] = "moon",
         ["spark_coil"] = "stun", ["repair"] = "gear", ["overdrive"] = "spd",
         ["antler_sweep"] = "slash", ["crown_of_thorns"] = "thorns", ["rutting_charge"] = "horn",
         ["roar_of_courage"] = "sound", ["challenge_roar"] = "taunt", ["last_stand"] = "flame",
@@ -83,6 +86,7 @@ public static class SkillIcons
         ["Seer"] = "eye", ["Sunsail"] = "sun", ["Cavalier"] = "move", ["Scavenger"] = "hand", ["Phantom"] = "ghost", ["Champion"] = "star",
         ["Hydrarch"] = "fang", ["Stoneguard"] = "mountain", ["Coilbinder"] = "swirl", ["Venomtail"] = "poison", ["Lurelight"] = "sun",
         ["Oculus"] = "eye", ["Saint"] = "sparkle", ["Hexmark"] = "rune", ["Basilisk"] = "stun",
+        ["Conjurer"] = "horn", ["Mesmer"] = "swirl", ["Reaper"] = "skull",
     };
 
     public enum Kind { Attack, Heal, Boost, Control, Move }
@@ -135,7 +139,7 @@ public static class SkillIcons
         if (down && (s.Target is TargetKind.Enemy or TargetKind.Area || !up)) Glyphs.DrawMini(img, "down", 14, 1);
         else if (up) Glyphs.DrawMini(img, "up", 14, 1);
         // Its shape: bottom right.
-        string shape = s.AroundSelf ? "ring" : s.Radius > 0 ? "area" : s.Leap ? "leap" : s.Straight ? "line" : null;
+        string shape = s.AllFoes ? "all" : s.AroundSelf ? "ring" : s.Radius > 0 ? "area" : s.Leap ? "leap" : s.Straight ? "line" : null;
         if (shape != null) Glyphs.DrawMini(img, shape, 14, 14);
         return img;
     }

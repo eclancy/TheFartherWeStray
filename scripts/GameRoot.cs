@@ -763,6 +763,113 @@ public partial class GameRoot : Node
             return;
         }
 
+        if (args.ContainsKey("signatures"))
+        {
+            // The signature classes' mechanics, each proven directly: a summon hits only foes, an
+            // illusion every foe on the field, a death mark fells its target after three of its turns,
+            // sleep skips turns until a hit, a finishing blow fells a worn-down foe about half the time,
+            // and a spliced-in ability opens its form's class.
+            (Tactics.Battle b, Tactics.Unit user, Tactics.Unit foe, Tactics.Unit friend) Setup(ulong seed = 3)
+            {
+                var b = Tactics.Encounter.Create(seed);
+                var user = b.Units.First(u => u.Side == Tactics.Side.Player && u.Size == 1);
+                var foe = b.Units.First(u => u.Side == Tactics.Side.Wild && u.Size == 1);
+                var friend = b.Units.First(u => u.Side == Tactics.Side.Player && u != user && u.Size == 1);
+                var dirs = new[] { Godot.Vector2I.Left, Godot.Vector2I.Right, Godot.Vector2I.Up, Godot.Vector2I.Down };
+                for (int y = 0; y < b.Map.H; y++)
+                for (int x = 0; x < b.Map.W; x++)
+                {
+                    var p = new Godot.Vector2I(x, y);
+                    if (!b.CanStand(user, p)) continue;
+                    var free = dirs.Select(d => p + d).Where(q => b.Map.InBounds(q) && b.CanStand(foe, q) && b.Map.HeightAt(q) == b.Map.HeightAt(p)).ToList();
+                    if (free.Count < 2) continue;
+                    user.Pos = p; foe.Pos = free[0]; friend.Pos = free[1];
+                    y = b.Map.H; break;
+                }
+                return (b, user, foe, friend);
+            }
+            int Hurt(Tactics.Battle b, int from, Tactics.Unit u) => b.Events.Skip(from).OfType<Tactics.DamageEvent>().Count(e => e.U == u && !e.Miss && e.Amount > 0);
+
+            {
+                var (b, user, foe, friend) = Setup();
+                var sk = Classes.ClassBook.Skill("cinder_drake");
+                int at = b.Events.Count;
+                b.UseSkill(user, sk, foe.Pos);
+                var foes = b.Units.Where(u => u.Side == Tactics.Side.Wild && u.Tiles.Any(b.SkillArea(user, sk, foe.Pos).Contains)).ToList();
+                GD.Print($"summon: Cinder Drake hit {foes.Count(f => Hurt(b, at, f) > 0)}/{foes.Count} foes in its area, {b.Units.Count(u => u.Side == Tactics.Side.Player && Hurt(b, at, u) > 0)} of yours (friend beside the foe: {Hurt(b, at, friend)})");
+            }
+            {
+                var (b, user, _, _) = Setup();
+                var sk = Classes.ClassBook.Skill("fever_dream");
+                int at = b.Events.Count;
+                b.UseSkill(user, sk, user.Pos);
+                var foes = b.Units.Where(u => u.Side == Tactics.Side.Wild && !u.Gone).ToList();
+                int reached = b.Events.Skip(at).OfType<Tactics.DamageEvent>().Where(e => e.U.Side == Tactics.Side.Wild).Select(e => e.U).Distinct().Count();
+                GD.Print($"illusion: Fever Dream reached {reached}/{foes.Count} foes across the field (hit or dodged), {b.Units.Count(u => u.Side == Tactics.Side.Player && Hurt(b, at, u) > 0)} of yours hurt");
+            }
+            {
+                var (b, user, foe, _) = Setup();
+                var sk = Classes.ClassBook.Skill("death_mark");
+                for (int k = 0; k < 20 && foe.DoomTurns == 0; k++) { b.UseSkill(user, sk, foe.Pos); user.Cooldowns.Clear(); }
+                int turns = 0;
+                for (int k = 0; k < 200 && !foe.Gone && foe.Side == Tactics.Side.Wild && b.Winner == null; k++)
+                {
+                    var u = b.NextTurn();
+                    if (u == null) break;
+                    if (u == foe) turns++;
+                    b.EndTurn(u);
+                }
+                GD.Print($"doom: {foe.Name} ({foe.Attitude}) {(foe.Gone ? "fell" : foe.Side == Tactics.Side.Player ? "fell and was won over (bested one on one)" : "still stands")} at its turn {turns} after the mark (the mark is 3)");
+            }
+            {
+                var (b, user, foe, _) = Setup();
+                var sk = Classes.ClassBook.Skill("sleep_dart");
+                for (int k = 0; k < 20 && foe.SleepTurns == 0; k++) { b.UseSkill(user, sk, foe.Pos); user.Cooldowns.Clear(); }
+                bool slept = foe.SleepTurns > 0;
+                int skipped = 0;
+                for (int k = 0; k < 60 && skipped == 0 && b.Winner == null; k++)
+                {
+                    int at = b.Events.Count;
+                    var u = b.NextTurn();
+                    if (u == null) break;
+                    if (b.Events.Skip(at).OfType<Tactics.StatusEvent>().Any(e => e.U == foe && e.Text == "asleep")) skipped++;
+                    b.EndTurn(u);
+                }
+                int left = foe.SleepTurns;
+                var hit = Classes.ClassBook.Skill("quick_strike");
+                for (int k = 0; k < 20 && foe.SleepTurns > 0; k++) { b.UseSkill(user, hit, foe.Pos); user.Cooldowns.Clear(); }
+                GD.Print($"sleep: asleep {slept}; skipped a turn {skipped > 0} ({left} left); a hit wakes it: {foe.SleepTurns == 0}");
+            }
+            {
+                int tries = 0, finished = 0, landed = 0;
+                var sk = Classes.ClassBook.Skill("last_breath");
+                for (int k = 0; k < 60; k++)
+                {
+                    var (b, user, foe, _) = Setup((ulong)k + 1);
+                    int dmg = Godot.Mathf.RoundToInt(b.Preview(user, foe).dmg * sk.Power);
+                    foe.Hp = Math.Min(foe.MaxHp, dmg + Math.Max(1, foe.MaxHp / 6));
+                    int at = b.Events.Count;
+                    b.UseSkill(user, sk, foe.Pos);
+                    tries++;
+                    if (Hurt(b, at, foe) == 0) continue;
+                    landed++;
+                    if (b.Events.Skip(at).OfType<Tactics.StatusEvent>().Any(e => e.U == foe && e.Text == "finished!")) finished++;
+                }
+                GD.Print($"finishing blow: {finished}/{landed} landed hits on a worn-down foe finished it (about half expected), {tries} tries");
+            }
+            {
+                var spec = Species.Generate(0x51CE);
+                while (Species.FormOf(spec) == Form.Hydra) spec = Species.Generate(spec.Seed + 1);
+                var c = Creature.Specimen(spec, 0);
+                var hydrarch = Classes.ClassBook.Classes.First(x => x.Id == "Hydrarch");
+                bool before = hydrarch.NeedsPart(c);
+                spec.Spliced = new[] { Form.Hydra };
+                GD.Print($"splice: a {Species.FormOf(spec).ToString().ToLowerInvariant()} meets the Hydrarch's need: {before} before, {hydrarch.NeedsPart(c)} with the hydra's ability spliced in");
+            }
+            GetTree().Quit();
+            return;
+        }
+
         if (args.ContainsKey("skilltest"))
         {
             // Every skill in play: your side gets all of them and the AI fights 20 battles.
@@ -1185,7 +1292,7 @@ public partial class GameRoot : Node
             }
             // --bag: a few shop items in the bag, to see them in the command bar.
             System.Action<Tactics.Battle> bag = args.ContainsKey("bag") ? b => b.Pack(new Dictionary<string, int> { ["snare_net"] = 3, ["soothing_chime"] = 1, ["tonic"] = 2, ["smelling_salts"] = 1 }) : null;
-            _home = () => new Tactics.BattleScreen { Seed = seed, Mission = duel, Prepare = bag, AutoPlay = _autoPlay, DemoAim = args.ContainsKey("aim"), DemoFx = args.ContainsKey("fxdemo"), DemoShiny = args.ContainsKey("shiny"), TurnSeconds = args.TryGetValue("timer", out var timerArg) && float.TryParse(timerArg, out var timerSeconds) ? timerSeconds : 0, MapName = args.TryGetValue("map", out var mapName) ? mapName : "Undercity Foundry" };
+            _home = () => new Tactics.BattleScreen { Seed = seed, Mission = duel, Prepare = bag, AutoPlay = _autoPlay, DemoAim = args.ContainsKey("aim"), DemoFx = args.ContainsKey("fxdemo"), DemoSignatures = args.TryGetValue("fxdemo", out var fxWhich) && fxWhich == "signature", DemoShiny = args.ContainsKey("shiny"), TurnSeconds = args.TryGetValue("timer", out var timerArg) && float.TryParse(timerArg, out var timerSeconds) ? timerSeconds : 0, MapName = args.TryGetValue("map", out var mapName) ? mapName : "Undercity Foundry" };
             Show(_home());
             return;
         }

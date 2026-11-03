@@ -195,9 +195,17 @@ public sealed partial class Battle
             Log($"{next.Name} suffers from poison.");
             Hurt(next, next.PoisonDmg, null);
         }
-        if (next.Gone || next.Stunned)
+        // A Reaper's mark counts the creature's own turns; when it runs out, it falls.
+        if (!next.Gone && next.DoomTurns > 0 && --next.DoomTurns == 0)
+        {
+            Log($"{next.Name}'s mark comes due.");
+            Status(next, "doom!");
+            Hurt(next, next.Hp, next.DoomedBy is { Gone: false } marker ? marker : null);
+        }
+        if (next.Gone || next.Stunned || next.SleepTurns > 0)
         {
             if (next.Stunned) { next.Stunned = false; Events.Add(new StatusEvent(next, "stunned!")); Log($"{next.Name} is stunned and can't act."); }
+            else if (!next.Gone && next.SleepTurns > 0) { next.SleepTurns--; Events.Add(new StatusEvent(next, "asleep")); Log($"{next.Name} sleeps."); }
             if (!next.Gone) EndTurn(next);
             return NextTurn();
         }
@@ -434,6 +442,8 @@ public sealed partial class Battle
             Status(u, "adrenaline!");
             HealUnit(u, Mathf.RoundToInt(u.MaxHp * adr.ReactPower));
         }
+        // Any hit wakes a sleeper.
+        if (u.Hp > 0 && amount > 0 && u.SleepTurns > 0) { u.SleepTurns = 0; Status(u, "wakes"); }
     }
 
     /// <summary>The Premonition reaction: a hit that would land might not.</summary>
@@ -611,7 +621,7 @@ public sealed partial class Battle
     public List<Vector2I> SkillTiles(Unit u, SkillDef s)
     {
         var tiles = new List<Vector2I>();
-        if (s.Target == TargetKind.Self || s.AroundSelf) { tiles.Add(u.Pos); return tiles; }
+        if (s.Target == TargetKind.Self || s.AroundSelf || s.AllFoes) { tiles.Add(u.Pos); return tiles; }
         int range = RangeOf(u, s);
         for (int y = 0; y < Map.H; y++)
         for (int x = 0; x < Map.W; x++)
@@ -668,6 +678,7 @@ public sealed partial class Battle
     public List<Vector2I> SkillArea(Unit u, SkillDef s, Vector2I tile)
     {
         var area = new List<Vector2I>();
+        if (s.AllFoes) return Alive.Where(o => o.Side != u.Side).SelectMany(o => o.Tiles).ToList();
         if (s.Radius == 0) { area.Add(s.Target == TargetKind.Self ? u.Pos : tile); return area; }
         for (int y = 0; y < Map.H; y++)
         for (int x = 0; x < Map.W; x++)
@@ -683,6 +694,7 @@ public sealed partial class Battle
     public List<Unit> SkillTargets(Unit u, SkillDef s, Vector2I tile)
     {
         if (s.Target == TargetKind.Tile) return new List<Unit>();
+        if (s.AllFoes) return Alive.Where(o => o.Side != u.Side).ToList();
         bool friendly = s.Target is TargetKind.Ally or TargetKind.Self;
         if (s.Target == TargetKind.Self) return new List<Unit> { u };
         if (s.Radius == 0)
@@ -694,7 +706,7 @@ public sealed partial class Battle
         return Alive.Where(o => (o.Side == u.Side) == friendly && o.Tiles.Any(area.Contains)).ToList();
     }
 
-    static bool Rolls(SkillDef s) => s.Power > 0 || s.Poison > 0 || s.StunChance > 0 || s.Root || s.Catch > 0;
+    static bool Rolls(SkillDef s) => s.Power > 0 || s.Poison > 0 || s.StunChance > 0 || s.Root || s.Catch > 0 || s.Doom > 0 || s.Sleep > 0;
 
     /// <summary>The damage multiplier of a skill on a target: its power, plus high-ground and flanking bonuses.</summary>
     float PowerOn(Unit u, SkillDef s, Unit t)
@@ -787,8 +799,8 @@ public sealed partial class Battle
 
     void Cleanse(Unit t)
     {
-        bool any = t.PoisonTurns > 0 || t.Rooted || t.Stunned || t.TauntedBy != null || t.Buffs.Any(b => b.amount < 0);
-        t.PoisonTurns = 0;
+        bool any = t.PoisonTurns > 0 || t.Rooted || t.Stunned || t.TauntedBy != null || t.DoomTurns > 0 || t.SleepTurns > 0 || t.Buffs.Any(b => b.amount < 0);
+        t.PoisonTurns = t.DoomTurns = t.SleepTurns = 0;
         t.Rooted = t.Stunned = false;
         t.TauntedBy = null;
         t.Buffs.RemoveAll(b => b.amount < 0);
@@ -833,7 +845,7 @@ public sealed partial class Battle
             Events.Add(new MoveEvent(u, new List<Vector2I> { u.Pos, spot }));
             u.Pos = spot;
         }
-        Events.Add(new SkillEvent(u, s, s.AroundSelf || s.Target == TargetKind.Self ? u.Pos : tile, SkillArea(u, s, tile)));
+        Events.Add(new SkillEvent(u, s, s.AroundSelf || s.AllFoes || s.Target == TargetKind.Self ? u.Pos : tile, SkillArea(u, s, tile)));
         Log(u.Name + " uses " + s.Name + ".");
 
         foreach (var t in SkillTargets(u, s, tile))
@@ -871,6 +883,13 @@ public sealed partial class Battle
                         if (u.Side == Side.Wild && u.Attitude == Attitude.Aggressive) u.Weathered = t.Gone ? 0 : u.Weathered + 1;
                         if (t.Gone || t.Side == u.Side) continue; // fled, or recruited by the blow
                     }
+                    // The finishing blow: a foe left under a quarter of its HP may fall then and there.
+                    if (s.Finish > 0 && t.Hp * 4 <= t.MaxHp && _rng.Chance(s.Finish))
+                    {
+                        Status(t, "finished!");
+                        Hurt(t, t.Hp, u);
+                        continue;
+                    }
                 }
                 if (s.Poison > 0) Poison(t, s);
                 if (s.StunChance > 0 && _rng.Chance(s.StunChance))
@@ -882,6 +901,11 @@ public sealed partial class Battle
                     if (t.Passive is { Unstoppable: true }) Status(t, "unstoppable"); else { t.Rooted = true; Status(t, "rooted"); }
                 }
                 if (s.Taunt) { t.TauntedBy = u; Status(t, "taunted"); }
+                if (s.Doom > 0 && t.DoomTurns == 0) { t.DoomTurns = s.Doom; t.DoomedBy = u; Status(t, $"doomed: {s.Doom}"); }
+                if (s.Sleep > 0)
+                {
+                    if (t.Passive is { NoStun: true }) Status(t, "resists"); else { t.SleepTurns = s.Sleep; Status(t, "asleep"); }
+                }
                 if (s.Steal && t.Buffs.Any(b => b.amount > 0))
                 {
                     foreach (var b in t.Buffs.Where(b => b.amount > 0).ToList()) { t.Buffs.Remove(b); u.Buffs.Add(b); }
@@ -938,13 +962,16 @@ public sealed partial class Battle
                 score += p * (d + (d >= t.Hp ? 15 : 0) + s.Poison * s.PoisonTurns * 0.6f + s.StunChance * 10 + (s.Root ? 3 : 0)
                     + s.Buffs.Length * 3 + d * s.Drain * 0.5f + (s.Steal ? t.Buffs.Count(b => b.amount > 0) * 4 : 0) + s.Pull);
                 if (s.Taunt) score += u.Hp > u.MaxHp / 2 ? 4 : -4;
+                if (s.Doom > 0 && t.DoomTurns == 0) score += p * Math.Min(t.Hp, 40) * 0.6f;
+                if (s.Sleep > 0 && t.SleepTurns == 0 && t.Passive is not { NoStun: true }) score += p * (6 + s.Sleep * 3);
+                if (s.Finish > 0 && d < t.Hp && (t.Hp - d) * 4 <= t.MaxHp) score += p * s.Finish * (t.Hp - d);
             }
             else
             {
                 bool threatened = Alive.Any(o => o.Side != u.Side && Dist(o, o.Pos, t) <= 4);
                 if (s.Heal > 0 && t.Hp < t.MaxHp * 0.6f) score += Math.Min(t.MaxHp - t.Hp, t.MaxHp * s.Heal);
                 if ((s.Buffs.Length > 0 || s.RandomBuff) && threatened && !t.Buffs.Any(b => s.Buffs.Any(sb => sb.stat == b.stat))) score += 5;
-                if (s.Cleanse) score += (t.PoisonTurns > 0 ? 4 : 0) + (t.Rooted ? 3 : 0) + t.Buffs.Count(b => b.amount < 0) * 3;
+                if (s.Cleanse) score += (t.PoisonTurns > 0 ? 4 : 0) + (t.Rooted ? 3 : 0) + (t.DoomTurns > 0 ? 12 : 0) + (t.SleepTurns > 0 ? 6 : 0) + t.Buffs.Count(b => b.amount < 0) * 3;
                 if (s.CooldownCut > 0 && t != u && t.Cooldowns.Values.Any(v => v > 1)) score += 4;
                 if (s.Poison > 0) score -= 2;
             }

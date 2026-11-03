@@ -106,9 +106,14 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   two-vat breeding (one child per pair; parents rest until the next battle), and the
   ranch-battle-ranch loop. Bred species exist only in the save, so `CreatureRecord` stores the
   whole `Species`.
-- Jobs (`scripts/Classes/Classes.cs`, `docs/classes-design.md`): 44 classes (9 base, 31 part,
-  form, aura or temperament, 4 blood; the form and aura classes need a `Form` such as the hydra or
-  an `Aura` such as a halo), each with three skills and passives (a support, often a reaction too),
+- Jobs (`scripts/Classes/Classes.cs`, `docs/classes-design.md`): 47 classes (9 base, 31 part,
+  form, aura or temperament, 3 signature, 4 blood; the form and aura classes need a `Form` such as
+  the hydra, or that form's ability spliced into a chimera (`ClassBook.HasForm`), or an `Aura` such
+  as a halo). **Signature classes** (the user's ask, 2026-11-02: FFTA's summoner, illusionist and
+  assassin, skinned): Conjurer (summons: `SkillDef.Phantom`, a great beast's ghost rising over the
+  area, drawn in `BattleScreen.Phantom`), Mesmer (`AllFoes`: every foe on the field at once), Reaper
+  (`Doom`, `Sleep`, `Finish`; `Unit.DoomTurns`, `SleepTurns` are in the state hash); `--signatures`
+  proves them, `--battle=3 --fxdemo=signature` shows them. Each class has three skills and passives (a support, often a reaction too),
   mastery stars, and support + reaction slots. Every creature has its own job tree from its body
   plan (favoured and barred classes), parts, size, temperament and strain. FFTA multiclassing: main
   class skills, one secondary class's learned skills, an innate skill, one equipped passive.

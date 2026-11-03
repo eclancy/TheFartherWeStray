@@ -42,6 +42,8 @@ public sealed class Unit
     public readonly List<(StatKind stat, int amount, int turns)> Buffs = new();
     public int PoisonDmg, PoisonTurns;
     public bool Stunned, Rooted;
+    public int DoomTurns, SleepTurns;                // a Reaper's mark counting down; asleep (a hit wakes it)
+    public Unit DoomedBy;                            // who set the mark, for the credit when it falls
     public Unit TauntedBy;
     public PassiveDef ShinyPassive;                  // a shiny's own second passive, on top of the equipped one
     public PassiveDef GearPassive;                   // what its gear does

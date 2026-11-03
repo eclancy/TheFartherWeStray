@@ -18,6 +18,7 @@ public partial class BattleScreen : Control
     public bool AutoPlay;   // the AI plays your side too (demos and screenshots)
     public bool DemoAim;    // on the first turn, aim a skill at the busiest tile (screenshots of the skill panel)
     public bool DemoFx;     // show one skill of every look in turn, without touching the battle (--fxdemo)
+    public bool DemoSignatures; // --fxdemo=signature: only the summons and the illusion
     public bool DemoShiny;  // make the first wild creature shiny, to see the reveal (they're 1 in 512)
     public float TurnSeconds; // a turn timer (PvP will use one): your turn ends when it runs out; 0 for none
     double _turnLeft;
@@ -259,23 +260,26 @@ public partial class BattleScreen : Control
         _look = _lookShown = mid;
         PlaceCamera();
         var picks = new List<Classes.SkillDef>();
-        foreach (var theme in System.Enum.GetValues<FxTheme>())
+        foreach (var theme in DemoSignatures ? System.Array.Empty<FxTheme>() : System.Enum.GetValues<FxTheme>())
         {
             bool Ranged(Classes.SkillDef s) => s.Range > 1 && !s.Leap && !s.AroundSelf;
             var pick = Classes.ClassBook.Skills.Where(s => SkillFx.ThemeOf(s, user) == theme).OrderByDescending(Ranged).FirstOrDefault();
             if (pick != null) picks.Add(pick);
         }
-        picks.Add(Classes.ClassBook.Skills.First(s => s.AroundSelf && s.Power > 0));
+        if (!DemoSignatures) picks.Add(Classes.ClassBook.Skills.First(s => s.AroundSelf && s.Power > 0));
+        // The signature styles: a summon's great beast, and an illusion over every foe.
+        picks.AddRange(Classes.ClassBook.Skills.Where(s => s.Phantom != null).Take(2));
+        picks.Add(Classes.ClassBook.Skills.First(s => s.AllFoes));
         await Wait(0.5f);
         foreach (var s in picks)
         {
-            bool onSelf = s.AroundSelf || s.Target is Classes.TargetKind.Self or Classes.TargetKind.Ally;
+            bool onSelf = s.AroundSelf || s.AllFoes || s.Target is Classes.TargetKind.Self or Classes.TargetKind.Ally;
             var centre = onSelf ? user.Pos : foe.Pos;
             var view = _views[user];
             var target = onSelf ? null : _views[foe];
             Popup(view, s.Name, Gold, -10, SkillIcons.Skill(s, 1));
             AddLog($"{s.Name}: {SkillFx.ThemeOf(s, user)}");
-            bool melee = s.Power > 0 && (s.Range <= 1 || s.Leap) && !s.AroundSelf;
+            bool melee = s.Power > 0 && (s.Range <= 1 || s.Leap) && !s.AroundSelf && !s.AllFoes;
             if (target != null) view.Face(target.Position - view.Position);
             await SkillEffect(new SkillEvent(user, s, centre, _battle.SkillArea(user, s, centre)), view, target, melee);
             if (s.Power > 0 && target != null) { _fx.Hit(Body(target), 9, false); _views[foe].Hurt(0, false); }
@@ -464,7 +468,7 @@ public partial class BattleScreen : Control
 
     /// <summary>Where the aimed skill would land for the hovered tile (self-centred skills ignore the cursor).</summary>
     Vector2I? SkillAim() => _skill == null ? null
-        : _skill.AroundSelf || _skill.Target == Classes.TargetKind.Self ? _active.Pos
+        : _skill.AroundSelf || _skill.AllFoes || _skill.Target == Classes.TargetKind.Self ? _active.Pos
         : _hoverTile is { } h && _skillTiles.Contains(h) ? h : null;
 
     async void PlayerAct(System.Action act)
@@ -626,7 +630,7 @@ public partial class BattleScreen : Control
         {
             // Self-centred skills go off on a click anywhere in their area; aimed ones on a valid tile.
             var aim = SkillAim();
-            bool selfish = _skill.AroundSelf || _skill.Target == Classes.TargetKind.Self;
+            bool selfish = _skill.AroundSelf || _skill.AllFoes || _skill.Target == Classes.TargetKind.Self;
             if (aim != null && (!selfish || _battle.SkillArea(_active, _skill, aim.Value).Contains(tile) || _active.Tiles.Contains(tile)))
             {
                 var s = _skill;
@@ -763,6 +767,8 @@ public partial class BattleScreen : Control
         var status = new List<UI.Chip>();
         if (u.PoisonTurns > 0) status.Add(new("poison", $"{u.PoisonDmg}x{u.PoisonTurns}", UI.Ui.Good, $"poisoned: {u.PoisonDmg} a turn for {u.PoisonTurns} turns"));
         if (u.Stunned) status.Add(new("stun", "", null, "stunned: loses its next turn"));
+        if (u.DoomTurns > 0) status.Add(new("skull", u.DoomTurns.ToString(), UI.Ui.Bad, $"doomed: it falls in {u.DoomTurns} of its turns unless cleansed"));
+        if (u.SleepTurns > 0) status.Add(new("moon", u.SleepTurns.ToString(), null, $"asleep: skips up to {u.SleepTurns} more turns; any hit wakes it"));
         if (u.Rooted) status.Add(new("root", "", null, "rooted: can't move"));
         if (u.TauntedBy != null) status.Add(new("taunt", u.TauntedBy.Name, UI.Ui.Bad, "taunted: must go after this creature"));
         foreach (var (stat, amount, turns) in u.Buffs)
@@ -981,7 +987,7 @@ public partial class BattleScreen : Control
                     _flashes.Add((sk.Area, color, Time.GetTicksMsec() / 1000.0 + 0.45));
                     _overlay.QueueRedraw();
                     var target = sk.Center != sk.U.Pos ? _views.Values.FirstOrDefault(x => x.Unit.Tiles.Contains(sk.Center) && x != view) : null;
-                    bool melee = sk.Skill.Power > 0 && (sk.Skill.Range <= 1 || sk.Skill.Leap) && !sk.Skill.AroundSelf;
+                    bool melee = sk.Skill.Power > 0 && (sk.Skill.Range <= 1 || sk.Skill.Leap) && !sk.Skill.AroundSelf && !sk.Skill.AllFoes;
                     if (target != null) view.Face(target.Position - view.Position);
                     else if (sk.Center != sk.U.Pos) view.Face(FeetAt(sk.U, sk.Center) - view.Position);
                     await SkillEffect(sk, view, target, melee);
@@ -1031,6 +1037,8 @@ public partial class BattleScreen : Control
         var cast = view.Cast();
         Audio.Sound.Play("cast");
         await Wait(0.18f);
+        // A summon: the great beast's ghost rises over the area first, and the blast comes from it.
+        if (sk.Skill.Phantom != null) await Phantom(sk, theme, element);
         if (kind is SkillIcons.Kind.Heal or SkillIcons.Kind.Boost)
         {
             if (kind == SkillIcons.Kind.Boost) Audio.Sound.Fx(theme == FxTheme.Strike ? FxTheme.Boost : theme);
@@ -1053,10 +1061,22 @@ public partial class BattleScreen : Control
             await Wait(0.12f);
             foreach (var v in reached.Where(v => v != view)) _fx.Burst(Body(v), v.Position, theme, element, 0.8f);
         }
+        else if (sk.Skill.AllFoes)
+        {
+            // An illusion: it spreads out from the caster, then takes every foe on the field at once.
+            Audio.Sound.Fx(theme);
+            _fx.Wave(view.Position, 1.2f * IsoArt.TW, theme, element);
+            await Wait(0.22f);
+            foreach (var v in reached.Where(v => v.Unit.Side != sk.U.Side))
+            {
+                _fx.Wave(v.Position, 0.8f * IsoArt.TW / 2f, theme, element);
+                _fx.Burst(Body(v), v.Position, theme, element, 0.7f);
+            }
+        }
         else
         {
             var to = target != null ? Body(target) : TileMid(sk.Center) + new Vector2(0, -6);
-            await _fx.Projectile(Body(view, 0.6f), to, theme, element);
+            if (sk.Skill.Phantom == null) await _fx.Projectile(Body(view, 0.6f), to, theme, element);
             Audio.Sound.Fx(theme);
             if (sk.Area.Count > 1)
             {
@@ -1070,6 +1090,65 @@ public partial class BattleScreen : Control
             else _fx.Burst(to, TileMid(sk.Center), theme, element, 0.7f);
         }
         await cast;
+    }
+
+    static readonly Dictionary<string, Texture2D> Phantoms = new();
+
+    /// <summary>A summon's great beast: a huge creature of that form, sculpted once and kept.</summary>
+    static Texture2D PhantomTexture(string formName)
+    {
+        if (Phantoms.TryGetValue(formName, out var tex)) return tex;
+        var form = System.Enum.Parse<Form>(formName);
+        var plan = System.Enum.GetValues<BodyPlan>().First(p => Species.AllFormsFor(p).Contains(form));
+        Species sp = null;
+        for (ulong k = 0; sp == null; k++)
+            if (Species.Generate(SeededRng.Derive(0xF4A7, k)) is { } s && s.Plan == plan) sp = s;
+        sp.Form = form;
+        sp.Strain = Strain.Natural;
+        sp.Grafts = Graft.None;
+        sp.Aura = Aura.None;
+        var c = Creature.Specimen(sp, 0);
+        c.Size = SizeClass.Huge;
+        // A ghost: every pixel washed pale, so the skill's colour (added on top) makes it glow.
+        var img = CreaturePainter.Paint(c, false);
+        for (int y = 0; y < img.GetHeight(); y++)
+        for (int x = 0; x < img.GetWidth(); x++)
+        {
+            var px = img.GetPixel(x, y);
+            if (px.A > 0) img.SetPixel(x, y, new Color(0.5f + px.R * 0.5f, 0.5f + px.G * 0.5f, 0.5f + px.B * 0.5f, px.A));
+        }
+        return Phantoms[formName] = ImageTexture.CreateFromImage(img);
+    }
+
+    /// <summary>
+    /// The summoner's signature: the ghost of a great beast rises over the area, glowing in the
+    /// skill's colours, then fades as its blast lands. Looks only.
+    /// </summary>
+    async Task Phantom(SkillEvent sk, FxTheme theme, Element? element)
+    {
+        var (core, glow) = SkillFx.Palette(theme, element);
+        var tex = PhantomTexture(sk.Skill.Phantom);
+        var at = TileMid(sk.Center);
+        var ghost = new Sprite2D
+        {
+            Texture = tex, Centered = true, Offset = new Vector2(0, -tex.GetHeight() / 2f), Position = at + new Vector2(0, 8), Scale = new Vector2(1.5f, 1.5f),
+            Modulate = new Color(glow.Lerp(core, 0.35f), 0), ZIndex = 350, TextureFilter = TextureFilterEnum.Nearest,
+            Material = new CanvasItemMaterial { BlendMode = CanvasItemMaterial.BlendModeEnum.Add },
+            FlipH = _views[sk.U].Position.X > at.X,
+        };
+        _board.AddChild(ghost);
+        Audio.Sound.Play("cast", 0.6f);
+        var rise = CreateTween();
+        rise.TweenProperty(ghost, "modulate:a", 0.95f, 0.4f);
+        rise.Parallel().TweenProperty(ghost, "position", at, 0.4f).SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+        _fx.Wave(at, 1.4f * IsoArt.TW / 2f, theme, element);
+        await ToSignal(rise, Tween.SignalName.Finished);
+        await Wait(0.25f);
+        var fade = CreateTween();
+        fade.TweenInterval(0.35f);
+        fade.TweenProperty(ghost, "modulate:a", 0f, 0.5f);
+        fade.Parallel().TweenProperty(ghost, "position", at + new Vector2(0, -12), 0.5f);
+        fade.TweenCallback(Callable.From(ghost.QueueFree));
     }
 
     /// <summary>A point up a creature's body: 0 its feet, 1 the top of its sprite.</summary>
@@ -1192,6 +1271,8 @@ public partial class UnitView : Actor
         var pips = new List<string>();
         if (Unit.PoisonTurns > 0) pips.Add("poison");
         if (Unit.Stunned) pips.Add("stun");
+        if (Unit.DoomTurns > 0) pips.Add("doom");
+        if (Unit.SleepTurns > 0) pips.Add("sleep");
         if (Unit.Rooted) pips.Add("root");
         if (Unit.TauntedBy != null) pips.Add("taunt");
         if (Unit.Buffs.Any(b => b.amount > 0)) pips.Add("up");

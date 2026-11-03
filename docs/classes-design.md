@@ -7,7 +7,9 @@ mastery stars, and FFTA multiclassing (main, secondary, innate, a support slot a
 slot). On 2026-11-02 eight classes were tied to forms and auras: Hydrarch (hydra), Stoneguard
 (gargoyle), Coilbinder (naga), Venomtail (scorpion), Lurelight (angler), Oculus (watcher), Saint
 (a halo) and Hexmark (a sigil); then Basilisk (cockatrice: a stunning peck, a tail lash, a crow
-that saps foes). The code is `scripts/Classes/Classes.cs` and
+that saps foes). Later that day (the user's asks): a chimera with a form's ability spliced in
+can train that form's class (`ClassBook.HasForm`), and three signature classes after FFTA's
+summoner, illusionist and assassin were added (section 4). The code is `scripts/Classes/Classes.cs` and
 `scripts/Ranch/JobsPanel.cs`._
 
 ## The idea
@@ -73,6 +75,28 @@ Size counts as a part: breed toward huge or tiny on purpose. Swimming comes from
 | **Artificer** | Tinker | 2+ machine grafts | brass engineer | Deploy Turret, Repair (heal a grafted ally), Overdrive (ally acts twice, then stunned) |
 
 This is where the lab's infusions and machine grafts pay off: they open jobs, not just stats.
+
+## 4. Signature classes (the user's ask, 2026-11-02; built)
+
+The signature styles of FFTA's summoner, illusionist and assassin, made this game's own. Two
+base classes each, no part needed. Each brought a mechanic of its own (`SkillDef` fields that
+`Battle` reads), so later skills can use them too:
+
+| Class | Base skills | Plays as | Skills | Mechanic |
+|---|---|---|---|---|
+| **Conjurer** | Mystic + Howler | summoner | Cinder Drake (fire, x1.2), Storm Roc (lightning, x0.7, 30% stun), Grove Stag (heal 30% and cleanse allies) | `Phantom`: the ghost of a great beast (a form, sculpted huge and glowing) rises over the area. Areas reach only foes (or only friends); radius 2 at range 4, cooldown 5 |
+| **Mesmer** | Mystic + Rogue | illusionist | Fever Dream (x0.55), Winter Trance (x0.35, SPD -2), Night Terrors (x0.25, ATK -2) | `AllFoes`: every foe on the field, wherever it stands, no aiming; cooldown 5 |
+| **Reaper** | Rogue + Hunter | assassin | Death Mark (range 3), Last Breath (x0.8), Sleep Dart (range 4) | `Doom` (falls once its count of its own turns runs out; cleansing lifts it), `Finish` (a foe left under a quarter of its HP falls at once, 50%), `Sleep` (skips up to 2 turns, a hit wakes it; stun-proof creatures resist) |
+
+Passives: Old Pact (skills cool down a turn sooner) and Spirit Ward (brace) for the Conjurer;
+Afterimage (12% harder to hit) and Mirror Image (25% the hit strikes an illusion) for the Mesmer;
+Cold Blood (+10% to hit, more damage to the wounded) and Slip Away (retreat) for the Reaper.
+`--signatures` proves each mechanic; `--battle=3 --fxdemo=signature` shows the summons and an
+illusion.
+
+**Open:** more of FFTA's signatures in this game's skin (a blue mage that learns foes' skills, a
+time mage, a gadgeteer's random effects, a morpher), and whether these three should need a part or
+a tier (the Reaper for the undercity, say).
 
 ## How it plays
 

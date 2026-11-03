@@ -167,7 +167,16 @@ leanings) and a few barred ones. **Tinker** needs hands: a biped, or claws.
 | Champion | Brawler + Howler, proud | Challenge, Duel Stance, Finishing Blow |
 | Hexwarden | Mystic + Tinker | Hex Cage, Overcharge, Nova |
 
-**Reactions** (FFTA's R-abilities) fire when the creature is attacked: Counter (Brawler), Sidestep (Skirmisher), Bodyguard (Guardian), Spell Ward (Mystic), Adrenal Gland (Alchemist), Shock Plating (Tinker), Return Fire (Hunter), Rallying Cry (Howler), Dirty Retort (Rogue), Protector (Lionheart), Shard Burst (Geomancer), Premonition (Seer), Brace (Cavalier), Blur (Phantom), Riposte (Champion).
+**Signature classes**, after FFTA's summoner, illusionist and assassin (two base classes, no part
+needed):
+
+| Class | Needs | Skills |
+|---|---|---|
+| Conjurer | Mystic + Howler | Cinder Drake, Storm Roc, Grove Stag: the ghost of a great beast rises over an area, striking only foes there (or healing only friends) |
+| Mesmer | Mystic + Rogue | Fever Dream, Winter Trance, Night Terrors: illusions that strike every foe on the field at once |
+| Reaper | Rogue + Hunter | Death Mark (the foe falls after 3 of its turns unless cleansed), Last Breath (a strike that may finish a foe under a quarter of its HP), Sleep Dart (sleeps up to 2 turns; a hit wakes it) |
+
+**Reactions** (FFTA's R-abilities) fire when the creature is attacked: Counter (Brawler), Sidestep (Skirmisher), Bodyguard (Guardian), Spell Ward (Mystic), Adrenal Gland (Alchemist), Shock Plating (Tinker), Return Fire (Hunter), Rallying Cry (Howler), Dirty Retort (Rogue), Protector (Lionheart), Shard Burst (Geomancer), Premonition (Seer), Brace (Cavalier), Blur (Phantom), Riposte (Champion), Spirit Ward (Conjurer), Mirror Image (Mesmer), Slip Away (Reaper).
 
 **Blood classes** (master one base class, and carry the strain):
 
@@ -222,7 +231,8 @@ A creature goes by the most extreme thing done to it, shown as a chip on the pen
   max HP +20%, SPD -1...; two at a time), or new blood put in.
 - **Chimera:** it carries the abilities of other species: bred from two different bloods (it takes
   the other parent's kind), or an ability spliced in at the lab from a kind you've met, or a part
-  grafted on. Its line carries the abilities.
+  grafted on. Its line carries the abilities, and a spliced ability opens that kind's class too
+  (the hydra's opens the Hydrarch).
 - **Rigged:** augments bolted on, each an attack no natural creature can learn.
 - **Abomination:** infused, a chimera and rigged, all at once.
 

@@ -77,7 +77,9 @@ upkeep or a cap on growth; none of those is built.
   plus up to two more (`Species.Spliced`). Bred across bloods (or from a chimera), it takes the
   other parent's kind and what its parents carried; at the lab (50 chem) you splice in the ability
   of any kind of creature you've met (`Ranch.Forms`); a grafted part makes one too. Its line
-  carries the abilities. It trades the thoroughbred's element touch for them.
+  carries the abilities. It trades the thoroughbred's element touch for them. **A spliced ability
+  opens that form's class** (the user's pick, 2026-11-02: a chimera with the hydra's Many Heads can
+  train as a Hydrarch).
 - **Rigged:** any augment, mechanical or chemical: each teaches an attack no natural creature can
   learn (Piston Punch, Acid Spray...). A rival's machine grafts count.
 - **Passing down.** New blood and chimera DNA (crossed bloods, spliced abilities) pass to the child;

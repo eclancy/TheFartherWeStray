@@ -33,6 +33,7 @@ public sealed class Mission
     public int Round;             // ...and which (1 to 3)
     public int Roamer;            // a roaming pack (its id; 0: none)
     public string Rumour;         // a rumoured creature's capture (its id)
+    public string Trial;          // a class trial (the class it opens; World.TrialBook)
     public Creature Special;      // a creature that's in the pack for sure (a rumour's), and the capture target
     public string FaunaMap;       // whose region the pack comes from, if not the map it's fought on
     int _sightingIndex = -1;
@@ -49,7 +50,7 @@ public sealed class Mission
         Objective.Hunt => $"Hunt {target?.Species.Name ?? "the alpha"}: bring down the marked alpha.",
         Objective.Survive => $"Survive {Rounds} rounds against a large pack.",
         Objective.Duel => $"Beat {Rival.Name}'s squad in {Battle.DuelRounds} rounds.",
-        _ => "Rout the pack: drive off or recruit every wild creature.",
+        _ => "Rout the pack: drive off or recruit every stray.",
     };
 
     /// <summary>A board of missions. It changes after every battle (the seed is the encounter number).

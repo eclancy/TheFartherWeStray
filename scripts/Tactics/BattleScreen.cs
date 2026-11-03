@@ -204,7 +204,7 @@ public partial class BattleScreen : Control
             var foes = _views.Where(o => o.Key.Side != u.Side).Select(o => o.Value.Position).ToList();
             if (foes.Count > 0) v.Face(foes.Aggregate(Vector2.Zero, (a, b) => a + b) / foes.Count - v.Position);
         }
-        AddLog(_battle.Rival != null ? $"{_battle.Map.Name}. {_battle.Rival.Name} is waiting." : $"{_battle.Map.Name}. A wild pack blocks the way.");
+        AddLog(_battle.Rival != null ? $"{_battle.Map.Name}. {_battle.Rival.Name} is waiting." : $"{_battle.Map.Name}. A pack of strays blocks the way.");
         RefreshObjective();
         Opening();
     }
@@ -468,7 +468,7 @@ public partial class BattleScreen : Control
 
     /// <summary>Where the aimed skill would land for the hovered tile (self-centred skills ignore the cursor).</summary>
     Vector2I? SkillAim() => _skill == null ? null
-        : _skill.AroundSelf || _skill.AllFoes || _skill.Target == Classes.TargetKind.Self ? _active.Pos
+        : _skill.AroundSelf || _skill.AllFoes || _skill.Gamble || _skill.Target == Classes.TargetKind.Self ? _active.Pos
         : _hoverTile is { } h && _skillTiles.Contains(h) ? h : null;
 
     async void PlayerAct(System.Action act)
@@ -630,7 +630,7 @@ public partial class BattleScreen : Control
         {
             // Self-centred skills go off on a click anywhere in their area; aimed ones on a valid tile.
             var aim = SkillAim();
-            bool selfish = _skill.AroundSelf || _skill.AllFoes || _skill.Target == Classes.TargetKind.Self;
+            bool selfish = _skill.AroundSelf || _skill.AllFoes || _skill.Gamble || _skill.Target == Classes.TargetKind.Self;
             if (aim != null && (!selfish || _battle.SkillArea(_active, _skill, aim.Value).Contains(tile) || _active.Tiles.Contains(tile)))
             {
                 var s = _skill;
@@ -769,6 +769,8 @@ public partial class BattleScreen : Control
         if (u.Stunned) status.Add(new("stun", "", null, "stunned: loses its next turn"));
         if (u.DoomTurns > 0) status.Add(new("skull", u.DoomTurns.ToString(), UI.Ui.Bad, $"doomed: it falls in {u.DoomTurns} of its turns unless cleansed"));
         if (u.SleepTurns > 0) status.Add(new("moon", u.SleepTurns.ToString(), null, $"asleep: skips up to {u.SleepTurns} more turns; any hit wakes it"));
+        if (u.StopTurns > 0) status.Add(new("clock", u.StopTurns.ToString(), null, $"stopped: frozen in time for {u.StopTurns} more turns"));
+        if (u.Borrowed != null) status.Add(new("swirl", u.BorrowedTurns.ToString(), Color.FromHtml("#c08cff"), $"{u.Borrowed.Name}: {u.Borrowed.Text} ({u.BorrowedTurns} turns)"));
         if (u.Rooted) status.Add(new("root", "", null, "rooted: can't move"));
         if (u.TauntedBy != null) status.Add(new("taunt", u.TauntedBy.Name, UI.Ui.Bad, "taunted: must go after this creature"));
         foreach (var (stat, amount, turns) in u.Buffs)
@@ -870,7 +872,7 @@ public partial class BattleScreen : Control
     void RefreshObjective()
     {
         var target = _battle.Target?.Creature;
-        string text = Mission != null ? Mission.Brief(target) : "Rout the pack: drive off or recruit every wild creature.";
+        string text = Mission != null ? Mission.Brief(target) : "Rout the pack: drive off or recruit every stray.";
         if (_battle.Goal == Objective.Survive) text += $"   Round {System.Math.Max(1, _battle.Round)}/{_battle.SurviveRounds}";
         if (_battle.Goal == Objective.Duel) text += $"   Round {System.Math.Max(1, _battle.Round)}/{Battle.DuelRounds}";
         if (Mission?.Sighting != null) text += $"   Sighting: {Mission.Sighting}";
@@ -987,7 +989,7 @@ public partial class BattleScreen : Control
                     _flashes.Add((sk.Area, color, Time.GetTicksMsec() / 1000.0 + 0.45));
                     _overlay.QueueRedraw();
                     var target = sk.Center != sk.U.Pos ? _views.Values.FirstOrDefault(x => x.Unit.Tiles.Contains(sk.Center) && x != view) : null;
-                    bool melee = sk.Skill.Power > 0 && (sk.Skill.Range <= 1 || sk.Skill.Leap) && !sk.Skill.AroundSelf && !sk.Skill.AllFoes;
+                    bool melee = sk.Skill.Power > 0 && (sk.Skill.Range <= 1 || sk.Skill.Leap) && !sk.Skill.AroundSelf && !sk.Skill.AllFoes && !sk.Skill.Gamble;
                     if (target != null) view.Face(target.Position - view.Position);
                     else if (sk.Center != sk.U.Pos) view.Face(FeetAt(sk.U, sk.Center) - view.Position);
                     await SkillEffect(sk, view, target, melee);
@@ -1043,7 +1045,7 @@ public partial class BattleScreen : Control
         {
             if (kind == SkillIcons.Kind.Boost) Audio.Sound.Fx(theme == FxTheme.Strike ? FxTheme.Boost : theme);
             if (sk.Skill.AroundSelf) _fx.Wave(view.Position, (sk.Skill.Radius + 0.6f) * IsoArt.TW / 2f, theme, element);
-            foreach (var v in reached.Where(v => v.Unit.Side == sk.U.Side))
+            foreach (var v in reached.Where(v => sk.Skill.Gamble || v.Unit.Side == sk.U.Side))
             {
                 if (kind == SkillIcons.Kind.Heal) _fx.Burst(Body(v), v.Position, FxTheme.Holy, element, 0.5f);
                 else _fx.Rise(Body(v), v.Position, theme == FxTheme.Strike ? FxTheme.Boost : theme, element);
@@ -1061,13 +1063,13 @@ public partial class BattleScreen : Control
             await Wait(0.12f);
             foreach (var v in reached.Where(v => v != view)) _fx.Burst(Body(v), v.Position, theme, element, 0.8f);
         }
-        else if (sk.Skill.AllFoes)
+        else if (sk.Skill.AllFoes || sk.Skill.Gamble)
         {
             // An illusion: it spreads out from the caster, then takes every foe on the field at once.
             Audio.Sound.Fx(theme);
             _fx.Wave(view.Position, 1.2f * IsoArt.TW, theme, element);
             await Wait(0.22f);
-            foreach (var v in reached.Where(v => v.Unit.Side != sk.U.Side))
+            foreach (var v in reached.Where(v => sk.Skill.Gamble ? v != view || reached.Count == 1 : v.Unit.Side != sk.U.Side))
             {
                 _fx.Wave(v.Position, 0.8f * IsoArt.TW / 2f, theme, element);
                 _fx.Burst(Body(v), v.Position, theme, element, 0.7f);
@@ -1273,6 +1275,7 @@ public partial class UnitView : Actor
         if (Unit.Stunned) pips.Add("stun");
         if (Unit.DoomTurns > 0) pips.Add("doom");
         if (Unit.SleepTurns > 0) pips.Add("sleep");
+        if (Unit.StopTurns > 0) pips.Add("stop");
         if (Unit.Rooted) pips.Add("root");
         if (Unit.TauntedBy != null) pips.Add("taunt");
         if (Unit.Buffs.Any(b => b.amount > 0)) pips.Add("up");

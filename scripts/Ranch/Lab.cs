@@ -109,10 +109,11 @@ public static class Lab
         rec.Species = rec.Species.Clone();
         Infusion(rec.Species, strain);
         if (strain == Strain.Abyssal) rec.Spec = rec.Spec.Abyssal(new SeededRng(rec.Seed ^ 0xAB15));
+        Steep(ranch, id);
         ranch.Refresh(id);
         // Chemical work: the undercity takes note, as it does of augments.
         string moved = World.Standing.Shift(ranch, 0, World.Standing.Augment);
-        return $"{rec.Name} takes the {strain.Label().ToLowerInvariant()} infusion (-{cost} chem). Its line will carry it.{ranch.TierNote(id, before)} ({moved})";
+        return $"{rec.Name} takes the {strain.Label().ToLowerInvariant()} infusion (-{cost} chem). Its line will carry it. It steeps, sitting out the next battle.{ranch.TierNote(id, before)} ({moved})";
     }
 
     /// <summary>Brews an infusion into a creature: its stats tuned, two at most (a third washes out the oldest). It's infused after.</summary>
@@ -128,9 +129,17 @@ public static class Lab
         string washed = null;
         if (rec.Infusions.Count >= Classes.InfusionBook.Slots) { washed = Classes.InfusionBook.Get(rec.Infusions[0])?.Name; rec.Infusions.RemoveAt(0); }
         rec.Infusions.Add(infusion);
+        Steep(ranch, id);
         ranch.Refresh(id);
         string moved = World.Standing.Shift(ranch, 0, World.Standing.Infusion);
-        return $"{rec.Name} takes {p.Name} (-{Classes.InfusionBook.Cost} chem): {p.Text}{(washed != null ? $" The {washed} washes out." : "")}{ranch.TierNote(id, before)} ({moved})";
+        return $"{rec.Name} takes {p.Name} (-{Classes.InfusionBook.Cost} chem): {p.Text}{(washed != null ? $" The {washed} washes out." : "")} It steeps, sitting out the next battle.{ranch.TierNote(id, before)} ({moved})";
+    }
+
+    /// <summary>A new infusion takes a battle to settle: out of the squad until the next one is over.</summary>
+    static void Steep(Ranch ranch, int id)
+    {
+        ranch.Record(id).Steeping = true;
+        ranch.RemoveFromSquad(id);
     }
 
     /// <summary>

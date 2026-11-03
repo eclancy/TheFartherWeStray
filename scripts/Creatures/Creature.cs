@@ -375,10 +375,15 @@ public sealed class Creature
 
     /// <summary>How it moves, from its wings or body plan (the accessory slot).</summary>
     public MoveType MoveType =>
-        Parts.Wings is Wings.Bat or Wings.Feather or Wings.Insect ? MoveType.Fly
+        RigMove is { } rig ? rig
+        : Parts.Wings is Wings.Bat or Wings.Feather or Wings.Insect ? MoveType.Fly
         : Species.Plan is BodyPlan.Aquatic or BodyPlan.Serpent ? MoveType.Swim
         : Species.Plan == BodyPlan.Insectoid ? MoveType.Climb
         : MoveType.Walk;
+
+    /// <summary>A movement rig's way of moving, if it has one (flying beats climbing).</summary>
+    MoveType? RigMove => Augments.Select(Classes.AugmentBook.Get).Where(a => a?.Move != null).Select(a => a.Move.Value)
+        .OrderBy(m => m == MoveType.Fly ? 0 : 1).Cast<MoveType?>().FirstOrDefault();
 
     /// <summary>What the parts mean as FFTA equipment: weapon, armour, movement.</summary>
     public (string weapon, string armor, string move) Loadout()

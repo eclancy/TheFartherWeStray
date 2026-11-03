@@ -59,7 +59,7 @@ public sealed partial class Battle
         {
             Mix(u.Pos.X); Mix(u.Pos.Y); Mix(u.Hp); Mix(u.MaxHp); Mix(u.Gone ? 1 : 0); Mix((int)u.Side);
             Mix(u.PoisonTurns); Mix(u.PoisonDmg); Mix(u.Stunned ? 1 : 0); Mix(u.Rooted ? 1 : 0); Mix(u.Weathered);
-            Mix(u.DoomTurns); Mix(u.SleepTurns);
+            Mix(u.DoomTurns); Mix(u.SleepTurns); Mix(u.StopTurns); Mix(u.BorrowedTurns);
             foreach (var (stat, amount, turns) in u.Buffs) Mix((int)stat * 10000 + amount * 100 + turns);
             foreach (var cd in u.Cooldowns) Mix(cd.Value);
         }

@@ -45,6 +45,11 @@ public static class SkillIcons
         ["cinder_drake"] = "flame", ["storm_roc"] = "storm", ["grove_stag"] = "horn",
         ["fever_dream"] = "flame", ["winter_trance"] = "crystal", ["night_terrors"] = "ghost",
         ["death_mark"] = "skull", ["last_breath"] = "fang", ["sleep_dart"] = "moon",
+        ["swoop"] = "dive", ["grapple"] = "hook",
+        ["copycat"] = "hand", ["mock"] = "taunt", ["study"] = "eye",
+        ["haste"] = "spd", ["stop"] = "clock", ["quicken"] = "cooldown",
+        ["scatter_charge"] = "knock", ["flash_powder"] = "stun", ["mender_mist"] = "heal",
+        ["mirror_shape"] = "swirl", ["beast_shape"] = "claw", ["wisp_shape"] = "ghost",
         ["spark_coil"] = "stun", ["repair"] = "gear", ["overdrive"] = "spd",
         ["antler_sweep"] = "slash", ["crown_of_thorns"] = "thorns", ["rutting_charge"] = "horn",
         ["roar_of_courage"] = "sound", ["challenge_roar"] = "taunt", ["last_stand"] = "flame",
@@ -87,6 +92,7 @@ public static class SkillIcons
         ["Hydrarch"] = "fang", ["Stoneguard"] = "mountain", ["Coilbinder"] = "swirl", ["Venomtail"] = "poison", ["Lurelight"] = "sun",
         ["Oculus"] = "eye", ["Saint"] = "sparkle", ["Hexmark"] = "rune", ["Basilisk"] = "stun",
         ["Conjurer"] = "horn", ["Mesmer"] = "swirl", ["Reaper"] = "skull",
+        ["Mimic"] = "question", ["Horologist"] = "clock", ["Saboteur"] = "knock", ["Skinchanger"] = "moon",
     };
 
     public enum Kind { Attack, Heal, Boost, Control, Move }
@@ -139,7 +145,7 @@ public static class SkillIcons
         if (down && (s.Target is TargetKind.Enemy or TargetKind.Area || !up)) Glyphs.DrawMini(img, "down", 14, 1);
         else if (up) Glyphs.DrawMini(img, "up", 14, 1);
         // Its shape: bottom right.
-        string shape = s.AllFoes ? "all" : s.AroundSelf ? "ring" : s.Radius > 0 ? "area" : s.Leap ? "leap" : s.Straight ? "line" : null;
+        string shape = s.AllFoes || s.Gamble ? "all" : s.AroundSelf ? "ring" : s.Radius > 0 ? "area" : s.Leap ? "leap" : s.Straight ? "line" : null;
         if (shape != null) Glyphs.DrawMini(img, shape, 14, 14);
         return img;
     }
@@ -190,14 +196,14 @@ public static class SkillIcons
     public static Texture2D Passive(PassiveDef p, int scale = 2) => Cached("passive:" + p.Id, scale, () =>
     {
         var img = Image.CreateEmpty(BadgeSize, BadgeSize, false, Image.Format.Rgba8);
-        Frame(img, 0, 0, BadgeSize, Color.FromHtml(p.Class switch { "Shiny" => "#f2c14e", "Gear" => "#c9a24a", "Trait" => "#8a9a4a", "Tier" => p.Id.StartsWith("chimera") ? "#8a5ac8" : "#9ac25a", "Infusion" => "#3fbf8a", _ => p.Kind == PassiveKind.Reaction ? "#d84f8f" : "#3faa6a" }));
+        Frame(img, 0, 0, BadgeSize, Color.FromHtml(p.Class switch { "Shiny" => "#f2c14e", "Gear" => "#c9a24a", "Trait" => "#8a9a4a", "Tier" => p.Id.StartsWith("abomination") ? "#c8384a" : p.Id.StartsWith("chimera") ? "#8a5ac8" : "#9ac25a", "Infusion" => "#3fbf8a", _ => p.Kind == PassiveKind.Reaction ? "#d84f8f" : "#3faa6a" }));
         Glyphs.Draw(img, PassiveGlyph(p), 2, 2);
         return img;
     });
 
     public static string PassiveGlyph(PassiveDef p)
     {
-        if (p.Class == "Tier") return TierBook.Glyph(p.Id.StartsWith("chimera") ? Tier.Chimera : Tier.Thoroughbred);
+        if (p.Class == "Tier") return TierBook.Glyph(p.Id.StartsWith("abomination") ? Tier.Abomination : p.Id.StartsWith("chimera") ? Tier.Chimera : Tier.Thoroughbred);
         if (p.Class == "Infusion") return "flask";
         if (p.Kind == PassiveKind.Reaction)
             return p.React switch

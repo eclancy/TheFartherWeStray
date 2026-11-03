@@ -43,6 +43,9 @@ public sealed class Unit
     public int PoisonDmg, PoisonTurns;
     public bool Stunned, Rooted;
     public int DoomTurns, SleepTurns;                // a Reaper's mark counting down; asleep (a hit wakes it)
+    public int StopTurns;                            // frozen in time (a Horologist's Stop)
+    public PassiveDef Borrowed;                      // a Skinchanger's borrowed shape: a form's ability, for a while
+    public int BorrowedTurns;
     public Unit DoomedBy;                            // who set the mark, for the credit when it falls
     public Unit TauntedBy;
     public PassiveDef ShinyPassive;                  // a shiny's own second passive, on top of the equipped one
@@ -58,16 +61,18 @@ public sealed class Unit
     {
         get
         {
-            if (ShinyPassive == null && GearPassive == null && TierPassive == null && Traits.Count == 0 && Infusions.Count == 0) return Equipped;
-            if (_merged == null || _mergedFor != Training?.Passive)
+            if (ShinyPassive == null && GearPassive == null && TierPassive == null && Borrowed == null && Traits.Count == 0 && Infusions.Count == 0) return Equipped;
+            if (_merged == null || _mergedFor != Training?.Passive || _mergedBorrowed != Borrowed || _mergedTier != TierPassive)
             {
-                _merged = new[] { ShinyPassive, GearPassive, TierPassive }.Concat(Traits).Concat(Infusions).Aggregate(Equipped, PassiveDef.Merge);
+                _merged = new[] { ShinyPassive, GearPassive, TierPassive, Borrowed }.Concat(Traits).Concat(Infusions).Aggregate(Equipped, PassiveDef.Merge);
                 _mergedFor = Training?.Passive;
+                _mergedBorrowed = Borrowed;
+                _mergedTier = TierPassive;
             }
             return _merged;
         }
     }
-    PassiveDef _merged;
+    PassiveDef _merged, _mergedBorrowed, _mergedTier;
     string _mergedFor;
     public Party.TamerDef Tamer;                   // who leads it from off the field (yours, or a rival's), if anyone
     /// <summary>The tamer's boost, if it reaches this creature (some tamers only lead certain kinds).</summary>

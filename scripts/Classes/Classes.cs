@@ -49,6 +49,11 @@ public sealed class SkillDef
     public int Doom;                 // the target falls once this many of its turns have passed (cleansing lifts it)
     public int Sleep;                // the target sleeps through up to this many of its turns; any hit wakes it
     public float Finish;             // after the hit, a foe left under a quarter of its HP falls at once with this chance
+    // And after FFTA's time mage, gadgeteer and morpher (the user's yes, 2026-11-02):
+    public int Stop;                 // the target is frozen in time for this many of its turns; hits don't free it
+    public bool Quicken;             // the ally targeted takes a turn right after this one
+    public bool Gamble;              // a gadget: a coin flip sends it at every foe or every ally (heals the other way round)
+    public bool CopyForm;            // takes the targeted foe's form ability for 3 turns
 }
 
 
@@ -85,6 +90,8 @@ public sealed class PassiveDef
     public int CooldownCut;          // skills cool down sooner
     public int Climb;                // can step up or down this many levels
     public int ChemBonus;            // extra chem after each battle it fights in
+    public float Unstable;           // an abomination's cost: each turn, this chance it lashes out at an ally beside it or misfires
+    public bool Lucky;               // a gadget's coin flip goes its way 3 times in 4
 
     /// <summary>Two support passives in effect at once (a shiny's own on top of the equipped one): numbers add, flags join.</summary>
     public static PassiveDef Merge(PassiveDef a, PassiveDef b)
@@ -100,6 +107,7 @@ public sealed class PassiveDef
             PackBond = a.PackBond || b.PackBond, Regen = a.Regen + b.Regen, Drain = a.Drain + b.Drain,
             SkillPower = a.SkillPower + b.SkillPower, Predator = a.Predator + b.Predator, RangeBonus = a.RangeBonus + b.RangeBonus,
             CooldownCut = a.CooldownCut + b.CooldownCut, Climb = Math.Max(a.Climb, b.Climb), ChemBonus = a.ChemBonus + b.ChemBonus,
+            Unstable = Math.Max(a.Unstable, b.Unstable), Lucky = a.Lucky || b.Lucky,
         };
     }
 }
@@ -113,6 +121,7 @@ public sealed class ClassDef
     public (string cls, int skills)[] Requires = Array.Empty<(string, int)>();
     public Func<Creature, bool> NeedsPart;
     public string PartHint;
+    public string Trial, TrialHint;  // a trial mission that must be won first (World.TrialBook), and where it's held
     public bool Advanced => Requires.Length > 0;
 }
 
@@ -129,6 +138,7 @@ public sealed class Training
     public string Passive;  // the support passive equipped, from any class trained
     public string Reaction; // the reaction equipped (FFTA's R-ability slot)
     public string Gear;     // the gear it wears, bought at a shop (one slot)
+    public List<string> Learned = new(); // a Mimic's: skills learned from foes that used them on it
 
     public int JpIn(string cls) => Jp.TryGetValue(cls, out int v) ? v : 0;
     public int LearnedIn(string cls) => Skills.Count(id => ClassBook.Skill(id).Class == cls);
@@ -138,6 +148,8 @@ public sealed class Training
     {
         var ids = Skills.Where(id => ClassBook.Skill(id).Class == Class || ClassBook.Skill(id).Class == Secondary).ToList();
         if (Innate != null && !ids.Contains(Innate)) ids.Add(Innate);
+        // A Mimic (main or secondary) can use what it has learned from its foes.
+        if (Class == "Mimic" || Secondary == "Mimic") ids.AddRange(Learned.Where(id => !ids.Contains(id) && ClassBook.Skill(id) != null));
         return ids.Select(ClassBook.Skill);
     }
 
@@ -313,6 +325,34 @@ public static class ClassBook
             Text = "A quiet strike (x0.8); a foe left under a quarter of its HP has a 50% chance to fall then and there." },
         new() { Id = "sleep_dart", Name = "Sleep Dart", Class = "Reaper", Cost = 30, Cooldown = 4, Range = 4, Sleep = 2, HitBonus = 10,
             Text = "Range 4: the foe sleeps through up to 2 of its turns; any hit wakes it." },
+        // Mimic (Mystic + Hunter), after FFTA's blue mage: as a Mimic (main or secondary) it learns any skill a foe uses on it.
+        new() { Id = "copycat", Name = "Copycat", Class = "Mimic", Cost = 25, Cooldown = 2, Power = 0.9f, Steal = true,
+            Text = "A strike (x0.9) that takes the foe's boosts for itself." },
+        new() { Id = "mock", Name = "Mock", Class = "Mimic", Cost = 30, Cooldown = 3, Range = 3, Buffs = new[] { (StatKind.Atk, -2, 2), (StatKind.Def, -2, 2) },
+            Text = "Range 3: mimics a foe so well it falters: ATK -2 and DEF -2 for 2 turns." },
+        new() { Id = "study", Name = "Study", Class = "Mimic", Cost = 30, Cooldown = 4, Target = TargetKind.Self, Range = 0, Buffs = new[] { (StatKind.Evade, 15, 2), (StatKind.Spd, 1, 2) },
+            Text = "Watches closely: 15% harder to hit and SPD +1 for 2 turns." },
+        // Horologist (Mystic + Tinker), after FFTA's time mage.
+        new() { Id = "haste", Name = "Haste", Class = "Horologist", Cost = 25, Cooldown = 3, Target = TargetKind.Ally, Range = 3, Buffs = new[] { (StatKind.Spd, 4, 3) },
+            Text = "An ally within 3 runs fast: SPD +4 for 3 turns." },
+        new() { Id = "stop", Name = "Stop", Class = "Horologist", Cost = 35, Cooldown = 5, Range = 3, Stop = 2, HitBonus = -5,
+            Text = "Range 3: the foe is frozen in time for 2 of its turns; hits don't free it (cleansing does)." },
+        new() { Id = "quicken", Name = "Quicken", Class = "Horologist", Cost = 35, Cooldown = 5, Target = TargetKind.Ally, Range = 3, Quicken = true,
+            Text = "An ally within 3 takes a turn right after this one." },
+        // Saboteur (Tinker + Rogue), after FFTA's gadgeteer: every gadget is a coin flip, every foe or every ally.
+        new() { Id = "scatter_charge", Name = "Scatter Charge", Class = "Saboteur", Cost = 30, Cooldown = 4, Range = 0, Gamble = true, Power = 0.8f,
+            Text = "A charge with a mind of its own: every foe on the field takes x0.8, or every ally does. A coin flip." },
+        new() { Id = "flash_powder", Name = "Flash Powder", Class = "Saboteur", Cost = 30, Cooldown = 4, Range = 0, Gamble = true, StunChance = 0.4f,
+            Text = "A blinding flash: every foe on the field, or every ally, 40% to be stunned. A coin flip." },
+        new() { Id = "mender_mist", Name = "Mender Mist", Class = "Saboteur", Cost = 30, Cooldown = 4, Target = TargetKind.Ally, Range = 0, Gamble = true, Heal = 0.25f,
+            Text = "A healing mist: every ally on the field heals 25%, or every foe does. A coin flip." },
+        // Skinchanger (Brawler + Mystic), after FFTA's morpher.
+        new() { Id = "mirror_shape", Name = "Mirror Shape", Class = "Skinchanger", Cost = 30, Cooldown = 4, Range = 3, CopyForm = true,
+            Text = "Takes the shape of a foe within 3: its kind's ability is its own for 3 turns." },
+        new() { Id = "beast_shape", Name = "Beast Shape", Class = "Skinchanger", Cost = 30, Cooldown = 4, Target = TargetKind.Self, Range = 0, Buffs = new[] { (StatKind.Atk, 3, 3), (StatKind.Def, 2, 3), (StatKind.Spd, -1, 3) },
+            Text = "Swells into a brute: ATK +3, DEF +2, SPD -1 for 3 turns." },
+        new() { Id = "wisp_shape", Name = "Wisp Shape", Class = "Skinchanger", Cost = 30, Cooldown = 4, Target = TargetKind.Self, Range = 0, Buffs = new[] { (StatKind.Evade, 25, 2), (StatKind.Move, 1, 2) },
+            Text = "Thins to a wisp: 25% harder to hit and MOVE +1 for 2 turns." },
         // Artificer (Tinker + two machine grafts).
         new() { Id = "spark_coil", Name = "Spark Coil", Class = "Artificer", Cost = 30, Cooldown = 3, Target = TargetKind.Area, Range = 4, Radius = 1, Power = 0.6f, StunChance = 0.3f, Text = "A coil discharges across a cross at range 4 (x0.6), 30% to stun." },
         new() { Id = "repair", Name = "Repair", Class = "Artificer", Cost = 30, Cooldown = 2, Target = TargetKind.Ally, Range = 2, Heal = 0.45f, Cleanse = true, Text = "An ally within 2: recovers 45% of max HP and is cleansed." },
@@ -611,16 +651,43 @@ public static class ClassBook
         {
             Id = "Conjurer", Name = "Conjurer", Blurb = "Calls up the ghosts of great beasts.", Hp = 2, Atk = 1, Spd = -1,
             Skills = new[] { "cinder_drake", "storm_roc", "grove_stag" }, Requires = new[] { ("Mystic", 2), ("Howler", 2) },
+            Trial = "Conjurer", TrialHint = "the Conjurer's trial in the Gilded Gardens",
         },
         new()
         {
             Id = "Mesmer", Name = "Mesmer", Blurb = "Shows every foe a different nightmare, all at once.", Spd = 2, Atk = 1, Hp = -2,
             Skills = new[] { "fever_dream", "winter_trance", "night_terrors" }, Requires = new[] { ("Mystic", 2), ("Rogue", 2) },
+            Trial = "Mesmer", TrialHint = "the Mesmer's trial on the Brass Bridges",
         },
         new()
         {
             Id = "Reaper", Name = "Reaper", Blurb = "Marks one, and waits.", Atk = 2, Spd = 2, Hp = -4,
             Skills = new[] { "death_mark", "last_breath", "sleep_dart" }, Requires = new[] { ("Rogue", 2), ("Hunter", 2) },
+            Trial = "Reaper", TrialHint = "the Reaper's trial on Lantern Row",
+        },
+        new()
+        {
+            Id = "Mimic", Name = "Mimic", Blurb = "Watches what's done to it, then does it back.", Spd = 1, Def = 1,
+            Skills = new[] { "copycat", "mock", "study" }, Requires = new[] { ("Mystic", 2), ("Hunter", 2) },
+            Trial = "Mimic", TrialHint = "the Mimic's trial at the Grand Coliseum",
+        },
+        new()
+        {
+            Id = "Horologist", Name = "Horologist", Blurb = "Speeds friends, stops foes: the clock answers to it.", Spd = 2, Hp = -2,
+            Skills = new[] { "haste", "stop", "quicken" }, Requires = new[] { ("Mystic", 2), ("Tinker", 2) },
+            Trial = "Horologist", TrialHint = "the Horologist's trial at the Clocktower Ruins",
+        },
+        new()
+        {
+            Id = "Saboteur", Name = "Saboteur", Blurb = "Throws whatever it rigged up last night, and hopes.", Atk = 2, Def = -1,
+            Skills = new[] { "scatter_charge", "flash_powder", "mender_mist" }, Requires = new[] { ("Tinker", 2), ("Rogue", 2) },
+            Trial = "Saboteur", TrialHint = "the Saboteur's trial at the Undercity Foundry",
+        },
+        new()
+        {
+            Id = "Skinchanger", Name = "Skinchanger", Blurb = "Wears the shape of whatever it looks at.", Hp = 2, Atk = 1,
+            Skills = new[] { "mirror_shape", "beast_shape", "wisp_shape" }, Requires = new[] { ("Brawler", 2), ("Mystic", 2) },
+            Trial = "Skinchanger", TrialHint = "the Skinchanger's trial in the Glowmire",
         },
 
         // Blood classes: one base class mastered, and the strain in its veins.
@@ -720,6 +787,14 @@ public static class ClassBook
         new() { Id = "mirror_image", Name = "Mirror Image", Class = "Mesmer", Kind = PassiveKind.Reaction, React = ReactionKind.Dodge, ReactChance = 0.25f, Text = "A hit that would land: 25% chance it strikes an illusion." },
         new() { Id = "cold_blood", Name = "Cold Blood", Class = "Reaper", Hit = 10, Predator = 0.2f, Text = "+10% to hit; 20% more damage to foes under half HP." },
         new() { Id = "slip_away", Name = "Slip Away", Class = "Reaper", Kind = PassiveKind.Reaction, React = ReactionKind.Retreat, ReactAmount = 10, Text = "Hit: slip a tile away and become 10% harder to hit." },
+        new() { Id = "quick_study", Name = "Quick Study", Class = "Mimic", Hit = 8, Evade = 8, Text = "+8% to hit, 8% harder to hit: it has seen this before." },
+        new() { Id = "mirror_strike", Name = "Mirror Strike", Class = "Mimic", Kind = PassiveKind.Reaction, React = ReactionKind.Counter, ReactPower = 0.7f, Text = "Hit in melee: strikes back the same way (x0.7)." },
+        new() { Id = "second_hand", Name = "Second Hand", Class = "Horologist", Spd = 2, Text = "SPD +2." },
+        new() { Id = "rewind", Name = "Rewind", Class = "Horologist", Kind = PassiveKind.Reaction, React = ReactionKind.Adrenaline, ReactPower = 0.25f, Text = "Hit below half HP: it winds back a quarter of its HP, once a battle." },
+        new() { Id = "loaded_dice", Name = "Loaded Dice", Class = "Saboteur", Lucky = true, Text = "Its gadgets' coin flips go its way 3 times in 4." },
+        new() { Id = "booby_trap", Name = "Booby Trap", Class = "Saboteur", Kind = PassiveKind.Reaction, React = ReactionKind.DirtyRetort, ReactChance = 0.3f, Text = "Hit in melee: 30% chance a trap goes off and stuns the attacker." },
+        new() { Id = "shifting_hide", Name = "Shifting Hide", Class = "Skinchanger", Def = 1, Evade = 5, Text = "DEF +1; 5% harder to hit." },
+        new() { Id = "shed_skin", Name = "Shed Skin", Class = "Skinchanger", Kind = PassiveKind.Reaction, React = ReactionKind.Retreat, ReactAmount = 10, Text = "Hit: it slips out of its skin, a tile away and 10% harder to hit." },
         new() { Id = "brass_frame", Name = "Brass Frame", Class = "Artificer", Def = 2, NoPoison = true, Text = "DEF +2; immune to poison." },
         // Reactions (FFTA's R-abilities): one equipped, set off when the creature is hit.
         new() { Id = "counter", Name = "Counter", Class = "Brawler", Kind = PassiveKind.Reaction, React = ReactionKind.Counter, ReactPower = 0.7f, Text = "Hit in melee: strike back (x0.7)." },
@@ -821,7 +896,14 @@ public static class ClassBook
     public static ClassDef Class(string id) => _classes[id];
 
     public static bool Unlocked(ClassDef c, Creature creature, Training t) =>
-        c.Requires.All(r => t.LearnedIn(r.cls) >= r.skills) && (c.NeedsPart == null || c.NeedsPart(creature));
+        c.Requires.All(r => t.LearnedIn(r.cls) >= r.skills) && (c.NeedsPart == null || c.NeedsPart(creature)) && (c.Trial == null || TrialDone(c.Trial));
+
+    /// <summary>
+    /// Whether a class's trial mission has been won (the user's call, 2026-11-02: certain classes open
+    /// only after a certain mission, which also moves your standing). Set by the save in play
+    /// (<see cref="Ranching.Ranch"/>); open by default, for tests and rivals.
+    /// </summary>
+    public static Func<string, bool> TrialDone = _ => true;
 
     /// <summary>The hint shown for a locked class, like FFTA's silhouettes.</summary>
     public static string Hint(ClassDef c, Creature creature, Training t)
@@ -831,6 +913,7 @@ public static class ClassBook
         if (c.Requires.FirstOrDefault(r => Barred(creature, r.cls)) is { cls: not null } bar) return $"never: needs {bar.cls}, which a {plan} can't train";
         var parts = c.Requires.Select(r => $"{r.skills} {r.cls} skills ({Math.Min(t.LearnedIn(r.cls), r.skills)}/{r.skills})").ToList();
         if (c.PartHint != null) parts.Add(c.NeedsPart(creature) ? $"{c.PartHint} (has it)" : $"{c.PartHint} ({HowToGet(c.PartHint)})");
+        if (c.Trial != null) parts.Add(TrialDone(c.Trial) ? $"{c.TrialHint} (won)" : $"win {c.TrialHint}");
         return string.Join(", ", parts);
     }
 

@@ -195,6 +195,23 @@ public sealed partial class Battle
             Log($"{next.Name} suffers from poison.");
             Hurt(next, next.PoisonDmg, null);
         }
+        // An abomination's cost: now and then it lashes out at an ally beside it, or misfires.
+        if (!next.Gone && next.Passive is { Unstable: > 0 } wild && _rng.Chance(wild.Unstable))
+        {
+            var near = Alive.FirstOrDefault(o => o != next && o.Side == next.Side && Dist(next, next.Pos, o) == 1);
+            if (near != null)
+            {
+                Status(next, "lashes out!");
+                Log($"{next.Name} lashes out at {near.Name}!");
+                Attack(next, near, counter: true, power: 0.8f);
+            }
+            else
+            {
+                Status(next, "misfires!");
+                Log($"{next.Name}'s parts misfire.");
+                Hurt(next, Math.Max(1, next.MaxHp / 10), null);
+            }
+        }
         // A Reaper's mark counts the creature's own turns; when it runs out, it falls.
         if (!next.Gone && next.DoomTurns > 0 && --next.DoomTurns == 0)
         {
@@ -202,9 +219,10 @@ public sealed partial class Battle
             Status(next, "doom!");
             Hurt(next, next.Hp, next.DoomedBy is { Gone: false } marker ? marker : null);
         }
-        if (next.Gone || next.Stunned || next.SleepTurns > 0)
+        if (next.Gone || next.Stunned || next.StopTurns > 0 || next.SleepTurns > 0)
         {
             if (next.Stunned) { next.Stunned = false; Events.Add(new StatusEvent(next, "stunned!")); Log($"{next.Name} is stunned and can't act."); }
+            else if (!next.Gone && next.StopTurns > 0) { next.StopTurns--; Events.Add(new StatusEvent(next, "stopped")); Log($"{next.Name} is frozen in time."); }
             else if (!next.Gone && next.SleepTurns > 0) { next.SleepTurns--; Events.Add(new StatusEvent(next, "asleep")); Log($"{next.Name} sleeps."); }
             if (!next.Gone) EndTurn(next);
             return NextTurn();
@@ -621,7 +639,7 @@ public sealed partial class Battle
     public List<Vector2I> SkillTiles(Unit u, SkillDef s)
     {
         var tiles = new List<Vector2I>();
-        if (s.Target == TargetKind.Self || s.AroundSelf || s.AllFoes) { tiles.Add(u.Pos); return tiles; }
+        if (s.Target == TargetKind.Self || s.AroundSelf || s.AllFoes || s.Gamble) { tiles.Add(u.Pos); return tiles; }
         int range = RangeOf(u, s);
         for (int y = 0; y < Map.H; y++)
         for (int x = 0; x < Map.W; x++)
@@ -679,6 +697,7 @@ public sealed partial class Battle
     {
         var area = new List<Vector2I>();
         if (s.AllFoes) return Alive.Where(o => o.Side != u.Side).SelectMany(o => o.Tiles).ToList();
+        if (s.Gamble) return Alive.SelectMany(o => o.Tiles).ToList();
         if (s.Radius == 0) { area.Add(s.Target == TargetKind.Self ? u.Pos : tile); return area; }
         for (int y = 0; y < Map.H; y++)
         for (int x = 0; x < Map.W; x++)
@@ -695,6 +714,7 @@ public sealed partial class Battle
     {
         if (s.Target == TargetKind.Tile) return new List<Unit>();
         if (s.AllFoes) return Alive.Where(o => o.Side != u.Side).ToList();
+        if (s.Gamble) return Alive.ToList(); // either side, by a coin flip
         bool friendly = s.Target is TargetKind.Ally or TargetKind.Self;
         if (s.Target == TargetKind.Self) return new List<Unit> { u };
         if (s.Radius == 0)
@@ -706,7 +726,59 @@ public sealed partial class Battle
         return Alive.Where(o => (o.Side == u.Side) == friendly && o.Tiles.Any(area.Contains)).ToList();
     }
 
-    static bool Rolls(SkillDef s) => s.Power > 0 || s.Poison > 0 || s.StunChance > 0 || s.Root || s.Catch > 0 || s.Doom > 0 || s.Sleep > 0;
+    static bool Rolls(SkillDef s) => s.Power > 0 || s.Poison > 0 || s.StunChance > 0 || s.Root || s.Catch > 0 || s.Doom > 0 || s.Sleep > 0 || s.Stop > 0;
+
+    /// <summary>A Mimic (main or secondary class) learns a skill a foe uses on it; it's added after the battle.</summary>
+    public readonly List<(Unit u, string skill)> Learned = new();
+
+    void Learn(Unit t, SkillDef s)
+    {
+        if (t.Training is not { } tr || (tr.Class != "Mimic" && tr.Secondary != "Mimic") || t.Gone) return;
+        if (s.Class is "Item" or "Augment" or "Mimic" || tr.Learned.Contains(s.Id) || tr.Skills.Contains(s.Id) || Learned.Any(l => l.u == t && l.skill == s.Id)) return;
+        Learned.Add((t, s.Id));
+        Status(t, $"learns {s.Name}!");
+        Log($"{t.Name} learns {s.Name} by watching.");
+    }
+
+    /// <summary>A Skinchanger's borrowed shape: the foe's form ability for 3 turns, its stats as boosts.</summary>
+    void CopyForm(Unit u, Unit t)
+    {
+        var form = Species.FormOf(t.Creature.Species);
+        var ability = TierBook.AbilityOf(form);
+        u.Borrowed = new PassiveDef
+        {
+            Id = "shape_" + form.ToString().ToLowerInvariant(), Name = $"{form} Shape: {ability.Name}", Class = "Shape", Text = ability.Text,
+            Evade = ability.Evade, Hit = ability.Hit, Thorns = ability.Thorns, NoPoison = ability.NoPoison, NoStun = ability.NoStun, Unstoppable = ability.Unstoppable,
+            Amphibious = ability.Amphibious, PackBond = ability.PackBond, Regen = ability.Regen, Drain = ability.Drain, SkillPower = ability.SkillPower,
+            Predator = ability.Predator, RangeBonus = ability.RangeBonus, Climb = ability.Climb,
+        };
+        u.BorrowedTurns = 3;
+        foreach (var (stat, amount) in new[] { (StatKind.Atk, ability.Atk), (StatKind.Def, ability.Def), (StatKind.Spd, ability.Spd), (StatKind.Move, ability.Move) })
+            if (amount != 0) u.Buffs.Add((stat, amount, 3));
+        Status(u, $"takes the {form.ToString().ToLowerInvariant()}'s shape");
+    }
+
+    /// <summary>A gadget: a coin flip sends it at every foe on the field or every ally (a heal the other way round). It always lands.</summary>
+    void Gamble(Unit u, SkillDef s)
+    {
+        bool lucky = _rng.Chance(u.Passive is { Lucky: true } ? 0.75f : 0.5f);
+        bool helps = s.Heal > 0;
+        var side = lucky == helps ? u.Side : (u.Side == Side.Player ? Side.Wild : Side.Player);
+        var hit = Alive.Where(o => o.Side == side).ToList();
+        Events.Add(new SkillEvent(u, s, u.Pos, hit.SelectMany(o => o.Tiles).ToList()));
+        Log($"{u.Name} uses {s.Name}: {(lucky ? "it goes the right way" : "it backfires")}!");
+        Status(u, lucky ? "lucky!" : "backfires!");
+        foreach (var t in hit)
+        {
+            if (t.Gone) continue;
+            if (s.Power > 0) Hurt(t, Math.Max(1, Mathf.RoundToInt(Preview(u, t).dmg * s.Power * _rng.Range(0.9f, 1.1f))), t.Side != u.Side ? u : null);
+            if (!t.Gone && s.StunChance > 0 && _rng.Chance(s.StunChance))
+            {
+                if (t.Passive is { NoStun: true }) Status(t, "resists"); else { t.Stunned = true; Status(t, "stunned"); }
+            }
+            if (s.Heal > 0) HealUnit(t, Mathf.RoundToInt(t.MaxHp * s.Heal));
+        }
+    }
 
     /// <summary>The damage multiplier of a skill on a target: its power, plus high-ground and flanking bonuses.</summary>
     float PowerOn(Unit u, SkillDef s, Unit t)
@@ -799,8 +871,8 @@ public sealed partial class Battle
 
     void Cleanse(Unit t)
     {
-        bool any = t.PoisonTurns > 0 || t.Rooted || t.Stunned || t.TauntedBy != null || t.DoomTurns > 0 || t.SleepTurns > 0 || t.Buffs.Any(b => b.amount < 0);
-        t.PoisonTurns = t.DoomTurns = t.SleepTurns = 0;
+        bool any = t.PoisonTurns > 0 || t.Rooted || t.Stunned || t.TauntedBy != null || t.DoomTurns > 0 || t.SleepTurns > 0 || t.StopTurns > 0 || t.Buffs.Any(b => b.amount < 0);
+        t.PoisonTurns = t.DoomTurns = t.SleepTurns = t.StopTurns = 0;
         t.Rooted = t.Stunned = false;
         t.TauntedBy = null;
         t.Buffs.RemoveAll(b => b.amount < 0);
@@ -839,6 +911,7 @@ public sealed partial class Battle
             u.Pos = tile;
             return;
         }
+        if (s.Gamble) { Gamble(u, s); return; }
         var primary = s.Radius == 0 && s.Target == TargetKind.Enemy ? OccupantOf(tile) : null;
         if (s.Leap && primary != null && LeapSpot(u, primary, range) is { } spot && spot != u.Pos)
         {
@@ -853,6 +926,7 @@ public sealed partial class Battle
             if (t.Gone) continue;
             if (t.Side != u.Side)
             {
+                Learn(t, s);
                 if (Rolls(s))
                 {
                     var (dmg, _) = Preview(u, t);
@@ -906,6 +980,11 @@ public sealed partial class Battle
                 {
                     if (t.Passive is { NoStun: true }) Status(t, "resists"); else { t.SleepTurns = s.Sleep; Status(t, "asleep"); }
                 }
+                if (s.Stop > 0)
+                {
+                    if (t.Passive is { NoStun: true }) Status(t, "resists"); else { t.StopTurns = s.Stop; Status(t, "stopped"); }
+                }
+                if (s.CopyForm) CopyForm(u, t);
                 if (s.Steal && t.Buffs.Any(b => b.amount > 0))
                 {
                     foreach (var b in t.Buffs.Where(b => b.amount > 0).ToList()) { t.Buffs.Remove(b); u.Buffs.Add(b); }
@@ -931,6 +1010,12 @@ public sealed partial class Battle
                     foreach (var id in t.Cooldowns.Keys.ToList()) t.Cooldowns[id] -= s.CooldownCut;
                     Status(t, "recharged");
                 }
+                if (s.Quicken && t != u)
+                {
+                    _queue.Remove(t);
+                    _queue.Insert(0, t);
+                    Status(t, "quickened");
+                }
                 if (s.Poison > 0) Poison(t, s); // a volatile dose: Fury Dose
                 if (s.Pull > 0 && t != u) Pull(u, t, s.Pull);
             }
@@ -951,6 +1036,15 @@ public sealed partial class Battle
     float SkillScore(Unit u, SkillDef s, Vector2I tile)
     {
         if (s.Target == TargetKind.Tile) return 0; // the AI doesn't teleport (yet)
+        if (s.Gamble)
+        {
+            // A coin flip: what it would do to the foes, against what it would do to your own.
+            float luck = u.Passive is { Lucky: true } ? 0.75f : 0.5f;
+            float Worth(IEnumerable<Unit> side) => side.Sum(t => (s.Power > 0 ? Math.Min(t.Hp, Preview(u, t).dmg * s.Power) : 0) + s.StunChance * 10
+                + (s.Heal > 0 ? Math.Min(t.MaxHp - t.Hp, t.MaxHp * s.Heal) : 0));
+            float foes = Worth(Alive.Where(o => o.Side != u.Side)), friends = Worth(Alive.Where(o => o.Side == u.Side));
+            return s.Heal > 0 ? luck * friends - (1 - luck) * foes * 1.2f : luck * foes - (1 - luck) * friends * 1.2f;
+        }
         float score = 0;
         foreach (var t in SkillTargets(u, s, tile))
         {
@@ -965,6 +1059,8 @@ public sealed partial class Battle
                 if (s.Doom > 0 && t.DoomTurns == 0) score += p * Math.Min(t.Hp, 40) * 0.6f;
                 if (s.Sleep > 0 && t.SleepTurns == 0 && t.Passive is not { NoStun: true }) score += p * (6 + s.Sleep * 3);
                 if (s.Finish > 0 && d < t.Hp && (t.Hp - d) * 4 <= t.MaxHp) score += p * s.Finish * (t.Hp - d);
+                if (s.Stop > 0 && t.StopTurns == 0 && t.Passive is not { NoStun: true }) score += p * (8 + s.Stop * 4);
+                if (s.CopyForm) score += u.Borrowed == null ? 6 : -4;
             }
             else
             {
@@ -973,6 +1069,7 @@ public sealed partial class Battle
                 if ((s.Buffs.Length > 0 || s.RandomBuff) && threatened && !t.Buffs.Any(b => s.Buffs.Any(sb => sb.stat == b.stat))) score += 5;
                 if (s.Cleanse) score += (t.PoisonTurns > 0 ? 4 : 0) + (t.Rooted ? 3 : 0) + (t.DoomTurns > 0 ? 12 : 0) + (t.SleepTurns > 0 ? 6 : 0) + t.Buffs.Count(b => b.amount < 0) * 3;
                 if (s.CooldownCut > 0 && t != u && t.Cooldowns.Values.Any(v => v > 1)) score += 4;
+                if (s.Quicken && t != u && Alive.Any(o => o.Side != u.Side)) score += 8;
                 if (s.Poison > 0) score -= 2;
             }
         }
@@ -1025,6 +1122,7 @@ public sealed partial class Battle
         }
         u.Rooted = false;
         u.TauntedBy = null;
+        if (u.BorrowedTurns > 0 && --u.BorrowedTurns == 0) u.Borrowed = null;
 
         if (!u.Gone && u.Attitude == Attitude.Curious && u.Free)
         {

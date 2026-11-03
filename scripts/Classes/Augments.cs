@@ -9,6 +9,7 @@ public sealed class AugmentDef
     public string Id, Name, Skill;
     public Graft Graft;
     public bool Chem;            // chemical (neon) rather than mechanical (brass)
+    public MoveType? Move;       // a rig that changes how it moves (the user's yes, 2026-11-02): it flies or climbs
 }
 
 /// <summary>
@@ -38,6 +39,9 @@ public static class AugmentBook
         new() { Id = "steam_pistons", Name = "Steam Pistons", Graft = Graft.Pistons, Skill = "piston_charge" },
         new() { Id = "smokestack", Name = "Smokestack", Graft = Graft.Smokestack, Skill = "smoke_screen" },
         new() { Id = "pressure_pipes", Name = "Pressure Pipes", Graft = Graft.Pipework, Skill = "steam_vent" },
+        // Movement rigs: frame wings to fly (drawn as wings in its metal), grapple claws to climb.
+        new() { Id = "gear_wings", Name = "Gear Wings", Graft = Graft.None, Skill = "swoop", Move = MoveType.Fly },
+        new() { Id = "grapple_claws", Name = "Grapple Claws", Graft = Graft.MetalLimb, Skill = "grapple", Move = MoveType.Climb },
     };
 
     public static readonly SkillDef[] Skills =
@@ -64,6 +68,10 @@ public static class AugmentBook
             Text = "The pistons fire it up to 3 tiles onto a foe (x1.1), knocking it back." },
         new() { Id = "smoke_screen", Name = "Smoke Screen", Class = "Augment", Cooldown = 4, Target = TargetKind.Ally, Range = 0, AroundSelf = true, Radius = 1,
             Buffs = new[] { (StatKind.Evade, 25, 2) }, Text = "Belches smoke: it and allies beside it are 25% harder to hit for 2 turns." },
+        new() { Id = "swoop", Name = "Swoop", Class = "Augment", Cooldown = 3, Range = 3, Leap = true, Power = 1f,
+            Text = "On frame wings, it swoops onto a foe up to 3 tiles away (x1)." },
+        new() { Id = "grapple", Name = "Grapple", Class = "Augment", Cooldown = 3, Range = 3, Pull = 2, Power = 0.6f,
+            Text = "A grappling claw at a foe within 3 (x0.6), hauling it 2 tiles closer." },
         new() { Id = "steam_vent", Name = "Steam Vent", Class = "Augment", Cooldown = 3, Target = TargetKind.Enemy, Range = 0, AroundSelf = true, Radius = 1, Power = 0.8f, Knock = 1,
             Text = "Vents scalding steam: every foe beside it (x0.8), knocked back." },
     };
@@ -72,5 +80,6 @@ public static class AugmentBook
     public static bool IsAugment(string id) => All.Any(a => a.Id == id);
 
     /// <summary>What an augment does, in a line: its graft and its attack.</summary>
-    public static string Text(AugmentDef a) => $"{(a.Chem ? "Chemical" : "Mechanical")} augment: teaches {ClassBook.Skill(a.Skill).Name}. {ClassBook.Skill(a.Skill).Text}";
+    public static string Text(AugmentDef a) => $"{(a.Chem ? "Chemical" : "Mechanical")} augment: teaches {ClassBook.Skill(a.Skill).Name}. {ClassBook.Skill(a.Skill).Text}"
+        + (a.Move is { } m ? $" It {(m == MoveType.Fly ? "flies" : "climbs")} from now on." : "");
 }

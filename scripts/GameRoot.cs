@@ -595,6 +595,25 @@ public partial class GameRoot : Node
             var (grand, res4) = ranch.Breed(cross, true1);
             GD.Print($"bred chimera x thoroughbred -> {ranch.Record(grand).Name}: {TierOf(grand)}, {Classes.TierBook.PassiveOf(ranch.Get(grand), TierOf(grand))?.Name} ({string.Join("; ", res4.Notes)})");
 
+            // The costs: a new infusion steeps (out of the squad until a battle is over), rigs cost upkeep, rigged creatures learn slower.
+            int sq = ranch.Squad[0];
+            ranch.Chem = 500;
+            GD.Print("  " + Ranching.Lab.Brew(ranch, sq, "iron_tincture"));
+            bool steeping = ranch.Record(sq).Steeping, rejoined = ranch.AddToSquad(sq);
+            ranch.Items["gear_wings"] = 1;
+            ranch.Items["grapple_claws"] = 1;
+            int flier = ranch.Squad[0];
+            GD.Print("  " + ranch.Install(flier, "gear_wings"));
+            int climber = ranch.Creatures.First(r => !ranch.Squad.Contains(r.Id) && r.Id != sq && r.Augments.Count == 0).Id;
+            GD.Print("  " + ranch.Install(climber, "grapple_claws"));
+            GD.Print($"rigs: {ranch.Record(flier).Name} now moves {ranch.Get(flier).MoveType} (wings {ranch.Get(flier).Parts.Wings}), {ranch.Record(climber).Name} {ranch.Get(climber).MoveType}");
+            int chemBefore = ranch.Chem;
+            var costBattle = new Tactics.Mission { Seed = 11, MapName = "Lantern Row", Goal = Tactics.Objective.Rout, Pack = 3 }.CreateBattle(ranch.SquadCreatures());
+            ranch.LeadUnits(costBattle);
+            while (costBattle.Winner == null && costBattle.Round <= 30) { var u = costBattle.NextTurn(); if (u == null) break; costBattle.AiTurn(u); }
+            ranch.AfterBattle(costBattle);
+            GD.Print($"costs: steeping {steeping}, could rejoin the squad {rejoined}, steeping after the battle {ranch.Record(sq).Steeping}; {string.Join(" ", ranch.Report.Where(l => l.StartsWith("Rig upkeep")))}; {ranch.Record(flier).Name} learns at {Classes.TierBook.GrowthRate(ranch.Get(flier)) * 100:0}%");
+
             ranch.Save();
             var back = Ranching.Ranch.Load();
             bool kept = ranch.Creatures.All(r => Classes.TierBook.Of(back.Get(r.Id)) == TierOf(r.Id));
@@ -865,6 +884,118 @@ public partial class GameRoot : Node
                 bool before = hydrarch.NeedsPart(c);
                 spec.Spliced = new[] { Form.Hydra };
                 GD.Print($"splice: a {Species.FormOf(spec).ToString().ToLowerInvariant()} meets the Hydrarch's need: {before} before, {hydrarch.NeedsPart(c)} with the hydra's ability spliced in");
+            }
+            {
+                // Stop: frozen for its turns, and a hit doesn't free it.
+                var (b, user, foe, _) = Setup(5);
+                var sk = Classes.ClassBook.Skill("stop");
+                for (int k = 0; k < 20 && foe.StopTurns == 0; k++) { b.UseSkill(user, sk, foe.Pos); user.Cooldowns.Clear(); }
+                var hit = Classes.ClassBook.Skill("quick_strike");
+                for (int k = 0; k < 10 && foe.Hp == foe.MaxHp; k++) { b.UseSkill(user, hit, foe.Pos); user.Cooldowns.Clear(); }
+                int still = foe.StopTurns, skipped = 0;
+                for (int k = 0; k < 80 && b.Winner == null && skipped < 2; k++)
+                {
+                    int at = b.Events.Count;
+                    var u = b.NextTurn();
+                    if (u == null) break;
+                    if (b.Events.Skip(at).OfType<Tactics.StatusEvent>().Any(e => e.U == foe && e.Text == "stopped")) skipped++;
+                    b.EndTurn(u);
+                }
+                GD.Print($"stop: frozen for {still} turns after being hit; it skipped {skipped}; now {foe.StopTurns} left");
+            }
+            {
+                // Quicken: the ally goes next.
+                var (b, user, _, friend) = Setup(6);
+                b.UseSkill(user, Classes.ClassBook.Skill("quicken"), friend.Pos);
+                b.EndTurn(user);
+                var next = b.NextTurn();
+                GD.Print($"quicken: the next turn is {next?.Name}'s (the quickened ally is {friend.Name})");
+            }
+            {
+                // Gadgets: a coin flip, foes or allies; Loaded Dice tips it to 3 in 4.
+                int foes = 0, lucky = 0;
+                var sk = Classes.ClassBook.Skill("flash_powder");
+                for (int k = 0; k < 400; k++)
+                {
+                    var (b, user, _, _) = Setup((ulong)k + 10);
+                    if (k >= 200) user.Training.Passive = "loaded_dice";
+                    int at = b.Events.Count;
+                    b.UseSkill(user, sk, user.Pos);
+                    var area = b.Events.Skip(at).OfType<Tactics.SkillEvent>().First().Area;
+                    bool atFoes = b.Units.Any(u => u.Side == Tactics.Side.Wild && u.Tiles.Any(area.Contains));
+                    if (k < 200) { if (atFoes) foes++; } else if (atFoes) lucky++;
+                }
+                GD.Print($"gadget: Flash Powder went at the foes {foes}/200 times (about half), {lucky}/200 with Loaded Dice (about 3 in 4)");
+            }
+            {
+                // Mirror Shape: the foe's form ability, for 3 turns.
+                var (b, user, foe, _) = Setup(7);
+                b.UseSkill(user, Classes.ClassBook.Skill("mirror_shape"), foe.Pos);
+                string took = user.Borrowed?.Name ?? "nothing";
+                for (int k = 0; k < 3; k++) b.EndTurn(user);
+                GD.Print($"shape: took {took} from a {Species.FormOf(foe.Creature.Species).ToString().ToLowerInvariant()}; after 3 of its turns it has {(user.Borrowed == null ? "its own shape back" : "still " + user.Borrowed.Name)}");
+            }
+            {
+                // Mimic: learns what a foe uses on it.
+                var (b, _, foe, friend) = Setup(8);
+                friend.Training ??= new Classes.Training();
+                friend.Training.Class = "Mimic";
+                var sk = Classes.ClassBook.Skill("hex_bolt");
+                b.UseSkill(foe, sk, friend.Pos);
+                GD.Print($"mimic: {friend.Name} learned {string.Join(", ", b.Learned.Where(l => l.u == friend).Select(l => Classes.ClassBook.Skill(l.skill).Name))} when a foe used Hex Bolt on it");
+            }
+            {
+                // An abomination: big stats, but now and then it lashes out at an ally beside it or misfires.
+                int turns = 0, fits = 0, lashes = 0;
+                for (ulong k = 1; k <= 30; k++)
+                {
+                    var (b, user, _, friend) = Setup(k);
+                    user.TierPassive = Classes.TierBook.AbominationOf(user.Creature.Species);
+                    user.Training.Passive = null;
+                    for (int step = 0; step < 60 && b.Winner == null; step++)
+                    {
+                        int at = b.Events.Count;
+                        var u = b.NextTurn();
+                        if (u == null) break;
+                        if (u == user)
+                        {
+                            turns++;
+                            var marks = b.Events.Skip(at).OfType<Tactics.StatusEvent>().Where(e => e.U == user).Select(e => e.Text).ToList();
+                            if (marks.Contains("lashes out!")) { fits++; lashes++; } else if (marks.Contains("misfires!")) fits++;
+                        }
+                        b.EndTurn(u);
+                        if (turns >= 200) break;
+                    }
+                }
+                GD.Print($"abomination: {fits}/{turns} of its turns went wrong (about a quarter), {lashes} of them lashing out at an ally");
+            }
+            {
+                // Trials: a signature class stays locked until its trial is won.
+                Ranching.Ranch.SavePath = "user://trials_test.json";
+                var ranch = Ranching.Ranch.New();
+                var rec = ranch.Creatures[0];
+                foreach (var cls in new[] { "Mystic", "Howler" }) { rec.Training.Class = cls; rec.Training.Earn(400); }
+                var conjurer = Classes.ClassBook.Class("Conjurer");
+                var before = Classes.ClassBook.StandingOf(conjurer, ranch.Get(rec.Id), rec.Training);
+                ranch.Flags.Add(World.TrialBook.Flag("Conjurer"));
+                var after = Classes.ClassBook.StandingOf(conjurer, ranch.Get(rec.Id), rec.Training);
+                var board = World.TrialBook.Open(ranch).Select(t => t.Class).ToList();
+                GD.Print($"trial: Conjurer for {rec.Name} is {before} before its trial, {after} after; trials on offer at the start: {string.Join(", ", board)}");
+                // Fought through: winning the Reaper's trial opens the class and moves the undercity.
+                int under = ranch.UnderStanding;
+                var trial = World.TrialBook.ToMission(World.TrialBook.Get("Reaper"));
+                bool won = false;
+                for (int k = 0; k < 6 && !won; k++)
+                {
+                    trial.Seed += (ulong)k;
+                    var tb = trial.CreateBattle(ranch.SquadCreatures());
+                    ranch.LeadUnits(tb);
+                    while (tb.Winner == null && tb.Round <= 30) { var u = tb.NextTurn(); if (u == null) break; tb.AiTurn(u); }
+                    ranch.AfterBattle(tb, trial);
+                    won = tb.Winner == Tactics.Side.Player;
+                }
+                GD.Print($"trial fought: won {won}; flag {ranch.Flags.Contains(World.TrialBook.Flag("Reaper"))}; undercity standing {under} -> {ranch.UnderStanding}; {string.Join(" ", ranch.Report.Where(l => l.StartsWith("Trial won")))}; still on offer: {World.TrialBook.Open(ranch).Any(t => t.Class == "Reaper")}");
+                Classes.ClassBook.TrialDone = _ => true;
             }
             GetTree().Quit();
             return;

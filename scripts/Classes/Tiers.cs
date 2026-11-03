@@ -98,6 +98,7 @@ public static class TierBook
 
     /// <summary>A form's ability, by name and in words: what a thoroughbred has at its best, and what a chimera can carry.</summary>
     public static string Ability(Form f) => FormBonus.GetValueOrDefault(f, Hardy).Name;
+    public static PassiveDef AbilityOf(Form f) => FormBonus.GetValueOrDefault(f, Hardy);
     public static string AbilityText(Form f) => FormBonus.GetValueOrDefault(f, Hardy).Text;
 
     /// <summary>How many other species' abilities a chimera can carry, and what the lab charges to splice one in.</summary>
@@ -146,8 +147,48 @@ public static class TierBook
         return tamed ? Tier.Thoroughbred : Tier.Stray;
     }
 
-    /// <summary>The passive its tier brings: a thoroughbred's species bonus, or a chimera's abilities (null for the rest).</summary>
-    public static PassiveDef PassiveOf(Creature c, Tier t) => t == Tier.Thoroughbred ? ThoroughbredOf(c.Species) : Chimera(c) ? ChimeraOf(c.Species) : null;
+    /// <summary>
+    /// An abomination's perk (the user's call, 2026-11-02: a perk of its own, with an unstable cost):
+    /// big stats, but each of its turns a chance it lashes out at an ally beside it, or misfires and
+    /// hurts itself when none is near.
+    /// </summary>
+    public static readonly PassiveDef Unstable = new()
+    {
+        Id = "unstable", Name = "Unstable", Atk = 3, Def = 2, Spd = 1, HpPct = 0.1f, Unstable = 0.25f,
+        Text = "ATK +3, DEF +2, SPD +1, max HP +10%. Unstable: each turn, a 25% chance it lashes out at an ally beside it, or misfires and hurts itself.",
+    };
+
+    static readonly Dictionary<string, PassiveDef> _abominations = new();
+
+    /// <summary>An abomination's passive: its chimera abilities and the Unstable perk, as one.</summary>
+    public static PassiveDef AbominationOf(Species sp)
+    {
+        var chimera = ChimeraOf(sp);
+        lock (_abominations)
+        {
+            if (_abominations.TryGetValue(chimera.Id, out var made)) return made;
+            var p = PassiveDef.Merge(chimera, Unstable);
+            p.Id = "abomination_" + chimera.Id.Substring("chimera_".Length);
+            p.Name = "Abomination: Unstable";
+            p.Class = "Tier";
+            p.Text = $"{Unstable.Text} {chimera.Text}";
+            return _abominations[chimera.Id] = p;
+        }
+    }
+
+    /// <summary>The passive its tier brings: a thoroughbred's species bonus, a chimera's abilities, an abomination's perk on top (null for the rest).</summary>
+    public static PassiveDef PassiveOf(Creature c, Tier t) => t switch
+    {
+        Tier.Thoroughbred => ThoroughbredOf(c.Species),
+        Tier.Abomination => AbominationOf(c.Species),
+        _ => Chimera(c) ? ChimeraOf(c.Species) : null,
+    };
+
+    // The costs of altering a creature (the user's yes to the call's first draft, 2026-11-02): a new
+    // infusion steeps (it sits out the next battle), rigs need upkeep after every battle they fight,
+    // and rigged creatures grow slower (less JP), an abomination slowest.
+    public const int UpkeepPerRig = 3;
+    public static float GrowthRate(Creature c) => Of(c) switch { Tier.Abomination => 0.6f, Tier.Rigged => 0.75f, _ => 1f };
 
     /// <summary>The tier in words, as a sentence would use it ("a chimera", "rigged").</summary>
     public static string Words(Tier t) => t switch
@@ -175,8 +216,8 @@ public static class TierBook
             Tier.Thoroughbred => ThoroughbredOf(c.Species).Text,
             Tier.Infused => "Infused: its natural stats tuned at the lab, or new blood put in. No thoroughbred bonus.",
             Tier.Chimera => $"A chimera. {ChimeraOf(c.Species).Text} No thoroughbred bonus.",
-            Tier.Rigged => "Rigged: augments bolted on, with abilities no natural creature has. No thoroughbred bonus.",
-            _ => "An abomination: infused, a chimera and rigged, as far from natural as a creature goes.",
+            Tier.Rigged => $"Rigged: augments bolted on, with abilities no natural creature has. Upkeep {UpkeepPerRig} chem a rig after each battle; learns at 3/4 pace. No thoroughbred bonus.",
+            _ => $"An abomination: infused, a chimera and rigged, as far from natural as a creature goes. {AbominationOf(c.Species).Text}",
         };
         var also = new[] { (t is Tier.Chimera or Tier.Rigged && Infused(c), "infused"), (t == Tier.Rigged && Chimera(c), "a chimera") }
             .Where(x => x.Item1).Select(x => x.Item2).ToList();

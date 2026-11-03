@@ -221,6 +221,7 @@ public static class Glyphs
         ["all"] = ("#ffb04f", new[] { "#.#.#", ".....", "#.#.#", ".....", "#.#.#" }),
         ["doom"] = ("#ff5a6a", new[] { ".###.", "#.#.#", "#####", ".###.", ".#.#." }),
         ["sleep"] = ("#9ab0ff", new[] { "#####", "...#.", "..#..", ".#...", "#####" }),
+        ["stop"] = ("#c8d8ff", new[] { "#####", ".###.", "..#..", ".###.", "#####" }),
     };
 
     /// <summary>Draws a 5x5 mark with its outline, top-left at (x, y).</summary>

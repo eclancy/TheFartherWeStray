@@ -44,7 +44,7 @@ public static class GearBook
     public static readonly SkillDef[] Items =
     {
         new() { Id = "snare_net", Name = "Snare Net", Class = "Item", Cooldown = 0, Range = 3, Catch = 0.3f, CatchChance = 0.6f,
-            Text = "Throw at a wild creature within 3: below 30% of its HP, 60% it's caught and joins you." },
+            Text = "Throw at a stray within 3: below 30% of its HP, 60% it's caught and joins you." },
         new() { Id = "soothing_chime", Name = "Soothing Chime", Class = "Item", Cooldown = 0, Range = 3, Root = true,
             Text = "A creature within 3 can't move next turn: a skittish one is easier to corner." },
         new() { Id = "tonic", Name = "Tonic", Class = "Item", Cooldown = 0, Target = TargetKind.Ally, Range = 1, Heal = 0.4f,

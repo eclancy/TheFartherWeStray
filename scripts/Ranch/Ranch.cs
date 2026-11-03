@@ -35,6 +35,7 @@ public sealed class CreatureRecord
     public List<string> Traits;           // born with, passed down (null in saves from before traits: rolled on load)
     public List<string> Augments = new(); // bolted on at the lab, not passed down
     public List<string> Infusions = new(); // brewed at the lab to tune its stats, not passed down
+    public bool Steeping;                  // a new infusion taking: it sits out the next battle
     [JsonIgnore] public string Name => Nickname ?? Species.Name;
     public float BodyJitter = 1, LegJitter = 1, HeadJitter = 1;
     public int Generation;
@@ -53,15 +54,23 @@ public sealed class CreatureRecord
     public Creature ToCreature(bool augmented = true)
     {
         var species = Species;
+        var parts = Parts;
+        var spec = Spec;
         if (augmented && Augments.Count > 0)
         {
             species = Species.Clone();
             foreach (var a in Augments) if (Classes.AugmentBook.Get(a) is { } aug) species.Grafts |= aug.Graft;
+            // Frame wings: wings drawn in its metal (fish have nowhere to put them, but fly all the same).
+            if (Augments.Contains("gear_wings") && species.Plan != BodyPlan.Aquatic && parts.Wings is Wings.None or Wings.Tiny)
+            {
+                parts = parts with { Wings = Wings.Bat };
+                spec = spec with { Membrane = spec.Metal };
+            }
         }
         return new Creature
         {
-            Species = species, Seed = Seed, Size = Size, Attitude = Attitude, Parts = Parts, Spec = Spec, BirthParts = BirthParts,
-            Palette = Creature.BuildPalette(Spec, species), Shiny = Shiny, Mutation = Mutation, Nickname = Nickname,
+            Species = species, Seed = Seed, Size = Size, Attitude = Attitude, Parts = parts, Spec = spec, BirthParts = BirthParts,
+            Palette = Creature.BuildPalette(spec, species), Shiny = Shiny, Mutation = Mutation, Nickname = Nickname,
             BodyJitter = BodyJitter, LegJitter = LegJitter, HeadJitter = HeadJitter,
             Generation = Generation, ParentA = ParentA, ParentB = ParentB,
             Traits = new List<string>(Traits ?? new List<string>()), Augments = augmented ? new List<string>(Augments) : new List<string>(),
@@ -148,6 +157,7 @@ public sealed class Ranch
     {
         var r = new Ranch();
         r.Flags.Add(TiersFlag);
+        ClassBook.TrialDone = id => r.Flags.Contains(World.TrialBook.Flag(id));
         foreach (var (c, t) in Tactics.Encounter.StarterSquad())
         {
             int id = r.Add(c);
@@ -229,7 +239,7 @@ public sealed class Ranch
     /// <summary>Into the squad under the first fielded tamer with room; false if every tamer's hands are full.</summary>
     public bool AddToSquad(int id, string tamer = null)
     {
-        if (Away.ContainsKey(id)) return false;
+        if (Away.ContainsKey(id) || Record(id).Steeping) return false;
         if (Squad.Contains(id)) RemoveFromSquad(id);
         tamer ??= Fielded.FirstOrDefault(w => Led(w) < TamerBook.CreaturesEach);
         if (tamer == null || !Fielded.Contains(tamer) || Led(tamer) >= TamerBook.CreaturesEach) return false;
@@ -266,6 +276,8 @@ public sealed class Ranch
     /// </summary>
     public void Tidy()
     {
+        // Class trials won in this save open their classes.
+        ClassBook.TrialDone = id => Flags.Contains(World.TrialBook.Flag(id));
         // Saves from before traits: every creature gets the ones its seed was born with.
         foreach (var rec in Creatures.Where(rec => rec.Traits == null)) { rec.Traits = Classes.TraitBook.Roll(rec.Seed); _cache.Remove(rec.Id); }
         // Saves from before tiers: a creature caught wild whose blood isn't the one its species is born
@@ -550,7 +562,13 @@ public sealed class Ranch
                     Pending = story;
                 }
             }
-            else if (won && mission.Cup == null && mission.Roamer == 0 && mission.Rumour == null) ContractsWon++;
+            else if (won && mission.Cup == null && mission.Roamer == 0 && mission.Rumour == null && mission.Trial == null) ContractsWon++;
+            if (won && mission.Trial is { } trial && World.TrialBook.Get(trial) is { } def && Flags.Add(World.TrialBook.Flag(trial)))
+            {
+                // A trial opens its class, and its side takes note.
+                string shift = World.Standing.Shift(this, def.Side == World.Side.City ? World.TrialBook.Standing : 0, def.Side == World.Side.Undercity ? World.TrialBook.Standing : 0);
+                Report.Add($"Trial won: the {trial} class is open to your creatures. ({shift})");
+            }
             if (mission.Rumour is { } rumour && battle.Target is { Side: Tactics.Side.Player })
             {
                 Flags.Add($"caught:{rumour}");
@@ -584,12 +602,19 @@ public sealed class Ranch
             if ((Items[item] = Items.GetValueOrDefault(item) - n) <= 0) Items.Remove(item);
         int berriesUsed = 3 + battle.BerriesBrought - battle.Berries;
         if (battle.BerriesBrought > 0 && berriesUsed > 3 && (Items[World.ShopBook.Berry] -= berriesUsed - 3) <= 0) Items.Remove(World.ShopBook.Berry);
+        // A Mimic keeps what it learned by watching its foes.
+        foreach (var (u, skill) in battle.Learned)
+            if (u.Side == Tactics.Side.Player && u.Training != null && !battle.Recruited.Contains(u) && !u.Training.Learned.Contains(skill))
+            {
+                u.Training.Learned.Add(skill);
+                Report.Add($"{u.Name} learned {ClassBook.Skill(skill).Name} by watching (Mimic).");
+            }
         // Only your own creatures train here (a rival's are rebuilt for every duel).
         foreach (var u in battle.Units.Where(u => u.Training != null && u.Side == Tactics.Side.Player))
         {
             // A favoured class (body-plan affinity) trains half again as fast.
             int jp = 12 + (u.Gone ? 0 : 4) + (battle.Winner == Tactics.Side.Player ? 4 : 0);
-            jp = (int)(jp * ClassBook.JpRate(u.Creature, u.Training.Class));
+            jp = (int)(jp * ClassBook.JpRate(u.Creature, u.Training.Class) * Classes.TierBook.GrowthRate(u.Creature));
             foreach (var name in u.Training.Earn(jp))
                 Report.Add($"{u.Name} learned {name} ({u.Training.Class}).");
             if (u.Passive is { ChemBonus: > 0 } pick) { Chem += pick.ChemBonus; Report.Add($"{u.Name} pocketed {pick.ChemBonus} chem."); }
@@ -600,6 +625,15 @@ public sealed class Ranch
         int chem = (battle.Winner == Tactics.Side.Player ? 8 : 2) + 2 * fled;
         Chem += chem;
         Report.Add($"+{chem} chem (now {Chem}).");
+        // Rigs need upkeep: chem for every augment on a creature of yours that fought.
+        int upkeep = battle.Units.Where(u => u.Training != null && u.Side == Tactics.Side.Player && !battle.Recruited.Contains(u))
+            .Sum(u => u.Creature.Augments.Count(a => Classes.AugmentBook.Get(a) != null)) * Classes.TierBook.UpkeepPerRig;
+        if (upkeep > 0)
+        {
+            int paid = System.Math.Min(Chem, upkeep);
+            Chem -= paid;
+            Report.Add($"Rig upkeep: -{paid} chem{(paid < upkeep ? " (all you had)" : "")}.");
+        }
         var before = new HashSet<string>(Codex);
         foreach (var u in battle.Units.Where(Foe)) Lab.Learn(this, u.Creature);
         var found = Codex.Except(before).Select(k => k.Replace(".", ": ")).ToList();
@@ -612,7 +646,7 @@ public sealed class Ranch
             Record(id).Training = new Training { Class = DefaultClass(u.Creature), Innate = ClassBook.WildSkill(u.Creature) };
             joined.Add(id);
         }
-        foreach (var r in Creatures) r.Rested = true;
+        foreach (var r in Creatures) { r.Rested = true; r.Steeping = false; }
         // A beaten pack is gone. A battle takes a day: packs roam on, whoever's dispatch is done comes home.
         if (battle.Winner == Tactics.Side.Player && mission?.Roamer is > 0 and var roamer) Wanderers.RemoveAll(w => w.Id == roamer);
         Day++;

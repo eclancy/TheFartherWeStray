@@ -175,8 +175,16 @@ needed):
 | Conjurer | Mystic + Howler | Cinder Drake, Storm Roc, Grove Stag: the ghost of a great beast rises over an area, striking only foes there (or healing only friends) |
 | Mesmer | Mystic + Rogue | Fever Dream, Winter Trance, Night Terrors: illusions that strike every foe on the field at once |
 | Reaper | Rogue + Hunter | Death Mark (the foe falls after 3 of its turns unless cleansed), Last Breath (a strike that may finish a foe under a quarter of its HP), Sleep Dart (sleeps up to 2 turns; a hit wakes it) |
+| Mimic | Mystic + Hunter | Copycat, Mock, Study; and it learns any skill a foe uses on it, to use as a Mimic |
+| Horologist | Mystic + Tinker | Haste, Stop (frozen 2 turns, hits don't free it), Quicken (an ally goes next) |
+| Saboteur | Tinker + Rogue | Scatter Charge, Flash Powder, Mender Mist: gadgets that hit every foe or every ally, on a coin flip |
+| Skinchanger | Brawler + Mystic | Mirror Shape (a foe's species ability for 3 turns), Beast Shape, Wisp Shape |
 
-**Reactions** (FFTA's R-abilities) fire when the creature is attacked: Counter (Brawler), Sidestep (Skirmisher), Bodyguard (Guardian), Spell Ward (Mystic), Adrenal Gland (Alchemist), Shock Plating (Tinker), Return Fire (Hunter), Rallying Cry (Howler), Dirty Retort (Rogue), Protector (Lionheart), Shard Burst (Geomancer), Premonition (Seer), Brace (Cavalier), Blur (Phantom), Riposte (Champion), Spirit Ward (Conjurer), Mirror Image (Mesmer), Slip Away (Reaper).
+Each signature class opens only after its **trial**, a mission on the map at a place of its side
+(the city above: Conjurer, Mesmer, Mimic, Horologist; the undercity: Reaper, Saboteur,
+Skinchanger). Winning one also raises your standing with that side.
+
+**Reactions** (FFTA's R-abilities) fire when the creature is attacked: Counter (Brawler), Sidestep (Skirmisher), Bodyguard (Guardian), Spell Ward (Mystic), Adrenal Gland (Alchemist), Shock Plating (Tinker), Return Fire (Hunter), Rallying Cry (Howler), Dirty Retort (Rogue), Protector (Lionheart), Shard Burst (Geomancer), Premonition (Seer), Brace (Cavalier), Blur (Phantom), Riposte (Champion), Spirit Ward (Conjurer), Mirror Image (Mesmer), Slip Away (Reaper), Mirror Strike (Mimic), Rewind (Horologist), Booby Trap (Saboteur), Shed Skin (Skinchanger).
 
 **Blood classes** (master one base class, and carry the strain):
 
@@ -210,7 +218,8 @@ off, and 5 for each creature you release.
 - **Augments:** bought at undercity shops and fitted here, two to a creature, never inherited.
   Four mechanical (Piston Fist, Rivet Gun, Lens Visor, Crystal Core), four chemical (Acid
   Canister, Chem Veins, Strobe Tips, Drip Feed) and four steamwork (Gear Grinder, Steam Pistons,
-  Smokestack, Pressure Pipes); each bolts on its brass, neon or steam work and teaches an attack.
+  Smokestack, Pressure Pipes), and two that change how it moves (Gear Wings to fly, Grapple Claws
+  to climb); each bolts on its brass, neon or steam work and teaches an attack.
   Clockwork creatures are often born with steamwork of their own: turning cogs, pumping pistons,
   a steaming stack, copper pipes and a pressure gauge.
 - **Traits** aren't made here: creatures are born with them (Keen Nose, Quick Healer, Stout...) and
@@ -234,9 +243,12 @@ A creature goes by the most extreme thing done to it, shown as a chip on the pen
   grafted on. Its line carries the abilities, and a spliced ability opens that kind's class too
   (the hydra's opens the Hydrarch).
 - **Rigged:** augments bolted on, each an attack no natural creature can learn.
-- **Abomination:** infused, a chimera and rigged, all at once.
+- **Abomination:** infused, a chimera and rigged, all at once. It gets a perk of its own (big
+  stats) with an unstable cost: now and then it lashes out at an ally beside it, or misfires.
 
-Any of these ends the thoroughbred bonus. Breeding natural creatures together keeps them
+Any of these ends the thoroughbred bonus. Altering costs more than chem, too: a new infusion
+steeps, so the creature sits out the next battle; every rig costs upkeep after each battle; and
+rigged creatures learn slower. Breeding natural creatures together keeps them
 thoroughbreds and pleases the city above; infusions, chimeras and augments are undercity work.
 
 ### Mission board and regions

@@ -94,9 +94,25 @@ Cold Blood (+10% to hit, more damage to the wounded) and Slip Away (retreat) for
 `--signatures` proves each mechanic; `--battle=3 --fxdemo=signature` shows the summons and an
 illusion.
 
-**Open:** more of FFTA's signatures in this game's skin (a blue mage that learns foes' skills, a
-time mage, a gadgeteer's random effects, a morpher), and whether these three should need a part or
-a tier (the Reaper for the undercity, say).
+Four more after FFTA's blue mage, time mage, gadgeteer and morpher (the user's yes, 2026-11-02):
+
+| Class | Base skills | Plays as | Skills | Mechanic |
+|---|---|---|---|---|
+| **Mimic** | Mystic + Hunter | blue mage | Copycat (x0.9, steals boosts), Mock (ATK and DEF -2), Study (harder to hit, SPD +1) | learns any skill a foe uses on it while it trains as a Mimic (main or secondary), kept after the battle (`Training.Learned`, `Battle.Learned`) and usable as a Mimic |
+| **Horologist** | Mystic + Tinker | time mage | Haste (SPD +4), Stop, Quicken | `Stop` (frozen for 2 of its turns; hits don't free it), `Quicken` (the ally goes next) |
+| **Saboteur** | Tinker + Rogue | gadgeteer | Scatter Charge (x0.8), Flash Powder (40% stun), Mender Mist (heal 25%) | `Gamble`: a coin flip sends each gadget at every foe or every ally (a heal the other way round); Loaded Dice (`Lucky`) tips it to 3 in 4 |
+| **Skinchanger** | Brawler + Mystic | morpher | Mirror Shape, Beast Shape (ATK +3, DEF +2, SPD -1), Wisp Shape (harder to hit, MOVE +1) | `CopyForm`: a foe's form ability is its own for 3 turns (`Unit.Borrowed`) |
+
+**Trials (the user's call, 2026-11-02):** certain classes open only once a certain mission is won,
+and that mission moves your standing toward its side. All seven signature classes have one
+(`ClassDef.Trial`, `World/Trials.cs`), on the map once its place is open: the Conjurer's in the
+Gilded Gardens, the Mesmer's on the Brass Bridges, the Mimic's at the coliseum and the
+Horologist's at the Clocktower Ruins (the city above, +5 city standing); the Reaper's on Lantern
+Row, the Saboteur's at the Foundry and the Skinchanger's in the Glowmire (the undercity, +5).
+A locked class's hint names its trial. `ClassBook.TrialDone` reads the save in play; tests and
+rivals have every class open. The trials' titles and words are placeholders for the story.
+
+**Open:** which other classes should need a trial; the trials' story.
 
 ## How it plays
 

@@ -40,6 +40,21 @@ upkeep or a cap on growth; none of those is built.
 - [ ] Find a title that fits the look (not steampunk, not hacking), perhaps by naming the
   creatures as a whole first.
 
+**Title ideas, round 2 (Claude's suggestions, 2026-11-02, for the industrial fantasy theme; not the user's picks yet):**
+- The two cities: *Gilt & Smog* (the gold above, the haze below), *Crown and Gutter* (royal city
+  against the undercity, harsher). *Above and Below* is still the user's favourite, but a 2015
+  board game has that name.
+- The creatures and what's done to them: *The Farther We Stray* (the user's theme; strays, and how
+  far you alter them), *Thoroughbreds & Abominations* (the two ends of the tier ladder), *Tincture
+  & Talon* (alchemy meets beast), *Menagerie* (the collection, a little theatrical).
+- The tamer: *Beastwright* (one who makes beasts: breeds, splices, rigs), *Tamers of Gilt and Smog*.
+- Avoid: *Stray* alone (a well-known 2022 game), *Bloodlines* (Vampire: The Masquerade), *Quickening*
+  (Final Fantasy XII's term).
+- A name for the creatures as a whole: *Familiars* (an alchemist's companion, fits the age),
+  *Kindred* (warm, fits bloodlines), *Brood* (darker), *Quicklings* (alchemy's "quick": alive),
+  *Mongrels* (rough, fits strays and crossbreeding). Or none: they go by their tier (strays,
+  thoroughbreds, chimeras...).
+
 **Open:**
 - [ ] A title: one of the above, or keep Creature Tactics?
 
@@ -56,9 +71,13 @@ upkeep or a cap on growth; none of those is built.
   with small trade-offs; maybe through something like an equipment panel).
 - **A chimera can have the abilities of different species.**
 - **Rigging gives abilities no natural creature can have.**
-- **Stray:** a creature nobody has caught.
+- **Stray:** a creature nobody has caught, and **the game calls them strays** (2026-11-02).
 - The undercity goes with rigs, chemicals and experimentation; the city above with breeding and
   keeping creatures natural and purebred.
+- **An abomination gets a perk of its own, with an unstable cost** (2026-11-02).
+- **Altering costs more than chem** (2026-11-02, the call's first draft, all three): a new
+  infusion takes a battle to settle, rigs need upkeep, rigged creatures grow slower.
+- **Rigs that change how a creature moves** (2026-11-02): yes.
 
 **Built** (`Classes/Tiers.cs`: `TierBook`, `InfusionBook`), on the lab and breeding as they were:
 - **The thoroughbred bonus, from its species** (`TierBook.ThoroughbredOf`): its form's ability (each
@@ -97,15 +116,25 @@ upkeep or a cap on growth; none of those is built.
 - **Old saves.** Creatures caught wild and given new blood at the lab are found and marked infused
   (their species, regenerated from its seed, has other blood). Ones bred before tiers can't be told
   apart and stay as they are.
-- `--tiers` checks it all headless (every form has an ability of its own).
+- **The abomination's perk** (`TierBook.Unstable`, on top of its chimera abilities): ATK +3, DEF +2,
+  SPD +1, max HP +10%; but each of its turns, a 25% chance it lashes out at an ally beside it (a
+  basic attack at x0.8) or, with none near, misfires and loses 10% of its max HP
+  (`PassiveDef.Unstable`, at the start of its turn in `Battle.NextTurn`).
+- **The costs.** A new infusion or new blood steeps: out of the squad, it sits out the next battle
+  (`CreatureRecord.Steeping`, cleared after a battle). Every rig costs 3 chem upkeep after each battle
+  its creature fights (`TierBook.UpkeepPerRig`). Rigged creatures learn at 75% of the JP, an
+  abomination at 60% (`TierBook.GrowthRate`). The pens show "steeping" and the learning rate.
+- **Movement rigs:** Gear Wings (it flies, drawn as wings in its own metal, and can Swoop onto a foe
+  up to 3 away) and Grapple Claws (it climbs, and can Grapple a foe 2 tiles closer), at undercity
+  shops (`AugmentDef.Move`, `Creature.MoveType`).
+- **Strays** in the game's words: missions, the snare net, a battle's opening, releasing a creature.
+- `--tiers` checks it all headless (every form has an ability of its own); `--signatures` the
+  abomination's fits.
 
 **Defaulted, open to change:**
-- [ ] The numbers: each form's ability, each element's touch, each infusion's trade-off.
-- [ ] Does an abomination get something of its own (a passive, a look), or is the name enough?
-- [ ] Rigs that change how it moves (wings to fly, climbing claws), from the call's first draft?
-- [ ] Should the tiers bring costs of their own, like the first draft's (an infusion resting a
-  mission, a rig's upkeep, a cap on growth)? None are built.
-- [ ] Call wild creatures strays everywhere? (Now only their tier chip says so.)
+- [ ] The numbers: each form's ability, each element's touch, each infusion's trade-off, the
+  abomination's perk and fits, upkeep, the learning rates.
+- [ ] If upkeep can't be paid it takes what chem there is; should an unpaid rig seize up?
 
 ## Tamers and the party (the user's direction, 2026-11-02)
 

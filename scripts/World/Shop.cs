@@ -63,6 +63,8 @@ public static class ShopBook
         new() { Id = "pressure_pipes", Price = 70, At = new[] { "foundry", "lantern" } },
         new() { Id = "smokestack", Price = 75, At = new[] { "foundry" }, OpenedBy = "main_bridges" },
         new() { Id = "steam_pistons", Price = 95, At = new[] { "foundry" }, OpenedBy = "main_sump" },
+        new() { Id = "grapple_claws", Price = 90, At = new[] { "foundry", "lantern" }, OpenedBy = "main_foundry" },
+        new() { Id = "gear_wings", Price = 140, At = new[] { "foundry" }, OpenedBy = "main_bridges" },
     };
 
     /// <summary>A ware's price at a place: 15% off where that side thinks well of you.</summary>

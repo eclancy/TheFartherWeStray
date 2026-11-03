@@ -67,6 +67,9 @@ upkeep or a cap on growth; none of those is built.
     strays), *Charges*, *Bondlings*.
   - The age's alchemy: *Familiars*, *Quicklings*.
   - Claude's pick: *Foundlings*; *the Kept* for a darker edge.
+  - The user wants it friendly and pet-like, not dark (2026-11-02). Friendlier round: *Pals*,
+    *Buddies*, *Companions*, *Partners*, *Packmates*, *Hearthlings* (they live by your hearth),
+    *Sidekicks*. Claude's picks: *Pals*, or *Hearthlings* to make it the game's own.
 
 ## Creature tiers (the user's design, 2026-11-02; built)
 
@@ -318,7 +321,8 @@ the numbers are in `story-notes.md` ("Built so far"). All wording is placeholder
 ## Traits, augments and names (the user's direction, 2026-11-02; built)
 
 **Decided by the user:**
-- **Players can name their creatures.**
+- **Players can name their creatures.** No automatic nicknames (the user, 2026-11-02): a tamed
+  creature goes by its species' name until the player names it.
 - **More mech and steampunk aspects for creatures** (more brass, gears, pistons and machine parts
   in the sculptor).
 - **Breedable traits:** sensible, biological traits passed on by breeding, coloured as such

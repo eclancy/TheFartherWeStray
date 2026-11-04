@@ -124,6 +124,8 @@ public static class HomeBase
         var map = BattleMap.Custom("Home Base", Terrain, Heights, props, "Ranch");
         foreach (var d in r.Decor)
             if (DecorBook.Get(d.Id) is { } def) map.Put(d.Tile, def.Prop);
+        foreach (var m in r.Machines)
+            if (MachineBook.Get(m.Id) is { } def) map.Put(m.Tile, def.Prop);
         return map;
     }
 

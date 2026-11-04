@@ -18,7 +18,11 @@ public partial class PropFx : Node2D
     public Sprite2D Sprite;   // the prop's own sprite, swapped dark and lit as it flickers
     public ulong Seed;
 
-    public static bool Moves(Prop p, string theme) => p is Prop.BrokenLamp or Prop.Hydrant or Prop.Vent || p == Prop.Neon && theme == "Undercity";
+    public static bool Moves(Prop p, string theme) => p is Prop.BrokenLamp or Prop.Hydrant or Prop.Vent or Prop.Still or Prop.ScrapPress or Prop.BerryBeds
+        || p == Prop.Neon && theme == "Undercity";
+
+    /// <summary>Props that let off steam: a grate, the still's chimney, the press's pipe.</summary>
+    static bool Steams(Prop p) => p is Prop.Vent or Prop.Still or Prop.ScrapPress;
 
     (Texture2D tex, Vector2I anchor) _lit, _dark;
     Color _glow;
@@ -28,6 +32,9 @@ public partial class PropFx : Node2D
     SeededRng _rng;
     Node2D _halo, _ground;
     readonly List<(Vector2 p, Vector2 v, float life)> _bits = new();   // sparks, drops, steam
+    readonly List<(Vector2 p, Vector2 v, float life)> _motes = new();  // bubbles in the still's glass, glints over the beds
+    Vector2 _moteFrom;
+    Color _moteColour;
     readonly List<(Vector2 p, float age)> _rings = new();             // splashes on the puddle
 
     public override void _Ready()
@@ -54,6 +61,11 @@ public partial class PropFx : Node2D
             AddChild(_ground);
         }
         if (Prop == Prop.Vent) _mouth = PropArt.Spot(Variant, PropArt.VentMouth);
+        // The machines (the farmyard's, docs/farmyard-plan.md): steam from the still's chimney and the
+        // press's pipe; bubbles rising in the still's chem; glints drifting up off the glowberries.
+        if (Prop == Prop.Still) { _mouth = PropArt.Spot(Variant, PropArt.StillChimney); _moteFrom = PropArt.Spot(Variant, PropArt.StillGlass); _moteColour = new Color("#7fffb8"); }
+        if (Prop == Prop.ScrapPress) _mouth = PropArt.Spot(Variant, PropArt.PressPipe);
+        if (Prop == Prop.BerryBeds) { _moteFrom = PropArt.Spot(Variant, PropArt.BedsBerries); _moteColour = new Color("#ff8ae0"); }
     }
 
     static ulong H(ulong a, ulong b) => SeededRng.Derive(a, b);
@@ -98,21 +110,30 @@ public partial class PropFx : Node2D
             for (int i = 0; i < 2; i++)
                 if (_rng.Chance(0.75f)) _bits.Add((_nozzle, _jet * _rng.Range(24f, 34f) + new Vector2(_rng.Range(-3f, 3f), _rng.Range(-20f, -12f)), 2f));
         }
-        if (Prop == Prop.Vent)
+        if (Steams(Prop))
         {
             // A puff every few seconds, a few seconds apart, never in step with the next grate.
-            double window = 2.8;
+            double window = Prop == Prop.Still ? 1.8 : 2.8;
             long w = (long)(_t / window);
             double at = H(Seed, (ulong)w) % 1000 / 1000.0 * 1.4;
             double into = _t - w * window;
             if (into >= at && into < at + 0.6 && _rng.Chance(0.4f))
                 _bits.Add((_mouth + new Vector2(_rng.Range(-4f, 4f), _rng.Range(-1f, 1f)), new Vector2(_rng.Range(-3f, 3f), _rng.Range(-16f, -10f)), 1.8f));
         }
+        if (Prop is Prop.Still or Prop.BerryBeds && _rng.Chance(dt * (Prop == Prop.Still ? 4f : 2.2f)))
+            _motes.Add((_moteFrom + new Vector2(_rng.Range(-3f, 3f), _rng.Range(-1f, 2f)), new Vector2(_rng.Range(-1.5f, 1.5f), _rng.Range(-7f, -3f)), Prop == Prop.Still ? 0.6f : 1.4f));
+        for (int i = _motes.Count - 1; i >= 0; i--)
+        {
+            var (p, v, life) = _motes[i];
+            life -= dt;
+            p += v * dt;
+            if (life <= 0) _motes.RemoveAt(i); else _motes[i] = (p, v, life);
+        }
         for (int i = _bits.Count - 1; i >= 0; i--)
         {
             var (p, v, life) = _bits[i];
             life -= dt;
-            if (Prop == Prop.Vent) { v *= 1 - dt * 0.6f; }
+            if (Steams(Prop)) { v *= 1 - dt * 0.6f; }
             else v += new Vector2(0, (Prop == Prop.Hydrant ? 120f : 90f) * dt);
             p += v * dt;
             // Water lands on the street a little below the tile's centre, and rings the puddle.
@@ -132,6 +153,7 @@ public partial class PropFx : Node2D
 
     public override void _Draw()
     {
+        DrawMotes();
         foreach (var (p, v, life) in _bits)
         {
             switch (Prop)
@@ -142,7 +164,7 @@ public partial class PropFx : Node2D
                 case Prop.Hydrant:
                     DrawRect(new Rect2(p.Round(), new Vector2(1, v.Y > 10 ? 2 : 1)), new Color(0.75f, 0.9f, 1f, 0.9f));
                     break;
-                case Prop.Vent:
+                case Prop.Vent or Prop.Still or Prop.ScrapPress:
                 {
                     float age = 1.8f - life, r = 1.5f + age * 3.2f;
                     DrawCircle(p, r, new Color(0.8f, 0.78f, 0.88f, Mathf.Clamp(life / 1.8f, 0, 1) * 0.35f));
@@ -150,6 +172,13 @@ public partial class PropFx : Node2D
                 }
             }
         }
+    }
+
+    /// <summary>The motes are drawn over everything else of the prop's: a pixel each, fading out.</summary>
+    void DrawMotes()
+    {
+        foreach (var (p, _, life) in _motes)
+            DrawRect(new Rect2(p.Round(), Vector2.One), new Color(_moteColour, Mathf.Clamp(life * 2, 0, 1)));
     }
 
     /// <summary>The light's glow while it's on: a halo round the bulb or sign, and a pool on the street below.</summary>

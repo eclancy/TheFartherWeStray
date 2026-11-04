@@ -245,12 +245,14 @@ public partial class CountryScreen : Control
             row.AddThemeConstantOverride("separation", 10);
             // A piece for the farmyard shows as itself, drawn as the yard draws it.
             var decor = DecorBook.OfWare(ware.Id);
+            var machine = MachineBook.OfWare(ware.Id);
             var icon = ware.Id == ShopBook.Berry ? SkillIcons.Action("berry", 2)
                 : decor != null ? Tactics.PropArt.Texture(decor.Prop, 1, "Ranch").tex
+                : machine != null ? Tactics.PropArt.Texture(machine.Prop, 1, "Ranch").tex
                 : AugmentBook.Get(ware.Id) is { } aug ? SkillIcons.Skill(Classes.ClassBook.Skill(aug.Skill), 2)
                 : GearBook.IsGear(ware.Id) ? SkillIcons.Passive(Classes.ClassBook.Passive(ware.Id), 2) : SkillIcons.Skill(Classes.ClassBook.Skill(ware.Id), 2);
             var picture = Ui.Picture(icon, ShopBook.Text(ware.Id));
-            if (decor != null)
+            if (decor != null || machine != null)
             {
                 picture.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
                 picture.StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered;
@@ -259,15 +261,16 @@ public partial class CountryScreen : Control
             }
             row.AddChild(picture);
             var words = new VBoxContainer { CustomMinimumSize = new Vector2(_panelW - 280, 0) };
-            int owned = decor != null ? Ranch.Shed.GetValueOrDefault(decor.Id) : Ranch.Items.GetValueOrDefault(ware.Id);
-            string kind = decor != null ? "  (for the yard)" : AugmentBook.IsAugment(ware.Id) ? "  (augment)" : GearBook.IsGear(ware.Id) ? "  (gear)" : "";
-            words.AddChild(Ui.Text($"{ShopBook.Name(ware.Id)}{kind}{(owned > 0 ? $"   ·   {owned} in the {(decor != null ? "shed" : "bag")}" : "")}", 16, decor != null ? Gold : AugmentBook.IsAugment(ware.Id) ? Cyan : Ink));
+            int owned = decor != null ? Ranch.Shed.GetValueOrDefault(decor.Id) : machine != null ? 0 : Ranch.Items.GetValueOrDefault(ware.Id);
+            bool have = machine != null && Ranching.Farmyard.Owns(Ranch, machine.Id);
+            string kind = machine != null ? (have ? "  (a machine: yours already)" : "  (a machine for the yard)") : decor != null ? "  (for the yard)" : AugmentBook.IsAugment(ware.Id) ? "  (augment)" : GearBook.IsGear(ware.Id) ? "  (gear)" : "";
+            words.AddChild(Ui.Text($"{ShopBook.Name(ware.Id)}{kind}{(owned > 0 ? $"   ·   {owned} in the {(decor != null ? "shed" : "bag")}" : "")}", 16, decor != null || machine != null ? Gold : AugmentBook.IsAugment(ware.Id) ? Cyan : Ink));
             var text = Wrap(ShopBook.Text(ware.Id), 13, Dim);
             text.CustomMinimumSize = new Vector2(_panelW - 280, 0);
             words.AddChild(text);
             row.AddChild(words);
             int price = ShopBook.PriceAt(Ranch, ware, place);
-            var buy = new Button { Text = price < ware.Price ? $"Buy  {price} (-15%)" : $"Buy  {price}", FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(150, 40), Disabled = !here || Ranch.Chem < price };
+            var buy = new Button { Text = price < ware.Price ? $"Buy  {price} (-15%)" : $"Buy  {price}", FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(150, 40), Disabled = !here || Ranch.Chem < price || have };
             var w = ware;
             buy.Pressed += () => { _status.Text = Ranch.Buy(w); Ranch.Save(); Audio.Sound.Play("confirm"); OpenShop(place); };
             row.AddChild(buy);

@@ -72,6 +72,41 @@ which ones are out and about". Plan first, nothing built yet. The decisions mark
 - **The checks:** `--basetest` grows to 33 checks. It also writes `user://yard_show.json`, a
   yard with six beasts out and nine pieces, for screenshots (`--save=yard_show`).
 
+**Phase 3, machines (built 2026-11-03).**
+
+- **The machines** (`World/Machines.cs`, `MachineBook`; new props `Still`, `BerryBeds`,
+  `ScrapPress`, drawn 1.7 times the size of street furniture; the beds 1.4):
+
+  | Machine | Makes, a day (L1 / L2 / L3) | Holds | Sold at | Price |
+  |---|---|---|---|---|
+  | Chem still | 3 / 5 / 8 chem | 15 / 30 / 50 | Lantern Row | 90 |
+  | Glowberry beds | a berry every other day / 1 / 1, plus a tonic every 4 days at L3 | 4 / 6 / 8 (tonics 2) | Gilded Gardens, the coast, the hollow | 60 |
+  | Scrap press | 2 / 3 / 5 scrap | 10 / 20 / 30 | Lantern Row, the Foundry | 70 |
+
+  The still makes chem, the plan's proposal; that question was left open, and it's one line of
+  data to change.
+- **One of each** per yard. You buy it at the shop into the shed, put it out at the workbench,
+  and move it there later; it keeps its level and hopper, and B leaves it where it was. Machines
+  never go back in the shed.
+- **Filling.** Hoppers fill each game day: a battle, or a road travelled (`Farmyard.PassDay`,
+  beside `Roaming.PassDay`). A share under one builds up over the days, and a full hopper stops.
+- **At the machine.** Walk up and press A (or click it) for its panel: what it makes and holds,
+  the hopper, Collect (first, so A, A takes it), Upgrade and Close.
+  - Collecting puts chem and scrap in the ranch, and glowberries and tonics in the bag.
+  - Upgrades cost chem and scrap: the still 50 + 10, then 100 + 25; the beds 40 + 8, then 80 + 20;
+    the press 40, then 90 + 15.
+- **Scrap** is a new count (`Ranch.Scrap`) on the base's top bar.
+- **The yard.** A label over each machine says what's in its hopper (gold, "full", when full).
+  The still lets off steam and bubbles green, the press puffs steam, and the beds glint pink
+  (`PropFx`). Beasts out and about sit by the machines too.
+- **The checks:** `--basetest` grows to 52 checks. `--save=yard_show` now has all three
+  machines, part full. `--machine=ID` walks to a machine and opens it.
+- **Not yet:**
+  - The net loom, the draught kettle and the water wheel.
+  - 2 x 2 machines.
+  - Crafting from scrap.
+  - Station upgrades (phase 4).
+
 ## Where it starts
 
 - The base is `Ranch/HomeBase.cs`: three handmade 16 x 14 string grids (terrain, heights,
@@ -305,7 +340,7 @@ are already an open idea. Both come after the rest.
    dozen pieces from props that exist, and shop stock.
 2. **Beasts out and about** (built): choosing them at the pens, roaming the yard, the things
    they do with the decorations, and the title screen showing them.
-3. **Machines:** the still, the beds and the scrap press, hoppers and collecting, and upgrades.
+3. **Machines** (built): the still, the beds and the scrap press, hoppers and collecting, and upgrades.
 4. **Station upgrades:** levels, scaffolding while they build, the effects, and the check with
    `--country`.
 5. **Restyle:** house, fence, path and lamp choices, tints, kits and your emblem.
@@ -322,7 +357,8 @@ are already an open idea. Both come after the rest.
 - [x] Placing: **anywhere free**, as long as everything stays reachable (the user, 2026-11-03).
 - [ ] Are the gilded and undercity kits gated by standing, and does the yard showing where you
   lean matter to the story?
-- [ ] Can a machine make chem, or only goods, to keep chem coming from jobs?
+- [ ] Can a machine make chem, or only goods, to keep chem coming from jobs? (Built as proposed:
+  the still makes a little chem, 3 to 8 a day.)
 - [ ] The station upgrade effects in the table, row by row (the pens' and the yard's add rules
   the game doesn't have yet).
 - [ ] How many beasts can be out at once (six to start?), and can squad beasts be out too

@@ -123,6 +123,8 @@ public sealed class Ranch
     public List<PlacedDecor> Decor = new();
     public Dictionary<string, int> Shed = new();
     public List<int> Out = new();   // beasts out and about in the yard (picked at the pens; never the squad)
+    public List<PlacedMachine> Machines = new();  // machines out in the yard, filling their hoppers a day at a time
+    public int Scrap;                             // made by the scrap press, for upgrading machines
 
     readonly Dictionary<int, Creature> _cache = new();
 
@@ -309,6 +311,7 @@ public sealed class Ranch
         Decor ??= new();
         Shed ??= new();
         Out ??= new();
+        Machines ??= new();
         Farmyard.Starter(this);
         Farmyard.Tidy(this);
         Wanderers.RemoveAll(w => !World.Roaming.Roams(this, w.At));
@@ -340,8 +343,14 @@ public sealed class Ranch
     {
         if (!ware.At.Contains(Location)) return $"{World.ShopBook.Name(ware.Id)} is sold at {string.Join(" or ", ware.At.Select(a => World.Country.Get(a).Name))}.";
         int price = World.ShopBook.PriceAt(this, ware, Location);
+        if (World.MachineBook.OfWare(ware.Id) is { } owned && Farmyard.Owns(this, owned.Id)) return $"You have a {owned.Name} already: one of each in the yard.";
         if (Chem < price) return $"Not enough chem: {World.ShopBook.Name(ware.Id)} costs {price}.";
         Chem -= price;
+        if (World.MachineBook.OfWare(ware.Id) is { } machine)
+        {
+            Shed[machine.Id] = 1;
+            return $"Bought a {machine.Name} for {price} chem: it's in the shed. Put it out at the workbench, and it fills a little every day.";
+        }
         if (World.DecorBook.OfWare(ware.Id) is { } decor)
         {
             Shed[decor.Id] = Shed.GetValueOrDefault(decor.Id) + 1;
@@ -487,6 +496,7 @@ public sealed class Ranch
     {
         Day++;
         World.Roaming.PassDay(this);
+        Farmyard.PassDay(this);
         Location = next;
         return Wanderers.FirstOrDefault(w => w.At == next);
     }
@@ -731,6 +741,7 @@ public sealed class Ranch
         if (battle.Winner == Tactics.Side.Player && mission?.Roamer is > 0 and var roamer) Wanderers.RemoveAll(w => w.Id == roamer);
         Day++;
         World.Roaming.PassDay(this);
+        Farmyard.PassDay(this);
         Report.AddRange(ReturnDispatches());
         var party = Party.Select(w => w.Id).ToHashSet();
         Encounter++;

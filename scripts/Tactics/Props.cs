@@ -20,6 +20,8 @@ public enum Prop
     // The farmyard's workbench, where you decorate (docs/farmyard-plan.md). New props go last: a prop's
     // look is seeded by its place in this list.
     Workbench,
+    // The farmyard's machines (docs/farmyard-plan.md, part 3): they move (PropFx).
+    Still, BerryBeds, ScrapPress,
 }
 
 /// <summary>
@@ -102,6 +104,10 @@ public static class PropArt
 
     // Where the moving props' effects come from, on the model (see Spot).
     public static readonly Vector3 LampBulb = new(4.6f, 1.2f, 18.6f), HydrantLeak = new(0, -3.1f, 5.2f), VentMouth = new(0, 0, 0.8f), NeonPanel = new(0.5f, 0, 18);
+    // The machines' moving parts: the still's chimney and its glass of chem, the press's steam pipe, the beds' berries.
+    public const float MachineSize = 1.7f, BedsSize = 1.4f;   // the machines stand bigger than the street furniture
+    public static readonly Vector3 StillChimney = new Vector3(-1.6f, 0, 20.6f) * MachineSize, StillGlass = new Vector3(3.2f, 0, 6.6f) * MachineSize,
+        PressPipe = new Vector3(-1.2f, 3.6f, 18.2f) * MachineSize, BedsBerries = new Vector3(0, 0, 5.2f) * BedsSize;
 
     static void Build(PixelCanvas c, Prop p, int variant, float k, SeededRng rng, string theme, bool lit)
     {
@@ -330,6 +336,70 @@ public static class PropArt
                 c.Box(V(-1.0f, -0.5f, 6.95f), V(2.4f, 0.7f, 0.2f), Mat.Main, P(), 0.15f);
                 break;
             }
+            case Prop.Still:
+            {
+                // A chem still: a fat copper boiler on a brick hearth with a chimney, a coil over to a tall
+                // glass condenser half full of green chem, and a tap. Machines stand big in the yard.
+                k *= MachineSize;
+                c.Box(V(0, 0, 1.5f), V(5.2f, 4.0f, 1.5f), Mat.Accent, part);
+                c.Tube(new[] { V(-1.6f, 0, 3.0f), V(-1.6f, 0, 12.5f) }, 3.6f * k, 3.6f * k, Mat.Main, P());
+                c.Sphere(V(-1.6f, 0, 12.5f), 3.6f * k, Mat.Main, P(), 0, 12.5f * k);
+                foreach (float z in new[] { 5.0f, 10.0f })
+                {
+                    var band = new List<Vector3>();
+                    for (int i = 0; i <= 16; i++) band.Add(V(-1.6f + Mathf.Cos(i / 16f * Mathf.Tau) * 3.7f, Mathf.Sin(i / 16f * Mathf.Tau) * 3.7f, z));
+                    c.Tube(band, 0.4f * k, 0.4f * k, Mat.Metal, P());
+                }
+                c.Tube(new[] { V(-1.6f, 0, 15.6f), V(-1.6f, 0, 20.5f) }, 1.0f * k, 0.9f * k, Mat.Metal, P());
+                c.Tube(new[] { V(-1.6f, 0, 15.0f), V(0.8f, 0, 16.2f), V(3.2f, 0, 13.4f), V(3.2f, 0, 12.0f) }, 0.55f * k, 0.55f * k, Mat.Metal, P());
+                c.Tube(new[] { V(3.2f, 0, 3.0f), V(3.2f, 0, 11.8f) }, 2.2f * k, 2.2f * k, Mat.Membrane, P(), 0.25f);
+                c.Tube(new[] { V(3.2f, 0, 3.2f), V(3.2f, 0, 8.0f) }, _ => 1.95f * k, glow, P(), 0.1f, 0, lit);
+                c.Tube(new[] { V(3.2f, -2.1f, 4.0f), V(3.2f, -3.4f, 3.4f) }, 0.4f * k, 0.4f * k, Mat.Metal, P());
+                break;
+            }
+            case Prop.BerryBeds:
+            {
+                // Glowberry beds: a raised wooden bed of dark soil, three bushes heavy with glowing
+                // berries, and a cold frame's glass leaning at the back.
+                k *= BedsSize;
+                c.Box(V(0, 0, 1.4f), V(4.4f, 3.2f, 1.4f), Mat.Second, part);
+                c.Box(V(0, 0, 2.9f), V(4.0f, 2.8f, 0.2f), Mat.Accent, P(), -0.2f);
+                foreach (var (x, y, r) in new[] { (-2.4f, -0.8f, 1.9f), (0.3f, 0.9f, 2.0f), (2.6f, -0.5f, 1.8f) })
+                    c.Ellipsoid(V(x, y, 4.4f), new Vector3(0, 0, 1), r * k, r * k, 1.6f * k, Mat.Main, P());
+                foreach (var (x, y, z) in new[] { (-2.8f, -1.9f, 4.9f), (-1.6f, -1.2f, 5.6f), (0.2f, -0.6f, 5.2f), (1.0f, 0.2f, 6.0f), (2.2f, -1.6f, 4.8f), (3.2f, -0.2f, 5.4f), (-0.6f, 1.4f, 5.9f) })
+                    c.Sphere(V(x, y, z), 0.5f * k, glow, P(), 0.2f, 0, lit);
+                c.Box(V(0, 3.0f, 5.0f), V(4.3f, 0.15f, 2.4f), Mat.Membrane, P(), 0.3f);
+                c.Tube(new[] { V(-4.3f, 3.0f, 2.8f), V(-4.3f, 3.0f, 7.4f) }, 0.3f * k, 0.3f * k, Mat.Second, P());
+                c.Tube(new[] { V(4.3f, 3.0f, 2.8f), V(4.3f, 3.0f, 7.4f) }, 0.3f * k, 0.3f * k, Mat.Second, P());
+                break;
+            }
+            case Prop.ScrapPress:
+            {
+                // A scrap press: a heavy iron frame with a piston and a press plate over a crushed block,
+                // a flywheel at its side, a pile of salvage, and a pipe that lets off steam.
+                k *= MachineSize;
+                c.Box(V(0, 0, 1.0f), V(4.8f, 3.6f, 1.0f), Mat.Metal, part);
+                foreach (float y in new[] { -3.6f, 3.6f }) c.Tube(new[] { V(0, y, 1.8f), V(0, y, 15.0f) }, 1.0f * k, 1.0f * k, Mat.Metal, part);
+                c.Box(V(0, 0, 15.0f), V(1.4f, 4.4f, 1.1f), Mat.Accent, P(), 0.1f);
+                c.Tube(new[] { V(0, 0, 13.9f), V(0, 0, 8.6f) }, 1.2f * k, 1.2f * k, Mat.Metal, P(), 0.2f);
+                c.Box(V(0, 0, 8.0f), V(3.0f, 3.0f, 0.6f), Mat.Accent, P());
+                c.Box(V(0, 0, 3.0f), V(2.6f, 2.4f, 1.1f), Mat.Main, P(), -0.05f);
+                var hub = V(-2.6f, -4.6f, 8.0f);
+                var wheel = new List<Vector3>();
+                for (int i = 0; i <= 20; i++) wheel.Add(hub + new Vector3(Mathf.Cos(i / 20f * Mathf.Tau), 0, Mathf.Sin(i / 20f * Mathf.Tau)) * 4.0f * k);
+                int fly = P();
+                c.Tube(wheel, 0.6f * k, 0.6f * k, Mat.Second, fly);
+                for (int i = 0; i < 4; i++)
+                {
+                    var d = new Vector3(Mathf.Cos(i / 4f * Mathf.Tau), 0, Mathf.Sin(i / 4f * Mathf.Tau));
+                    c.Tube(new[] { hub, hub + d * 4.0f * k }, 0.35f * k, 0.35f * k, Mat.Second, fly);
+                }
+                foreach (var (x, y, z, r) in new[] { (4.8f, 2.6f, 1.4f, 1.5f), (5.6f, 0.8f, 1.0f, 1.1f), (3.8f, 4.2f, 0.9f, 1.0f) })
+                    c.Sphere(V(x, y, z), r * k, Mat.Main, P());
+                c.Box(V(5.4f, 2.4f, 2.8f), V(1.0f, 0.6f, 0.5f), Mat.Metal, P(), 0.1f);
+                c.Tube(new[] { V(-1.2f, 3.6f, 12.0f), V(-1.2f, 3.6f, 18.2f) }, 0.6f * k, 0.6f * k, Mat.Metal, P());
+                break;
+            }
             case Prop.Vent:
             {
                 // A street grate, flush with the ground: slots over the dark (the steam is PropFx's).
@@ -505,6 +575,9 @@ public static class PropArt
             Prop.Trough => PaletteSpec.FromHex("#c8b060", "#7a5a3a", stone, water, glow),
             Prop.Scaffold => PaletteSpec.FromHex("#7a6a5a", "#8a6a44", "#6b4a32", water, glow),
             Prop.Workbench => PaletteSpec.FromHex("#c8a870", "#7a5432", "#5a4a3a", water, glow),
+            Prop.Still => PaletteSpec.FromHex("#c07a3a", "#6b4a32", "#8a4436", "#bfe6e0", "#4ff0a0"),
+            Prop.BerryBeds => PaletteSpec.FromHex("#3f6e45", "#7a5432", "#3a2e24", "#d8eef0", "#ff5fd2"),
+            Prop.ScrapPress => PaletteSpec.FromHex("#8a5a3a", "#5a4a3a", "#6a6670", "#9a96a6", glow),
             _ => PaletteSpec.FromHex(leaves, bark, stone, water, glow),
         };
         return spec.Build();

@@ -443,6 +443,14 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   `--update-screen=9.9.9`, `--update-banner=9.9.9`, `THEFARTHERWESTRAY_UPDATE_URL`. A release is
   built from what's committed (docs aside). `tools/windows-build.sh` and `android-build.sh` stay
   for one-off builds.
+- **The game's page on ecec.dev** (`ecec.dev/games/the-farther-we-stray`, the user's ask 2026-11-03:
+  its own style, like the other games' pages) is built from the game's own art: `--webkit[=DIR]`
+  (`SpriteLab/WebKit.cs`, headless) writes a stray of every form (a strip of idle, strike, hurt and
+  cast frames and what the battle panel says about it, and the tier it becomes once caught), the
+  Gilt-and-neon frames as nine-slices for CSS border-image, a board tile and every glyph. The page
+  lives in the website's repo (`src/pages/games/the-farther-we-stray/`, the art in
+  `public/games/the-farther-we-stray/`); after changing forms, glyphs or the menu style, export
+  again and copy it there.
 - **The shader cache is off** (`rendering/shader_compiler/shader_cache/enabled=false`): with it on,
   an exported build crashed on every second launch (the cache the first run wrote; found
   2026-11-03, `docs/releasing.md`). Don't turn it back on without testing two launches of an export.

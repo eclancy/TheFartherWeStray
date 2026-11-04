@@ -24,6 +24,7 @@ namespace TheFartherWeStray;
 ///                     --aim aims the first skill at the busiest tile (for screenshots of the skill panel)
 ///   --autobattle=N    run a battle AI-vs-AI headless and print the log
 ///   --shot=N          save frame N to .shots/shot.png and quit
+///   --webkit[=DIR]    write the strays, menu frames and glyphs the game's ecec.dev page shows (headless)
 ///   --ui=NAME         another menu style on every button and panel: plain, gilded, neon, iron (giltneon is
 ///                     the game's; UI/UiSkin.cs, docs/ui-style.md); --uiboard=NAME shows a style's parts side by side
 ///   --export=FILE     write the sheet (or species) as a PNG and quit; works with --headless
@@ -1516,6 +1517,15 @@ public partial class GameRoot : Node
             System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(ppath)!);
             propSheet.SavePng(ppath);
             GD.Print($"wrote {ppath}: {kinds.Length} props x {themes.Length} regions");
+            GetTree().Quit();
+            return;
+        }
+
+        if (args.TryGetValue("webkit", out var webDir))
+        {
+            // What the game's page on ecec.dev shows: strays, menu frames, glyphs (SpriteLab/WebKit.cs).
+            string wdir = webDir == "" ? ProjectSettings.GlobalizePath("res://.shots/webkit") : webDir;
+            SpriteLab.WebKit.Write(wdir, args.TryGetValue("from", out var wfrom) && ulong.TryParse(wfrom, out var wf) ? wf : 9001);
             GetTree().Quit();
             return;
         }

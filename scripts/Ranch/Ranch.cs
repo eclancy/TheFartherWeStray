@@ -119,6 +119,9 @@ public sealed class Ranch
     public string Pending;   // a main mission whose choice is still to be made
     public string Ending;
     public int NextWanderer = 1;
+    // The farmyard (docs/farmyard-plan.md): the pieces put out, and the ones in the shed.
+    public List<PlacedDecor> Decor = new();
+    public Dictionary<string, int> Shed = new();
 
     readonly Dictionary<int, Creature> _cache = new();
 
@@ -153,6 +156,8 @@ public sealed class Ranch
     /// <summary>A fresh ranch with four starters from the DrawPets cast.</summary>
     /// <summary>Set once a save has been brought up to tiers (new ranches start with it).</summary>
     public const string TiersFlag = "save:tiers";
+    /// <summary>Set once a farmyard has had its starter pieces (new ranches get them; old saves once).</summary>
+    public const string DecorFlag = "save:decor";
 
     public static Ranch New()
     {
@@ -167,6 +172,7 @@ public sealed class Ranch
         }
         foreach (var rec in r.Creatures) Lab.Learn(r, r.Get(rec.Id));
         World.Roaming.Spawn(r, new SeededRng(0x60A3)); // a pack is out there from the start
+        Farmyard.Starter(r);
         return r;
     }
 
@@ -294,6 +300,11 @@ public sealed class Ranch
                 _cache.Remove(rec.Id);
             }
         if (World.Country.Get(Location) is not { } here || !World.Country.IsOpen(this, here)) Location = World.Country.Home;
+        // The farmyard: old saves get the starter pieces once, and anything that no longer fits goes back in the shed.
+        Decor ??= new();
+        Shed ??= new();
+        Farmyard.Starter(this);
+        Farmyard.Tidy(this);
         Wanderers.RemoveAll(w => !World.Roaming.Roams(this, w.At));
         // The first pack is out there from the start (old saves get one too).
         if (NextWanderer == 1) World.Roaming.Spawn(this, new SeededRng(0x60A3));
@@ -324,6 +335,11 @@ public sealed class Ranch
         int price = World.ShopBook.PriceAt(this, ware, Location);
         if (Chem < price) return $"Not enough chem: {World.ShopBook.Name(ware.Id)} costs {price}.";
         Chem -= price;
+        if (World.DecorBook.OfWare(ware.Id) is { } decor)
+        {
+            Shed[decor.Id] = Shed.GetValueOrDefault(decor.Id) + 1;
+            return $"Bought a {decor.Name} for {price} chem ({Shed[decor.Id]} in the shed: put it out at the workbench).";
+        }
         Items[ware.Id] = Items.GetValueOrDefault(ware.Id) + 1;
         return $"Bought {World.ShopBook.Name(ware.Id)} for {price} chem ({Items[ware.Id]} in the bag).";
     }

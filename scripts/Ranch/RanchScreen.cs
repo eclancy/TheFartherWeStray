@@ -236,7 +236,7 @@ public partial class RanchScreen : Control
         };
         Flash(Station switch
         {
-            "pens" => $"The pens: pick the squad (S), let up to {Farmyard.MostOut} others out in the yard (Y), name your beasts, or let one go.",
+            "pens" => $"The pens: pick the squad (S), let up to {Farmyard.OutCap(Ranch)} others out in the yard (Y), name your beasts, or let one go.",
             "vats" => Phone.On ? "The vats: put two beasts into the vats (Into vat), then Breed." : "The vats: right-click two beasts into the vats, then Enter to breed.",
             "armory" => "The armory: fit gear from the bag (Gear cycles through it).",
             "yard" => "The training yard: every class this beast could train, and what each still needs.",
@@ -381,7 +381,7 @@ public partial class RanchScreen : Control
         _squadButton.Text = InSquad(id) ? "Leave squad" : "Join squad";
         _yardButton.Text = Ranch.Out.Contains(id) ? "Back to the pen" : "Out in the yard";
         _yardButton.Disabled = InSquad(id);
-        _yardButton.TooltipText = InSquad(id) ? "The squad waits in the pen between battles" : $"Up to {Farmyard.MostOut} beasts roam the yard; the rest stay in the pen";
+        _yardButton.TooltipText = InSquad(id) ? "The squad waits in the pen between battles" : $"Up to {Farmyard.OutCap(Ranch)} beasts roam the yard (more as the pens are built up); the rest stay in the pen";
         _classButton.Text = $"{t.Class}  >";
         _classButton.Icon = Glyphs.Get(SkillIcons.ClassEmblem(t.Class), 1);
         _classButton.TooltipText = "Cycle the main class";

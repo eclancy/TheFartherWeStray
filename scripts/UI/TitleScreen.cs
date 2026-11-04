@@ -63,7 +63,7 @@ public partial class TitleScreen : Control
         _board.AddChild(new Sprite2D { Texture = ImageTexture.CreateFromImage(_art.PaintBoard()), Centered = false });
         PropArt.Place(_board, _map, _art);
         var who = own == null ? Encounter.StarterSquad().Select(x => x.Item1).ToList()
-            : (own.Out.Count > 0 ? own.Out : own.Squad).Where(id => !own.Away.ContainsKey(id)).Select(own.Get).Take(Ranching.Farmyard.MostOut).ToList();
+            : (own.Out.Count > 0 ? own.Out : own.Squad).Where(id => !own.Away.ContainsKey(id)).Select(own.Get).Take(Ranching.Farmyard.OutCap(own)).ToList();
         var yard = Spots(who.Count);
         foreach (var (creature, i) in who.Select((c, i) => (c, i)).Take(yard.Count))
         {

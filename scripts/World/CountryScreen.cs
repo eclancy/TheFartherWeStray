@@ -186,6 +186,7 @@ public partial class CountryScreen : Control
     async Task<bool> WalkTo(string dest, int hunting = 0)
     {
         var route = Country.Route(Ranch, Ranch.Location, dest) ?? new List<string> { dest };
+        int road = 0;
         foreach (var stop in route.Skip(1))
         {
             var tween = CreateTween();
@@ -193,7 +194,7 @@ public partial class CountryScreen : Control
                 .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
             await ToSignal(tween, Tween.SignalName.Finished);
             Audio.Sound.Play("step", 1.2f);
-            if (Ranch.TravelStep(stop) is { } met)
+            if (Ranch.TravelStep(stop, road++ < Ranching.Farmyard.Carts(Ranch)) is { } met)
             {
                 Ranch.Save();
                 if (met.Id != hunting)

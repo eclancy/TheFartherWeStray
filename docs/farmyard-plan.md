@@ -105,7 +105,37 @@ which ones are out and about". Plan first, nothing built yet. The decisions mark
   - The net loom, the draught kettle and the water wheel.
   - 2 x 2 machines.
   - Crafting from scrap.
-  - Station upgrades (phase 4).
+
+**Phase 4, station upgrades (built 2026-11-03).**
+
+- **Building one up.** At the workbench, put the cursor on a station and press A (or click it).
+  The panel shows its three levels and what each does, the next one's price, and Build.
+  - Every station but the workbench goes to level 3.
+  - Level 2 costs 120 chem and 15 scrap, level 3 costs 240 and 40 (`HomeBase.UpgradeCosts`).
+  - **It's built at once** (the user's call, 2026-11-03, changed from the plan's days in
+    scaffolding).
+- **What each level does** (`StationDef.Upgrades`, the effects in `Farmyard`; the user picked the
+  pens', the yard's and the war table's):
+
+  | Station | Level 2 | Level 3 |
+  |---|---|---|
+  | Gate | a cart: the first road of every trip takes no day | a second cart: the first two roads |
+  | Pens | room for 9 beasts out in the yard | room for 12 |
+  | Training yard | beasts at home earn a quarter of the squad's JP each battle | half |
+  | Armory | 4 glowberries packed for every battle | 5 |
+  | Breeding vats | children are born rested | parents don't need to rest either |
+  | War table | dispatches pay a quarter more chem | and come back a day sooner |
+  | Lab | grafts, infusions and splices 10% cheaper | 20% cheaper |
+
+  None of them touch battle stats.
+- **The save:** `Ranch.Levels` (station id to level). A station's label says its level from 2 up.
+- **The checks:** `--basetest` grows to 64 checks:
+  - no chem, the top level, the workbench, a station not built yet;
+  - the pens' cap, the armory's glowberries in a real battle, the lab's prices;
+  - the vats' rested parents and child, the war table's dispatch;
+  - the gate's cart on the road, the yard's JP after a played battle;
+  - save and load.
+- **Not yet:** each level's own look (the bigger barn, more vats, lit windows).
 
 ## Where it starts
 
@@ -172,10 +202,10 @@ which ones are out and about". Plan first, nothing built yet. The decisions mark
 
 ### 2. Upgrade the stations
 
-- Each station gets **levels 1-3**. An upgrade costs chem, plus materials if machines make
-  them (part 3), and **takes days to build**: the station stands in scaffolding until it's done,
-  which the art already has (`Prop.Scaffold`). Each level changes how it looks: a bigger
-  barn, more vats, lit windows, a sign.
+- Each station gets **levels 1-3**. An upgrade costs chem and scrap, which the machines make
+  (part 3). It's **built at once**: the user's call on 2026-11-03, replacing days in scaffolding.
+  Each level should change how it looks, with a bigger barn, more vats, lit windows or a sign,
+  but that isn't built yet.
 - Prices: 100-250 chem a level.
 - **Effects stay on the loop, never on battle stats** (decided by the user, 2026-11-03).
   Online PvP brings your own squad, so a bigger farm must not mean stronger beasts. Proposed,
@@ -341,7 +371,7 @@ are already an open idea. Both come after the rest.
 2. **Beasts out and about** (built): choosing them at the pens, roaming the yard, the things
    they do with the decorations, and the title screen showing them.
 3. **Machines** (built): the still, the beds and the scrap press, hoppers and collecting, and upgrades.
-4. **Station upgrades:** levels, scaffolding while they build, the effects, and the check with
+4. **Station upgrades** (built): levels, built at once, the effects, and the check with
    `--country`.
 5. **Restyle:** house, fence, path and lamp choices, tints, kits and your emblem.
 6. **Specials:** beast statues, trophies, more land.
@@ -359,8 +389,12 @@ are already an open idea. Both come after the rest.
   lean matter to the story?
 - [ ] Can a machine make chem, or only goods, to keep chem coming from jobs? (Built as proposed:
   the still makes a little chem, 3 to 8 a day.)
-- [ ] The station upgrade effects in the table, row by row (the pens' and the yard's add rules
-  the game doesn't have yet).
+- [x] The station upgrade effects (the user, 2026-11-03):
+  - the pens make room for more beasts out;
+  - the yard trains the beasts at home;
+  - the war table pays more, then brings them back sooner;
+  - the rest as proposed;
+  - built at once, not over days.
 - [ ] How many beasts can be out at once (six to start?), and can squad beasts be out too
   between battles?
 

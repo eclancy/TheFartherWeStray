@@ -84,7 +84,7 @@ public static class Lab
     public static string GraftPart(Ranch ranch, int id, string slot, int value)
     {
         var rec = ranch.Record(id);
-        var cost = SlotOf(slot).Cost;
+        var cost = Farmyard.LabPrice(ranch, SlotOf(slot).Cost);
         if (Get(rec.Parts, slot) == value) return "It already has that.";
         if (ranch.Chem < cost) return $"Not enough chem: a {slot.ToLowerInvariant()} graft costs {cost}.";
         var before = Classes.TierBook.Of(ranch.Get(id));
@@ -101,7 +101,8 @@ public static class Lab
     public static string Infuse(Ranch ranch, int id, Strain strain)
     {
         var rec = ranch.Record(id);
-        var (_, _, cost) = Infusions.First(i => i.strain == strain);
+        var (_, _, listed) = Infusions.First(i => i.strain == strain);
+        int cost = Farmyard.LabPrice(ranch, listed);
         if (rec.Species.Strain != Strain.Natural) return "Only a natural creature can take an infusion.";
         if (ranch.Chem < cost) return $"Not enough chem: an infusion costs {cost}.";
         var before = Classes.TierBook.Of(ranch.Get(id));
@@ -123,16 +124,17 @@ public static class Lab
         var p = Classes.InfusionBook.Get(infusion);
         if (p == null) return "There's no such infusion.";
         if (rec.Infusions.Contains(infusion)) return $"{rec.Name} already has {p.Name} in it.";
-        if (ranch.Chem < Classes.InfusionBook.Cost) return $"Not enough chem: an infusion costs {Classes.InfusionBook.Cost}.";
+        int brew = Farmyard.LabPrice(ranch, Classes.InfusionBook.Cost);
+        if (ranch.Chem < brew) return $"Not enough chem: an infusion costs {brew}.";
         var before = Classes.TierBook.Of(ranch.Get(id));
-        ranch.Chem -= Classes.InfusionBook.Cost;
+        ranch.Chem -= brew;
         string washed = null;
         if (rec.Infusions.Count >= Classes.InfusionBook.Slots) { washed = Classes.InfusionBook.Get(rec.Infusions[0])?.Name; rec.Infusions.RemoveAt(0); }
         rec.Infusions.Add(infusion);
         Steep(ranch, id);
         ranch.Refresh(id);
         string moved = World.Standing.Shift(ranch, 0, World.Standing.Infusion);
-        return $"{rec.Name} takes {p.Name} (-{Classes.InfusionBook.Cost} chem): {p.Text}{(washed != null ? $" The {washed} washes out." : "")} It steeps, sitting out the next battle.{ranch.TierNote(id, before)} ({moved})";
+        return $"{rec.Name} takes {p.Name} (-{brew} chem): {p.Text}{(washed != null ? $" The {washed} washes out." : "")} It steeps, sitting out the next battle.{ranch.TierNote(id, before)} ({moved})";
     }
 
     /// <summary>A new infusion takes a battle to settle: out of the squad until the next one is over.</summary>
@@ -149,7 +151,7 @@ public static class Lab
     public static string Splice(Ranch ranch, int id, Form form)
     {
         var rec = ranch.Record(id);
-        int cost = Classes.TierBook.SpliceCost;
+        int cost = Farmyard.LabPrice(ranch, Classes.TierBook.SpliceCost);
         string ability = Classes.TierBook.Ability(form);
         if (!ranch.Forms.Contains(form)) return $"You haven't met a {form.ToString().ToLowerInvariant()} to take it from.";
         if (Species.FormOf(rec.Species) == form || rec.Species.Spliced?.Contains(form) == true) return $"{rec.Name} already has {ability}.";

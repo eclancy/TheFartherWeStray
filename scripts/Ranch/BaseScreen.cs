@@ -298,7 +298,7 @@ public partial class BaseScreen : Control
         }
         if (_shedButtons.Count == 0) row.AddChild(Ui.Text("Nothing in the shed. The shops sell pieces for the yard: barrels and lamps at Lantern Row, finer things up in the city.", 16, Dim, 4));
         float wide = Mathf.Min(vp.X - 48, 1500);
-        _shed.Position = new Vector2((vp.X - wide) / 2, vp.Y - (Phone.On ? 160 : 190));
+        _shed.Position = new Vector2((vp.X - wide) / 2, vp.Y - (Phone.On ? 184 : 190));
         _shed.Size = new Vector2(wide, 0);
         _shedLayer.AddChild(_shed);
         _prompt.Position = new Vector2(20, _shed.Position.Y - 44);

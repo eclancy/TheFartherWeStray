@@ -34,6 +34,7 @@ public partial class BaseScreen : Control
     public bool DemoPause;               // --pause: open on the pause menu (screenshots)
     public string DemoHolding;           // --holding=ID with --goto=bench: build mode with that piece in hand
     public Vector2I? DemoCursor;         // --cursor=X,Y: and the cursor there
+    public string DemoMachine;           // --machine=ID: walk to that machine and open it (screenshots)
     public static Vector2I? Standing;    // where you were, for coming back from a station
 
     const int Scale = 3;
@@ -102,6 +103,7 @@ public partial class BaseScreen : Control
         RanchScreen.AskChoice(this, Ranch, AutoFight, Flash, Refresh);
         if (AutoFight) GetTree().CreateTimer(1.5).Timeout += () => { if (IsInsideTree()) RanchScreen.AutoBattle(this, Ranch, Fight); };
         if (HomeBase.Get(DemoGoTo) is { } demo) GetTree().CreateTimer(0.6).Timeout += () => { if (IsInsideTree()) GoTo(demo); };
+        if (Ranch.Machines.FirstOrDefault(m => m.Id == DemoMachine) is { } machine) GetTree().CreateTimer(0.6).Timeout += () => { if (IsInsideTree()) GoToMachine(machine); };
         if (DemoPause) Pause();
     }
 
@@ -164,7 +166,7 @@ public partial class BaseScreen : Control
         return null;
     }
 
-    async void WalkTo(Vector2I to, StationDef then = null)
+    async void WalkTo(Vector2I to, StationDef then = null, Action after = null)
     {
         if (_walking) return;
         var path = Paths.Find(_map, _you.Tile, to, CanStand, false);
@@ -178,6 +180,7 @@ public partial class BaseScreen : Control
             _you.Face(FeetAt(at, 1) - _you.Position);
             UseStation(then);
         }
+        after?.Invoke();
     }
 
     /// <summary>Walks to the nearest spot beside a station, then uses it.</summary>
@@ -187,6 +190,118 @@ public partial class BaseScreen : Control
             .Select(t => (t, path: Paths.Find(_map, _you.Tile, t, CanStand, false))).Where(x => x.path != null).OrderBy(x => x.path.Count).ToList();
         if (beside.Count == 0) { Flash($"There's no way to {s.Name} from here."); return; }
         WalkTo(beside[0].t, s);
+    }
+
+    // ------------------------------------------------------------------ machines (docs/farmyard-plan.md, part 3)
+
+    PlacedMachine NearMachine() => Ranch.Machines.FirstOrDefault(m => Mathf.Abs(m.X - _you.Tile.X) + Mathf.Abs(m.Y - _you.Tile.Y) == 1);
+
+    /// <summary>The machine whose sprite is at this point on the screen.</summary>
+    PlacedMachine MachineOnScreen(Vector2 screen)
+    {
+        var p = (screen - _board.Position) / Scale;
+        return Ranch.Machines.FirstOrDefault(m =>
+        {
+            var feet = FeetAt(m.Tile, 1);
+            return Mathf.Abs(p.X - feet.X) < 16 && p.Y < feet.Y + 6 && p.Y > feet.Y - 30;
+        });
+    }
+
+    /// <summary>Walks up beside a machine, then opens it.</summary>
+    void GoToMachine(PlacedMachine m)
+    {
+        var beside = new[] { Vector2I.Right, Vector2I.Left, Vector2I.Down, Vector2I.Up }.Select(d => m.Tile + d).Where(CanStand)
+            .Select(t => (t, path: Paths.Find(_map, _you.Tile, t, CanStand, false))).Where(x => x.path != null).OrderBy(x => x.path.Count).ToList();
+        if (beside.Count == 0) { Flash($"There's no way to the {Farmyard.NameOf(m.Id)} from here."); return; }
+        WalkTo(beside[0].t, null, () => { _you.Face(FeetAt(m.Tile, 1) - _you.Position); OpenMachine(m); });
+    }
+
+    CanvasLayer _machineLayer;
+
+    /// <summary>
+    /// A machine's panel: what it makes and holds, what's in the hopper, Collect (first, so A, A takes it),
+    /// Upgrade with its cost in chem and scrap, and Close.
+    /// </summary>
+    void OpenMachine(PlacedMachine m)
+    {
+        CloseMachine();
+        var def = MachineBook.Get(m.Id);
+        _machineLayer = new CanvasLayer { Layer = 5 };
+        AddChild(_machineLayer);
+        var vp = GetViewportRect().Size;
+        var panel = new PanelContainer { CustomMinimumSize = new Vector2(Mathf.Min(760, vp.X - 80), 0) };
+        panel.AddThemeStyleboxOverride("panel", UiSkin.Box(UiPart.Panel, UiState.Normal));
+        panel.AnchorLeft = panel.AnchorRight = 0.5f;
+        panel.AnchorTop = panel.AnchorBottom = 0.5f;
+        panel.GrowHorizontal = panel.GrowVertical = GrowDirection.Both;
+        var col = new VBoxContainer();
+        col.AddThemeConstantOverride("separation", 10);
+        panel.AddChild(col);
+        col.AddChild(Ui.Text($"{def.Name.ToUpperInvariant()}   \u00b7   LEVEL {m.Level}", 22, Gold));
+        var about = Ui.Text(def.Text, 16, Dim, 4);
+        about.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        col.AddChild(about);
+        col.AddChild(Ui.Text($"Makes {MachineBook.Rate(def, m.Level)}. A day is a battle, or a road travelled.", 17, Ink, 4));
+        var hopper = def.Makes.Select((o, i) => (o, i)).Where(x => x.o.Holds[m.Level - 1] > 0)
+            .Select(x => new Chip(MachineBook.Glyph(x.o.Thing), $"{m.Stored.ElementAtOrDefault(x.i)}/{x.o.Holds[m.Level - 1]}",
+                m.Stored.ElementAtOrDefault(x.i) >= x.o.Holds[m.Level - 1] ? Gold : Ink, $"{MachineBook.Words(x.o.Thing, 2).Split(' ', 2)[1]} in the hopper")).ToList();
+        var line = new HBoxContainer();
+        line.AddThemeConstantOverride("separation", 12);
+        line.AddChild(Ui.Text("In the hopper", 17, Dim, 4));
+        line.AddChild(Ui.Chips(hopper, 20));
+        col.AddChild(line);
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 10);
+        col.AddChild(row);
+        bool any = m.Stored.Any(n => n > 0);
+        var collect = new Button { Text = any ? $"Collect  {Hopper(m)}" : "Nothing to collect", Disabled = !any, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(0, 44) };
+        collect.Pressed += () =>
+        {
+            Flash(Farmyard.Collect(Ranch, m));
+            Ranch.Save();
+            Audio.Sound.Play("confirm");
+            RefreshHud();
+            RefreshMachineTags();
+            OpenMachine(m);
+        };
+        row.AddChild(collect);
+        string upgradeText;
+        bool canUpgrade = false;
+        if (m.Level >= MachineBook.Levels) upgradeText = "Fully upgraded";
+        else
+        {
+            var (chem, scrap) = def.Upgrades[m.Level - 1];
+            canUpgrade = Ranch.Chem >= chem && Ranch.Scrap >= scrap;
+            upgradeText = $"Upgrade to level {m.Level + 1}:  {chem} chem{(scrap > 0 ? $", {scrap} scrap" : "")}";
+        }
+        var upgrade = new Button
+        {
+            Text = upgradeText, Disabled = !canUpgrade, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(0, 44),
+            TooltipText = m.Level < MachineBook.Levels ? $"Level {m.Level + 1} makes {MachineBook.Rate(def, m.Level + 1)}." : "",
+        };
+        upgrade.Pressed += () =>
+        {
+            Flash(Farmyard.Upgrade(Ranch, m));
+            Ranch.Save();
+            Audio.Sound.Play("hatch");
+            RefreshHud();
+            RefreshMachineTags();
+            OpenMachine(m);
+        };
+        row.AddChild(upgrade);
+        var close = new Button { Text = Phone.Keys("Close  (Esc)", "Close  (B)"), FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(140, 44) };
+        close.Pressed += CloseMachine;
+        row.AddChild(close);
+        _machineLayer.AddChild(panel);
+        var first = any ? collect : canUpgrade ? upgrade : close;
+        PadNav.First(first);
+        if (Phone.On) first.CallDeferred(Control.MethodName.GrabFocus);
+    }
+
+    void CloseMachine()
+    {
+        _machineLayer?.QueueFree();
+        _machineLayer = null;
     }
 
     // ------------------------------------------------------------------ beasts out and about
@@ -293,7 +408,7 @@ public partial class BaseScreen : Control
         float pick = _rng.Range(0f, 1f);
         if (pick < 0.25f && BesideAny(p => p is Prop.Trough or Prop.Fountain, r) is { } drink) return (drink.spot, Errand.Drink, drink.thing);
         if (pick < 0.5f && BesideAny(p => p is Prop.Tree or Prop.Pine or Prop.Bush or Prop.Hedge or Prop.Mushroom, r) is { } shade) return (shade.spot, Errand.Nap, shade.thing);
-        if (pick < 0.7f && BesideAny(p => p is Prop.Lamp or Prop.Neon or Prop.Banner or Prop.Stall or Prop.Barrel or Prop.Crate, r) is { } sit) return (sit.spot, Errand.Sit, sit.thing);
+        if (pick < 0.7f && BesideAny(p => p is Prop.Lamp or Prop.Neon or Prop.Banner or Prop.Stall or Prop.Barrel or Prop.Crate or Prop.Still or Prop.BerryBeds or Prop.ScrapPress, r) is { } sit) return (sit.spot, Errand.Sit, sit.thing);
         var steps = new List<Vector2I>();
         for (int dy = -3; dy <= 3; dy++)
         for (int dx = -3; dx <= 3; dx++)
@@ -432,6 +547,8 @@ public partial class BaseScreen : Control
 
     bool _building;
     string _holding;            // the piece in hand: put out where the cursor is
+    PlacedMachine _moving;      // a machine being moved: it keeps its level and hopper, and B puts it back
+    Vector2I _movingFrom;
     Vector2I _cursor;
     YardCursor _mark;
     Sprite2D _ghost;
@@ -462,6 +579,7 @@ public partial class BaseScreen : Control
 
     void EndBuild()
     {
+        if (_moving != null) { Ranch.Machines.Add(_moving); _moving = null; PaintYard(); }
         _building = false;
         _holding = null;
         _mark.QueueFree();
@@ -472,6 +590,7 @@ public partial class BaseScreen : Control
         _hint.Visible = true;
         _prompt.Position = new Vector2(20, GetViewportRect().Size.Y - 120);
         Ranch.Save();
+        RefreshMachineTags();
         Audio.Sound.Play("cancel");
         Flash($"The yard's as you left it: {Ranch.Decor.Count} {(Ranch.Decor.Count == 1 ? "piece" : "pieces")} out.");
     }
@@ -509,19 +628,21 @@ public partial class BaseScreen : Control
         var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, Phone.On ? 92 : 110), VerticalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true };
         scroll.AddChild(row);
         col.AddChild(scroll);
-        foreach (var def in DecorBook.All)
+        // Machines first (they're bought to be put out), then the pieces.
+        var kinds = MachineBook.All.Select(m => (m.Id, m.Name, m.Prop, m.Text)).Concat(DecorBook.All.Select(d => (d.Id, d.Name, d.Prop, d.Text)));
+        foreach (var def in kinds)
         {
             int count = Ranch.Shed.GetValueOrDefault(def.Id);
             if (count == 0) continue;
             var (tex, _) = PropArt.Texture(def.Prop, 1, _map.Theme);
             var b = new Button
             {
-                Text = $"{def.Name}  x{count}", Icon = tex, ExpandIcon = true, TooltipText = def.Text,
+                Text = MachineBook.Get(def.Id) != null ? def.Name : $"{def.Name}  x{count}", Icon = tex, ExpandIcon = true, TooltipText = def.Text,
                 IconAlignment = HorizontalAlignment.Center, VerticalIconAlignment = VerticalAlignment.Top,
                 CustomMinimumSize = new Vector2(Phone.On ? 120 : 140, Phone.On ? 84 : 100), TextureFilter = TextureFilterEnum.Nearest,
                 FocusMode = FocusModeEnum.All,
             };
-            if (def.Id == _holding) b.AddThemeStyleboxOverride("normal", UiSkin.Lit(UiPart.Button, Gold, true));
+            if (def.Id == _holding && _moving == null) b.AddThemeStyleboxOverride("normal", UiSkin.Lit(UiPart.Button, Gold, true));
             var id = def.Id;
             b.Pressed += () => Hold(id);
             row.AddChild(b);
@@ -542,7 +663,7 @@ public partial class BaseScreen : Control
         RefreshShed();
         GetViewport().GuiReleaseFocus();
         MoveCursor(_cursor);
-        Flash($"{DecorBook.Get(id).Name}: {Phone.Keys("click a tile", "move to a tile and press A")} to put it there. {Phone.Keys("Esc", "B")} puts it back.");
+        Flash($"{Farmyard.NameOf(id)}: {Phone.Keys("click a tile", "move to a tile and press A")} to put it there. {Phone.Keys("Esc", "B")} puts it back.");
         Audio.Sound.Play("click");
     }
 
@@ -552,23 +673,24 @@ public partial class BaseScreen : Control
         int h = _map.HeightAt(_cursor);
         string why = _holding != null ? Farmyard.Why(Ranch, _holding, _cursor, _you.Tile) : null;
         var piece = Farmyard.At(Ranch, _cursor);
+        var machine = Farmyard.MachineAt(Ranch, _cursor);
         _mark.Top = _art.TileTop(_cursor, h);
-        _mark.Colour = _holding != null ? (why == null ? new Color("#5fe08a") : new Color("#ff6f7d")) : piece != null ? Gold : new Color(1, 1, 1, 0.7f);
+        _mark.Colour = _holding != null ? (why == null ? new Color("#5fe08a") : new Color("#ff6f7d")) : piece != null || machine != null ? Gold : new Color(1, 1, 1, 0.7f);
         _mark.ZIndex = 100 + (_cursor.X + _cursor.Y) * 4;
         _mark.QueueRedraw();
         _ghost.Visible = _holding != null;
         if (_holding != null)
         {
-            var def = DecorBook.Get(_holding);
-            var (tex, anchor) = PropArt.Texture(def.Prop, _cursor.X * 7 + _cursor.Y * 3, _map.Theme);
+            var (tex, anchor) = PropArt.Texture(Farmyard.PropOf(_holding).Value, _cursor.X * 7 + _cursor.Y * 3, _map.Theme);
             _ghost.Texture = tex;
             _ghost.Position = _art.TileCenter(_cursor, h) - anchor + new Vector2(0, 1);
             _ghost.ZIndex = 100 + (_cursor.X + _cursor.Y) * 4 + 2;
             _ghost.Modulate = why == null ? new Color(1, 1, 1, 0.8f) : new Color(1, 0.45f, 0.45f, 0.7f);
         }
         _buildPrompt = _holding != null
-            ? why ?? $"[{Phone.Keys("click", "A")}]  put the {DecorBook.Get(_holding).Name} here"
-            : piece != null ? $"[{Phone.Keys("click", "A")}]  pick up the {DecorBook.Get(piece.Id)?.Name}"
+            ? why ?? $"[{Phone.Keys("click", "A")}]  put the {Farmyard.NameOf(_holding)} here"
+            : piece != null ? $"[{Phone.Keys("click", "A")}]  pick up the {Farmyard.NameOf(piece.Id)}"
+            : machine != null ? $"[{Phone.Keys("click", "A")}]  move the {Farmyard.NameOf(machine.Id)}"
             : Phone.Keys("Pick something from the shed below", "[A]  open the shed");
         _buildPromptOk = _holding == null || why == null;
     }
@@ -579,9 +701,24 @@ public partial class BaseScreen : Control
     /// <summary>A or a click on the cursor: put the piece in hand down, or pick up the one there, or (by key) go to the shed.</summary>
     void Act(bool byKey)
     {
+        if (_moving != null)
+        {
+            if (Farmyard.Why(Ranch, _moving.Id, _cursor, _you.Tile) is { } no) { Flash(no); Audio.Sound.Play("cancel"); return; }
+            _moving.X = _cursor.X;
+            _moving.Y = _cursor.Y;
+            Ranch.Machines.Add(_moving);
+            Flash($"The {Farmyard.NameOf(_moving.Id)} stands here now.");
+            _moving = null;
+            _holding = null;
+            PaintYard();
+            RefreshShed();
+            MoveCursor(_cursor);
+            Audio.Sound.Play("confirm");
+            return;
+        }
         if (_holding != null)
         {
-            string name = DecorBook.Get(_holding).Name;
+            string name = Farmyard.NameOf(_holding);
             if (Farmyard.Place(Ranch, _holding, _cursor, _you.Tile) is { } why) { Flash(why); Audio.Sound.Play("cancel"); return; }
             int left = Ranch.Shed.GetValueOrDefault(_holding);
             if (left == 0) _holding = null;
@@ -598,7 +735,20 @@ public partial class BaseScreen : Control
             PaintYard();
             RefreshShed();
             MoveCursor(_cursor);
-            Flash($"Picked up the {DecorBook.Get(id).Name}: put it somewhere else, or {Phone.Keys("Esc", "B")} leaves it in the shed.");
+            Flash($"Picked up the {Farmyard.NameOf(id)}: put it somewhere else, or {Phone.Keys("Esc", "B")} leaves it in the shed.");
+            Audio.Sound.Play("click");
+            return;
+        }
+        if (Farmyard.MachineAt(Ranch, _cursor) is { } machine)
+        {
+            _moving = machine;
+            _movingFrom = machine.Tile;
+            Ranch.Machines.Remove(machine);
+            _holding = machine.Id;
+            PaintYard();
+            RefreshShed();
+            MoveCursor(_cursor);
+            Flash($"Moving the {Farmyard.NameOf(machine.Id)} (its level and hopper go with it): pick its new spot. {Phone.Keys("Esc", "B")} leaves it where it was.");
             Audio.Sound.Play("click");
             return;
         }
@@ -610,9 +760,21 @@ public partial class BaseScreen : Control
     void Back()
     {
         if (GetViewport().GuiGetFocusOwner() is { } f && _shed.IsAncestorOf(f)) { GetViewport().GuiReleaseFocus(); return; }
+        if (_moving != null)
+        {
+            Ranch.Machines.Add(_moving);
+            Flash($"The {Farmyard.NameOf(_moving.Id)} stays where it was.");
+            _moving = null;
+            _holding = null;
+            PaintYard();
+            RefreshShed();
+            MoveCursor(_cursor);
+            Audio.Sound.Play("cancel");
+            return;
+        }
         if (_holding != null)
         {
-            Flash($"The {DecorBook.Get(_holding).Name} stays in the shed.");
+            Flash($"The {Farmyard.NameOf(_holding)} stays in the shed.");
             _holding = null;
             RefreshShed();
             MoveCursor(_cursor);
@@ -661,18 +823,8 @@ public partial class BaseScreen : Control
         var title = Ui.Text("HOME BASE", 26, Ink, 6);
         title.Position = new Vector2(32, 20);
         ui.AddChild(title);
-        var chips = Ui.Chips(new List<Chip>
-        {
-            new("paw", Ranch.Creatures.Count.ToString(), Ink, "your beasts"),
-            new("fist", $"{Ranch.Squad.Count}/{Ranch.SquadSize}", Ranch.Squad.Count == 0 ? Ui.Bad : Ink, "squad, picked at the pens"),
-            new("flask", Ranch.Chem.ToString(), Gold, "chem"),
-            new("clock", "day " + Ranch.Day, Ink, "the day"),
-            new("sun", Ranch.CityStanding.ToString(), Gold, "standing with the city above"),
-            new("moon", Ranch.UnderStanding.ToString(), Color.FromHtml("#ff4f9a"), "standing with the undercity"),
-        }, 22, 2, 22);
-        chips.Position = new Vector2(250, 20);
-        chips.Size = new Vector2(1100, 40);
-        ui.AddChild(chips);
+        _ui = ui;
+        RefreshHud();
         _status = Ui.Text("", 18, Gold, 5);
         var vp = GetViewportRect().Size;
         _status.Position = new Vector2(32, 64);
@@ -702,6 +854,60 @@ public partial class BaseScreen : Control
             _tags[s] = tag;
         }
         Refresh();
+        RefreshMachineTags();
+    }
+
+    CanvasLayer _ui;
+    Control _hudChips;
+    readonly Dictionary<PlacedMachine, Label> _machineTags = new();
+
+    /// <summary>The counts along the top: beasts, squad, chem, scrap, the day, standing.</summary>
+    void RefreshHud()
+    {
+        _hudChips?.QueueFree();
+        _hudChips = Ui.Chips(new List<Chip>
+        {
+            new("paw", Ranch.Creatures.Count.ToString(), Ink, "your beasts"),
+            new("fist", $"{Ranch.Squad.Count}/{Ranch.SquadSize}", Ranch.Squad.Count == 0 ? Ui.Bad : Ink, "squad, picked at the pens"),
+            new("flask", Ranch.Chem.ToString(), Gold, "chem"),
+            new("gear", Ranch.Scrap.ToString(), Ink, "scrap: the press makes it, machines are upgraded with it"),
+            new("clock", "day " + Ranch.Day, Ink, "the day"),
+            new("sun", Ranch.CityStanding.ToString(), Gold, "standing with the city above"),
+            new("moon", Ranch.UnderStanding.ToString(), Color.FromHtml("#ff4f9a"), "standing with the undercity"),
+        }, 22, 2, 22);
+        _hudChips.Position = new Vector2(250, 20);
+        _hudChips.Size = new Vector2(1100, 40);
+        _ui.AddChild(_hudChips);
+    }
+
+    /// <summary>A label over each machine: its name and what's in its hopper, gold when it's full.</summary>
+    void RefreshMachineTags()
+    {
+        foreach (var tag in _machineTags.Values) tag.QueueFree();
+        _machineTags.Clear();
+        foreach (var m in Ranch.Machines)
+        {
+            var tag = Ui.Text("", 17, Ink, 7);
+            tag.HorizontalAlignment = HorizontalAlignment.Center;
+            tag.Size = new Vector2(320, 26);
+            _ui.AddChild(tag);
+            _machineTags[m] = tag;
+        }
+        foreach (var (m, tag) in _machineTags)
+        {
+            var def = MachineBook.Get(m.Id);
+            bool full = def.Makes.Select((o, i) => o.Holds[m.Level - 1] > 0 && m.Stored.ElementAtOrDefault(i) >= o.Holds[m.Level - 1]).Any(x => x);
+            tag.Text = $"{def.Name}  \u00b7  {Hopper(m)}{(full ? "  (full)" : "")}";
+            tag.AddThemeColorOverride("font_color", full ? Gold : Ink);
+        }
+    }
+
+    /// <summary>What's in a machine's hopper, in words.</summary>
+    static string Hopper(PlacedMachine m)
+    {
+        var def = MachineBook.Get(m.Id);
+        var parts = def.Makes.Select((o, i) => (o, n: m.Stored.ElementAtOrDefault(i))).Where(x => x.n > 0).Select(x => MachineBook.Words(x.o.Thing, x.n)).ToList();
+        return parts.Count == 0 ? "empty" : string.Join(", ", parts);
     }
 
     static string HintWords => Phone.Keys("Click: walk (or WASD / arrows)    E or click a station: use it    Esc: menu    N: sound",
@@ -730,6 +936,11 @@ public partial class BaseScreen : Control
             var first = HomeBase.Tiles(s).First();
             tag.Position = _board.Position + (FeetAt(first, 1) + new Vector2(0, -38)) * Scale - new Vector2(160, 14);
         }
+        foreach (var (m, tag) in _machineTags)
+        {
+            tag.Visible = !_building;
+            tag.Position = _board.Position + (FeetAt(m.Tile, 1) + new Vector2(0, -34)) * Scale - new Vector2(160, 13);
+        }
         if (_building)
         {
             _prompt.Text = _buildPrompt;
@@ -738,8 +949,10 @@ public partial class BaseScreen : Control
         else
         {
             var near = _walking ? null : Near();
-            var beast = near == null && !_walking ? NearRoamer() : null;
+            var machine = near == null && !_walking ? NearMachine() : null;
+            var beast = near == null && machine == null && !_walking ? NearRoamer() : null;
             _prompt.Text = near != null ? (near.Built(Ranch) ? $"[{Phone.Keys("E", "A")}]  {near.Name}: {near.Blurb}" : $"{near.Name}: being built. Opens after {near.Needs}.")
+                : machine != null ? $"[{Phone.Keys("E", "A")}]  {Farmyard.NameOf(machine.Id)}: {Hopper(machine)}"
                 : beast != null ? $"[{Phone.Keys("E", "A")}]  {beast.Creature.Name}" : "";
             _prompt.AddThemeColorOverride("font_color", near == null || near.Built(Ranch) ? Ink : Dim);
         }
@@ -784,10 +997,17 @@ public partial class BaseScreen : Control
             return;
         }
         if (_pause != null) return;
+        if (_machineLayer != null)
+        {
+            // The machine's panel: B or Esc closes it; the pad and mouse work its buttons.
+            if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape }) { CloseMachine(); GetViewport().SetInputAsHandled(); }
+            return;
+        }
         if (_building) { BuildInput(e); return; }
         if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click)
         {
             if (StationAt(click.Position) is { } s) GoTo(s);
+            else if (MachineOnScreen(click.Position) is { } m) GoToMachine(m);
             else if (RoamerAt(click.Position) is { } r) Greet(r);
             else if (TileAt(click.Position) is { } t && CanStand(t)) WalkTo(t);
             GetViewport().SetInputAsHandled();
@@ -813,6 +1033,12 @@ public partial class BaseScreen : Control
         {
             _you.Face(FeetAt(HomeBase.Tiles(n).OrderBy(t => (t - _you.Tile).LengthSquared()).First(), 1) - _you.Position);
             UseStation(n);
+            GetViewport().SetInputAsHandled();
+        }
+        else if (!k.Echo && k.Keycode is Key.E or Key.Enter or Key.KpEnter or Key.Space && !_walking && NearMachine() is { } machine)
+        {
+            _you.Face(FeetAt(machine.Tile, 1) - _you.Position);
+            OpenMachine(machine);
             GetViewport().SetInputAsHandled();
         }
         else if (!k.Echo && k.Keycode is Key.E or Key.Enter or Key.KpEnter or Key.Space && !_walking && NearRoamer() is { } beast)

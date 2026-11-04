@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
@@ -12,6 +13,17 @@ public sealed class PlacedDecor
 {
     public string Id;
     public int X, Y;
+    [JsonIgnore] public Vector2I Tile => new(X, Y);
+}
+
+/// <summary>A machine out in the farmyard: which, where, its level, and what's in its hopper (and part-made) for each thing it makes.</summary>
+public sealed class PlacedMachine
+{
+    public string Id;
+    public int X, Y;
+    public int Level = 1;
+    public List<int> Stored = new();
+    public List<float> Part = new();
     [JsonIgnore] public Vector2I Tile => new(X, Y);
 }
 
@@ -41,6 +53,11 @@ public static class Farmyard
 
     public static PlacedDecor At(Ranch r, Vector2I t) => r.Decor.FirstOrDefault(d => d.X == t.X && d.Y == t.Y);
 
+    /// <summary>The prop a piece or a machine stands as, or null if the id is neither.</summary>
+    public static Prop? PropOf(string id) => DecorBook.Get(id)?.Prop ?? MachineBook.Get(id)?.Prop;
+
+    public static string NameOf(string id) => DecorBook.Get(id)?.Name ?? MachineBook.Get(id)?.Name ?? id;
+
     /// <summary>
     /// Beasts out and about (docs/farmyard-plan.md, part 3b): once per save, the ones not in the squad
     /// go out, as many as fit, so the yard has life in it from the first day.
@@ -66,8 +83,7 @@ public static class Farmyard
     /// <summary>Why a piece can't go on a tile, or null if it can. <paramref name="you"/> is where you stand.</summary>
     public static string Why(Ranch r, string id, Vector2I t, Vector2I? you = null)
     {
-        var def = DecorBook.Get(id);
-        if (def == null) return "That isn't something for the yard.";
+        if (PropOf(id) is not { } prop) return "That isn't something for the yard.";
         var map = HomeBase.Map(r);
         if (!map.InBounds(t)) return "That's outside the yard.";
         if (map.TerrainAt(t) is Terrain.Roof) return "Not on a roof.";
@@ -77,8 +93,8 @@ public static class Farmyard
         if (HomeBase.Pen().Contains(t) || t == PenGap) return "The pens are the beasts': keep them and the way in clear.";
         if (t == HomeBase.Spawn) return "That's where you come home to: keep it clear.";
         if (you == t) return "You're standing there.";
-        if (r.Decor.Count >= Most) return $"The yard holds {Most} pieces: put one away first.";
-        if (PropArt.Blocks(def.Prop) && CutOff(map, t) is { } cut) return $"That would wall off {cut}.";
+        if (DecorBook.Get(id) != null && r.Decor.Count >= Most) return $"The yard holds {Most} pieces: put one away first.";
+        if (PropArt.Blocks(prop) && CutOff(map, t) is { } cut) return $"That would wall off {cut}.";
         return null;
     }
 
@@ -112,10 +128,16 @@ public static class Farmyard
     /// <summary>Puts a piece from the shed out on a tile. Returns why not, or null when it's out.</summary>
     public static string Place(Ranch r, string id, Vector2I t, Vector2I? you = null)
     {
-        if (r.Shed.GetValueOrDefault(id) < 1) return $"There's no {DecorBook.Get(id)?.Name ?? id} left in the shed.";
+        if (r.Shed.GetValueOrDefault(id) < 1) return $"There's no {NameOf(id)} left in the shed.";
         if (Why(r, id, t, you) is { } why) return why;
         if (--r.Shed[id] == 0) r.Shed.Remove(id);
-        r.Decor.Add(new PlacedDecor { Id = id, X = t.X, Y = t.Y });
+        if (MachineBook.Get(id) is { } machine)
+        {
+            var m = new PlacedMachine { Id = id, X = t.X, Y = t.Y };
+            Fit(m, machine);
+            r.Machines.Add(m);
+        }
+        else r.Decor.Add(new PlacedDecor { Id = id, X = t.X, Y = t.Y });
         return null;
     }
 
@@ -144,5 +166,98 @@ public static class Farmyard
             if (Why(r, d.Id, d.Tile) == null) r.Decor.Add(d);
             else r.Shed[d.Id] = r.Shed.GetValueOrDefault(d.Id) + 1;
         }
+        // Machines: one of each, known ones, at a level that exists, with a hopper slot for everything they make.
+        var machines = r.Machines.ToList();
+        r.Machines.Clear();
+        foreach (var m in machines)
+        {
+            if (MachineBook.Get(m.Id) is not { } def || r.Machines.Any(o => o.Id == m.Id)) continue;
+            m.Level = Math.Clamp(m.Level, 1, MachineBook.Levels);
+            Fit(m, def);
+            if (Why(r, m.Id, m.Tile) == null) r.Machines.Add(m);
+            else r.Shed[m.Id] = r.Shed.GetValueOrDefault(m.Id) + 1;
+        }
+    }
+
+    // ------------------------------------------------------------------ machines (part 3)
+
+    /// <summary>A hopper slot, and its part-made share, for each thing the machine makes.</summary>
+    static void Fit(PlacedMachine m, MachineDef def)
+    {
+        m.Stored ??= new();
+        m.Part ??= new();
+        while (m.Stored.Count < def.Makes.Length) m.Stored.Add(0);
+        while (m.Part.Count < def.Makes.Length) m.Part.Add(0);
+    }
+
+    public static PlacedMachine MachineAt(Ranch r, Vector2I t) => r.Machines.FirstOrDefault(m => m.X == t.X && m.Y == t.Y);
+
+    /// <summary>Whether the yard has this machine already, out or in the shed: one of each.</summary>
+    public static bool Owns(Ranch r, string id) => r.Shed.ContainsKey(id) || r.Machines.Any(m => m.Id == id);
+
+    /// <summary>Moves a machine (its level and hopper go with it). Returns why not, or null when it's moved.</summary>
+    public static string Move(Ranch r, PlacedMachine m, Vector2I t, Vector2I? you = null)
+    {
+        r.Machines.Remove(m);
+        string why = Why(r, m.Id, t, you);
+        if (why == null) { m.X = t.X; m.Y = t.Y; }
+        r.Machines.Add(m);
+        return why;
+    }
+
+    /// <summary>
+    /// A day goes by (a battle, or a road travelled): every machine adds its day's share to its hopper.
+    /// Shares under one build up over days; a full hopper stops filling until it's emptied.
+    /// </summary>
+    public static void PassDay(Ranch r)
+    {
+        foreach (var m in r.Machines)
+        {
+            if (MachineBook.Get(m.Id) is not { } def) continue;
+            Fit(m, def);
+            for (int i = 0; i < def.Makes.Length; i++)
+            {
+                float rate = def.Makes[i].PerDay[m.Level - 1];
+                int cap = def.Makes[i].Holds[m.Level - 1];
+                if (rate <= 0 || m.Stored[i] >= cap) { m.Part[i] = 0; continue; }
+                m.Part[i] += rate;
+                while (m.Part[i] >= 0.999f && m.Stored[i] < cap) { m.Stored[i]++; m.Part[i] -= 1; }
+                if (m.Stored[i] >= cap || m.Part[i] < 0) m.Part[i] = 0;
+            }
+        }
+    }
+
+    /// <summary>Empties a machine's hopper into the ranch: chem, scrap, or into the bag. Returns what came out.</summary>
+    public static string Collect(Ranch r, PlacedMachine m)
+    {
+        var def = MachineBook.Get(m.Id);
+        Fit(m, def);
+        var got = new List<string>();
+        for (int i = 0; i < def.Makes.Length; i++)
+        {
+            int n = m.Stored[i];
+            if (n == 0) continue;
+            string thing = def.Makes[i].Thing;
+            if (thing == MachineBook.Chem) r.Chem += n;
+            else if (thing == MachineBook.Scrap) r.Scrap += n;
+            else r.Items[thing] = r.Items.GetValueOrDefault(thing) + n;
+            got.Add(MachineBook.Words(thing, n));
+            m.Stored[i] = 0;
+        }
+        return got.Count == 0 ? $"The {def.Name}'s hopper is empty: it fills a little each day (a battle, or a road travelled)."
+            : $"The {def.Name} gives up {string.Join(" and ", got)}.";
+    }
+
+    /// <summary>Raises a machine a level for chem and scrap. Returns what happened.</summary>
+    public static string Upgrade(Ranch r, PlacedMachine m)
+    {
+        var def = MachineBook.Get(m.Id);
+        if (m.Level >= MachineBook.Levels) return $"The {def.Name} is as good as it gets.";
+        var (chem, scrap) = def.Upgrades[m.Level - 1];
+        if (r.Chem < chem || r.Scrap < scrap) return $"Level {m.Level + 1} takes {chem} chem and {scrap} scrap: you have {r.Chem} and {r.Scrap}.";
+        r.Chem -= chem;
+        r.Scrap -= scrap;
+        m.Level++;
+        return $"The {def.Name} is level {m.Level}: {MachineBook.Rate(def, m.Level)}.";
     }
 }

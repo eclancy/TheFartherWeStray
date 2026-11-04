@@ -137,6 +137,16 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   - Click one, or press A beside it, to say hello.
   - The title screen shows the last slot's own yard and its out beasts.
   - `--save=yard_show` (written by `--basetest`) is a yard to look at.
+  **Machines** (phase 3, built):
+  - A chem still, glowberry beds and a scrap press (`World/Machines.cs`; props `Still`,
+    `BerryBeds`, `ScrapPress`, which move in `PropFx`). Each fills a hopper per game day:
+    `Farmyard.PassDay`, called where `Ranch.Day` goes up, never in real time.
+  - One of each per yard. You buy it at a shop into the shed, put it out and move it at the
+    workbench; it keeps its level and hopper.
+  - A or a click opens its panel: Collect, or Upgrade for chem and scrap (`Ranch.Scrap`, made by
+    the press).
+  - New machines are `MachineBook` entries and a prop.
+  - `--machine=ID` opens one for screenshots.
 - **Title, save slots and settings (2026-11-02, the user's pick, built):** the game starts on
   `UI/TitleScreen.cs` (the home base drifting behind the name; Continue, New game, Load, Settings,
   Quit). Three slots (`Ranch.Slots`, `SlotPath`, `Peek`, `Summary`, `DeleteSlot`): slot 1 is the

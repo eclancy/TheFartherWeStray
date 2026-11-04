@@ -907,6 +907,67 @@ public partial class GameRoot : Node
             back.Tidy();
             Check(back.Out.Count > 0, $"an old save lets {back.Out.Count} out once");
 
+            // Machines (part 3): bought one of each, put out, filling a day at a time to a cap, collected,
+            // upgraded with chem and scrap, moved with their hopper, saved, and tidied.
+            var farm = Ranching.Ranch.New();
+            Ranching.Ranch.SavePath = "user://base_test.json";
+            farm.Chem = 600;
+            farm.TravelTo("lantern");
+            var stillWare = World.MachineBook.Wares.First(w => w.Id == "machine:still");
+            farm.Buy(stillWare);
+            int chemBefore = farm.Chem;
+            string twice = farm.Buy(stillWare);
+            Check(farm.Shed.GetValueOrDefault("still") == 1 && farm.Chem == chemBefore, $"a still bought, and a second refused without charging: {twice}");
+            Check(Ranching.Farmyard.Place(farm, "still", new Vector2I(10, 7)) == null && farm.Machines.Count == 1 && farm.Machines[0].Level == 1, "the still goes out at level 1");
+            var still = farm.Machines[0];
+            for (int d = 0; d < 3; d++) Ranching.Farmyard.PassDay(farm);
+            Check(still.Stored[0] == 9, $"three days make 9 chem ({still.Stored[0]})");
+            for (int d = 0; d < 10; d++) Ranching.Farmyard.PassDay(farm);
+            Check(still.Stored[0] == 15, $"the hopper stops at 15 ({still.Stored[0]})");
+            int chemNow = farm.Chem;
+            string got = Ranching.Farmyard.Collect(farm, still);
+            Check(farm.Chem == chemNow + 15 && still.Stored[0] == 0, $"collecting: {got}");
+            string tooPoor = Ranching.Farmyard.Upgrade(farm, still);
+            Check(still.Level == 1, $"no upgrade without scrap: {tooPoor}");
+            farm.Buy(World.MachineBook.Wares.First(w => w.Id == "machine:press"));
+            Check(Ranching.Farmyard.Place(farm, "press", new Vector2I(12, 11)) == null, "a scrap press goes out by the armory");
+            var press = farm.Machines.First(m => m.Id == "press");
+            for (int d = 0; d < 5; d++) Ranching.Farmyard.PassDay(farm);
+            Ranching.Farmyard.Collect(farm, press);
+            Check(farm.Scrap == 10, $"five days of the press: {farm.Scrap} scrap");
+            string up = Ranching.Farmyard.Upgrade(farm, still);
+            Check(still.Level == 2 && farm.Scrap == 0, $"the still upgraded: {up}");
+            Ranching.Farmyard.Collect(farm, still);
+            Ranching.Farmyard.PassDay(farm);
+            Check(still.Stored[0] == 5, $"a day at level 2 makes 5 chem ({still.Stored[0]})");
+            farm.TravelTo("gardens");
+            farm.Buy(World.MachineBook.Wares.First(w => w.Id == "machine:beds"));
+            Check(Ranching.Farmyard.Place(farm, "beds", new Vector2I(2, 4)) == null, "glowberry beds go out on the lawn");
+            var beds = farm.Machines.First(m => m.Id == "beds");
+            for (int d = 0; d < 4; d++) Ranching.Farmyard.PassDay(farm);
+            Check(beds.Stored[0] == 2 && beds.Stored[1] == 0, $"four days of beds: {beds.Stored[0]} glowberries, no tonic at level 1");
+            beds.Level = 3;
+            for (int d = 0; d < 4; d++) Ranching.Farmyard.PassDay(farm);
+            int berries = farm.Items.GetValueOrDefault(World.ShopBook.Berry), tonics = farm.Items.GetValueOrDefault("tonic");
+            string bedsGot = Ranching.Farmyard.Collect(farm, beds);
+            Check(farm.Items.GetValueOrDefault(World.ShopBook.Berry) == berries + 6 && farm.Items.GetValueOrDefault("tonic") == tonics + 1, $"at level 3 they make tonics too: {bedsGot}");
+            int inHopper = still.Stored[0];
+            Check(Ranching.Farmyard.Move(farm, still, new Vector2I(9, 3)) == null && still.Tile == new Vector2I(9, 3) && still.Level == 2 && still.Stored[0] == inHopper, "moving the still keeps its level and hopper");
+            Check(Ranching.Farmyard.Move(farm, still, new Vector2I(4, 1)) != null && still.Tile == new Vector2I(9, 3), "it won't move onto the workbench");
+            Ranching.Farmyard.Collect(farm, still);
+            int dayBefore = farm.Day, inStill = still.Stored[0];
+            farm.TravelStep("lantern");
+            Check(farm.Day == dayBefore + 1 && still.Stored[0] == inStill + 5, "a road travelled is a day for the machines too");
+            string Farm(Ranching.Ranch r) => string.Join(";", r.Machines.Select(m => $"{m.Id}@{m.X},{m.Y} L{m.Level} [{string.Join(",", m.Stored)}]")) + $" scrap {r.Scrap}";
+            farm.Save();
+            var farmBack = Ranching.Ranch.Load();
+            Check(Farm(farmBack) == Farm(farm), $"the machines are the same after a save and load: {Farm(farmBack)}");
+            farmBack.Machines.Add(new Ranching.PlacedMachine { Id = "still", X = 6, Y = 6 });
+            farmBack.Machines.Add(new Ranching.PlacedMachine { Id = "no_such_machine", X = 7, Y = 6 });
+            farmBack.Tidy();
+            Check(farmBack.Machines.Count(m => m.Id == "still") == 1 && farmBack.Machines.All(m => m.Id != "no_such_machine"), "tidying keeps one of each, and only machines that exist");
+            Check(World.MachineBook.All.All(m => Tactics.PropArt.Paint(m.Prop, 1, "Ranch").img.GetUsedRect().Size.X > 0), "every machine paints");
+
             // A yard to look at: --save=yard_show (screenshots of beasts out and about).
             var show = Ranching.Ranch.New();
             for (ulong seed = 41; seed < 47; seed++) show.Add(Creatures.Creature.Specimen(seed));
@@ -917,9 +978,16 @@ public partial class GameRoot : Node
                 show.Shed[id] = show.Shed.GetValueOrDefault(id) + 1;
                 if (Ranching.Farmyard.Place(show, id, new Vector2I(x, y)) is { } no) GD.Print($"  (show yard: {id} at {x},{y}: {no})");
             }
+            foreach (var (id, x, y, level) in new[] { ("still", 12, 4, 2), ("press", 13, 11, 1), ("beds", 1, 5, 3) })
+            {
+                show.Shed[id] = 1;
+                if (Ranching.Farmyard.Place(show, id, new Vector2I(x, y)) is { } no) GD.Print($"  (show yard: {id} at {x},{y}: {no})");
+                else show.Machines[^1].Level = level;
+            }
+            for (int d = 0; d < 6; d++) Ranching.Farmyard.PassDay(show);
             Ranching.Ranch.SavePath = "user://yard_show.json";
             show.Save();
-            GD.Print($"  wrote yard_show: {show.Out.Count} out, {show.Decor.Count} pieces");
+            GD.Print($"  wrote yard_show: {show.Out.Count} out, {show.Decor.Count} pieces, machines {string.Join(", ", show.Machines.Select(m => $"{m.Id} L{m.Level} [{string.Join(",", m.Stored)}]"))}");
             GD.Print($"basetest: {pass} passed, {fail} failed");
             GetTree().Quit();
             return;
@@ -1725,6 +1793,7 @@ public partial class GameRoot : Node
         _demoPause = args.ContainsKey("pause");
         // --goto=bench --holding=lamp --cursor=6,7: the workbench's build mode with a piece in hand (screenshots).
         _demoHolding = args.GetValueOrDefault("holding");
+        _demoMachine = args.GetValueOrDefault("machine"); // --machine=still: walk to the still and open it
         if (args.TryGetValue("cursor", out var cursorArg) && cursorArg.Split(',') is [var cx, var cy] && int.TryParse(cx, out int cxi) && int.TryParse(cy, out int cyi))
             _demoCursor = new Vector2I(cxi, cyi);
         _ranch = args.ContainsKey("newranch") ? Ranching.Ranch.New() : Ranching.Ranch.Load();
@@ -1752,7 +1821,8 @@ public partial class GameRoot : Node
     Ranching.BaseScreen Base(List<int> joined)
     {
         var home = new Ranching.BaseScreen { Ranch = _ranch, Use = UseStation, Fight = StartRanchBattle, JustJoined = joined, AutoFight = _autoPlay, DemoGoTo = _goTo, DemoPause = _demoPause, ToTitle = ShowTitle,
-            DemoHolding = _demoHolding, DemoCursor = _demoCursor };
+            DemoHolding = _demoHolding, DemoCursor = _demoCursor, DemoMachine = _demoMachine };
+        _demoMachine = null;
         _goTo = null; // a demo walk happens once
         _demoPause = false;
         _demoHolding = null;
@@ -1822,6 +1892,7 @@ public partial class GameRoot : Node
     bool _demoPause;   // --pause: open the base on its pause menu
     string _demoHolding;     // --holding=ID: at the workbench, with that piece in hand
     Vector2I? _demoCursor;   // --cursor=X,Y: and the cursor there
+    string _demoMachine;     // --machine=ID: walk to that machine and open it
 
     void Show(Node screen)
     {

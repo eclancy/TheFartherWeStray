@@ -202,6 +202,9 @@ public sealed partial class BattleMap
         if (PropArt.Blocks(prop)) _blocked.Add(t);
     }
 
+    /// <summary>Stands a prop on a tile of a map laid out elsewhere: the farmyard's decorations, over the handmade base.</summary>
+    public void Put(Vector2I t, Prop prop) => Add(t, prop);
+
     // Terrain: '.' moss/grass, ',' stone, 'b' brass, '~' chem, ' ' pit, 'x' crystal, 'h' roof,
     //          'w' wooden boards, '-' dirt, '=' water.
     // Props:   'T' tree, 'P' pine, 'D' dead tree, 'u' bush, 'M' mushroom, 'C' crystals, 'o' rock,

@@ -813,6 +813,69 @@ public partial class GameRoot : Node
             return;
         }
 
+        if (args.ContainsKey("basetest"))
+        {
+            // The farmyard without a screen (docs/farmyard-plan.md, part 1): the starter pieces, putting
+            // them out and the tiles that refuse them, never walling a station off, picking up, the save,
+            // the map they stand on, tidying a loaded yard, buying pieces, and every piece's art.
+            Ranching.Ranch.SavePath = "user://base_test.json";
+            int pass = 0, fail = 0;
+            void Check(bool ok, string what) { if (ok) pass++; else fail++; GD.Print($"  {(ok ? "ok  " : "FAIL")}  {what}"); }
+            var ranch = Ranching.Ranch.New();
+            Check(World.DecorBook.Starter.All(s => ranch.Shed.GetValueOrDefault(s.id) == s.count), $"starter shed: {string.Join(", ", ranch.Shed.Select(kv => $"{kv.Key} x{kv.Value}"))}");
+            Check(Ranching.Farmyard.Place(ranch, "lamp", new Vector2I(6, 7)) == null && !ranch.Shed.ContainsKey("lamp"), "a lamp goes out on the court, and the shed's last lamp with it");
+            foreach (var (tile, what) in new[] { (new Vector2I(4, 1), "the workbench"), (new Vector2I(2, 11), "the pens"), (Ranching.Farmyard.PenGap, "the way into the pens"),
+                (Ranching.HomeBase.Spawn, "the spot you come home to"), (new Vector2I(0, 0), "a roof"), (new Vector2I(6, 7), "the lamp's tile"), (new Vector2I(20, 3), "outside the yard") })
+            {
+                string why = Ranching.Farmyard.Why(ranch, "barrel", tile);
+                Check(why != null, $"refused on {what}: {why}");
+            }
+            Check(Ranching.Farmyard.Why(ranch, "barrel", new Vector2I(9, 9), new Vector2I(9, 9)) != null, "refused under your feet");
+            Check(Ranching.Farmyard.Place(ranch, "barrel", new Vector2I(5, 1)) == null && Ranching.Farmyard.Place(ranch, "barrel", new Vector2I(4, 0)) == null, "two barrels beside the workbench");
+            string wall = Ranching.Farmyard.Place(ranch, "crate", new Vector2I(4, 2));
+            Check(wall != null && wall.Contains("Workbench"), $"a crate on its last open side is refused: {wall}");
+            Check(Ranching.Farmyard.Place(ranch, "banner", new Vector2I(4, 2)) == null, "a banner goes there: you walk under banners");
+            Check(Ranching.Farmyard.PickUp(ranch, new Vector2I(5, 1)) == "barrel" && ranch.Shed.GetValueOrDefault("barrel") == 1 && Ranching.Farmyard.At(ranch, new Vector2I(5, 1)) == null, "picking a barrel up puts it back in the shed");
+            Check(Ranching.Farmyard.PickUp(ranch, new Vector2I(7, 7)) == null, "nothing to pick up on an empty tile");
+
+            var map = Ranching.HomeBase.Map(ranch);
+            Check(map.Props.Contains((new Vector2I(6, 7), Tactics.Prop.Lamp)) && map.Blocked(new Vector2I(6, 7)), "the map has the lamp, and it blocks its tile");
+            Check(map.Props.Contains((new Vector2I(4, 2), Tactics.Prop.Banner)) && !map.Blocked(new Vector2I(4, 2)), "the map has the banner, and you can walk under it");
+            Check(map.Props.Contains((new Vector2I(4, 1), Tactics.Prop.Workbench)), "the workbench stands by the farmhouse");
+
+            string Yard(Ranching.Ranch r) => string.Join(";", r.Decor.Select(d => $"{d.Id}@{d.X},{d.Y}")) + " | " + string.Join(";", r.Shed.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}={kv.Value}"));
+            ranch.Save();
+            var loaded = Ranching.Ranch.Load();
+            Check(Yard(loaded) == Yard(ranch), $"the yard is the same after a save and load: {Yard(loaded)}");
+
+            loaded.Decor.Add(new Ranching.PlacedDecor { Id = "no_such_piece", X = 7, Y = 6 });
+            loaded.Decor.Add(new Ranching.PlacedDecor { Id = "crate", X = 4, Y = 1 });
+            int crates = loaded.Shed.GetValueOrDefault("crate");
+            Ranching.Farmyard.Tidy(loaded);
+            Check(loaded.Decor.All(d => d.Id != "no_such_piece") && Ranching.Farmyard.At(loaded, new Vector2I(4, 1)) == null && loaded.Shed.GetValueOrDefault("crate") == crates + 1,
+                "tidying drops an unknown piece and puts one standing on a station back in the shed");
+
+            ranch.Chem = 200;
+            ranch.TravelTo("lantern");
+            var lampWare = World.DecorBook.Wares.First(w => w.Id == "decor:lamp");
+            string bought = ranch.Buy(lampWare);
+            Check(ranch.Shed.GetValueOrDefault("lamp") == 1 && ranch.Chem == 200 - World.ShopBook.PriceAt(ranch, lampWare, "lantern"), $"buying a lamp at Lantern Row: {bought}");
+            string far = ranch.Buy(World.DecorBook.Wares.First(w => w.Id == "decor:fountain"));
+            Check(!ranch.Shed.ContainsKey("fountain"), $"a fountain isn't sold there: {far}");
+            GD.Print($"  Lantern Row sells for the yard: {string.Join(", ", World.ShopBook.At(ranch, "lantern").Where(w => World.DecorBook.IsWare(w.Id)).Select(w => $"{World.ShopBook.Name(w.Id)} {w.Price}"))}");
+
+            int painted = 0;
+            foreach (var def in World.DecorBook.All)
+            {
+                var (img, _) = Tactics.PropArt.Paint(def.Prop, 1, "Ranch");
+                if (img.GetUsedRect().Size.X > 0) painted++; else GD.Print($"  {def.Name} paints nothing");
+            }
+            Check(painted == World.DecorBook.All.Length && Tactics.PropArt.Paint(Tactics.Prop.Workbench, 0, "Ranch").img.GetUsedRect().Size.X > 0, $"every piece paints ({painted}), and the workbench");
+            GD.Print($"basetest: {pass} passed, {fail} failed");
+            GetTree().Quit();
+            return;
+        }
+
         if (args.ContainsKey("shoptest"))
         {
             // The shops without a screen: buy where you stand (and not elsewhere), wear gear, use items
@@ -1611,6 +1674,10 @@ public partial class GameRoot : Node
         }
         if (args.TryGetValue("save", out var saveName) && saveName != "") Ranching.Ranch.SavePath = $"user://{saveName}.json";
         _demoPause = args.ContainsKey("pause");
+        // --goto=bench --holding=lamp --cursor=6,7: the workbench's build mode with a piece in hand (screenshots).
+        _demoHolding = args.GetValueOrDefault("holding");
+        if (args.TryGetValue("cursor", out var cursorArg) && cursorArg.Split(',') is [var cx, var cy] && int.TryParse(cx, out int cxi) && int.TryParse(cy, out int cyi))
+            _demoCursor = new Vector2I(cxi, cyi);
         _ranch = args.ContainsKey("newranch") ? Ranching.Ranch.New() : Ranching.Ranch.Load();
         // --choicedemo: a main mission's choice waiting (screenshots; use it with --save=NAME).
         if (args.ContainsKey("choicedemo")) _ranch.Pending ??= "main_foundry";
@@ -1635,9 +1702,12 @@ public partial class GameRoot : Node
     // Home is the base you walk around; its stations open the ranch's systems one at a time.
     Ranching.BaseScreen Base(List<int> joined)
     {
-        var home = new Ranching.BaseScreen { Ranch = _ranch, Use = UseStation, Fight = StartRanchBattle, JustJoined = joined, AutoFight = _autoPlay, DemoGoTo = _goTo, DemoPause = _demoPause, ToTitle = ShowTitle };
+        var home = new Ranching.BaseScreen { Ranch = _ranch, Use = UseStation, Fight = StartRanchBattle, JustJoined = joined, AutoFight = _autoPlay, DemoGoTo = _goTo, DemoPause = _demoPause, ToTitle = ShowTitle,
+            DemoHolding = _demoHolding, DemoCursor = _demoCursor };
         _goTo = null; // a demo walk happens once
         _demoPause = false;
+        _demoHolding = null;
+        _demoCursor = null;
         return home;
     }
 
@@ -1701,6 +1771,8 @@ public partial class GameRoot : Node
     string _goTo; // --goto=ID: at the base, walk to that station and use it
     string _titlePanel; // --title=new|load|settings: open the title on that panel
     bool _demoPause;   // --pause: open the base on its pause menu
+    string _demoHolding;     // --holding=ID: at the workbench, with that piece in hand
+    Vector2I? _demoCursor;   // --cursor=X,Y: and the cursor there
 
     void Show(Node screen)
     {

@@ -307,6 +307,8 @@ after the road to the Foundry. (Defaulted: the farmhouse and the lab are closed 
 - [ ] More stations: a dispatch board, a trophy hall for cups and rival titles, a shop or trader
   at home, a codex wall, the Sprite Lab as a breeder's studio?
 - [ ] Interiors (walking into the farmhouse and the lab), and the base growing visibly (upgrades).
+  Decorating, station upgrades, restyling and supply machines are planned in
+  `docs/farmyard-plan.md` (the user's ask, 2026-11-03; not built).
 - [ ] Should tamers stand around the base (and talk)?
 
 ## Story flags and standing (the user's pick, 2026-11-02; built as machinery)

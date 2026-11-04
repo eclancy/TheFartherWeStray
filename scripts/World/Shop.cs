@@ -71,14 +71,15 @@ public static class ShopBook
     public static int PriceAt(Ranch r, Ware ware, string place) =>
         ware.Price * (100 - Standing.Discount(r, Country.Get(place)?.Side ?? Side.Wilds)) / 100;
 
-    /// <summary>What a place sells now.</summary>
-    public static List<Ware> At(Ranch r, string place) => Stock.Where(w => w.At.Contains(place)
+    /// <summary>What a place sells now: its wares, then pieces for the farmyard.</summary>
+    public static List<Ware> At(Ranch r, string place) => Stock.Concat(DecorBook.Wares).Where(w => w.At.Contains(place)
         && (w.OpenedBy == null || r.Story.Contains(w.OpenedBy)) && (w.Cup == null || r.Cups.Contains(w.Cup))).ToList();
 
-    public static string Name(string id) => id == Berry ? "Glowberry" : AugmentBook.Get(id)?.Name ?? ClassBook.Passive(id)?.Name ?? ClassBook.Skill(id).Name;
+    public static string Name(string id) => id == Berry ? "Glowberry" : DecorBook.OfWare(id) is { } decor ? decor.Name : AugmentBook.Get(id)?.Name ?? ClassBook.Passive(id)?.Name ?? ClassBook.Skill(id).Name;
 
     public static string Text(string id) => id == Berry
         ? "A lure for the curious: set it down where a curious creature will come for it. Every battle brings 3; these are extra."
+        : DecorBook.OfWare(id) is { } decor ? decor.Text + " For the farmyard: it goes in the shed, and out at the workbench."
         : AugmentBook.Get(id) is { } aug ? AugmentBook.Text(aug) + " Fitted at the lab; two to a beast; not inherited."
         : ClassBook.Passive(id)?.Text ?? ClassBook.Skill(id).Text;
 }

@@ -114,6 +114,19 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   off there. `BaseScreen.Standing` keeps where you stood. `--goto=ID` walks to a station and uses
   it; `--station=ID` (and `--labmode`, `--jobsmode`, `--partymode`, `--vatdemo`) opens one
   directly. New stations: a `StationDef` entry, a prop letter on the map, and a `Station` case.
+  **Decorating the farmyard** (the user's ask, 2026-11-03; phase 1 of `docs/farmyard-plan.md`,
+  built):
+  - The workbench (`bench`, `j`, by the farmhouse) turns the base into build mode in place: a
+    tile cursor, and the shed along the foot of the screen.
+  - The pieces are props (`World/Decor.cs`, `DecorBook`, 19 of them). Each side's shops sell its
+    own look as `decor:ID` wares.
+  - They're saved in `Ranch.Decor` (placed) and `Ranch.Shed` (owned). `HomeBase.Map` stands them
+    on the board.
+  - The rules are in `Ranch/Farmyard.cs`: any free tile, never a station, the pens or the spot
+    you come home to, and never walling anything off (a flood fill).
+  - New pieces are `DecorBook` entries; a new kind of prop goes last in the `Prop` enum.
+  - `--basetest` checks it all headless; `--goto=bench --holding=ID --cursor=X,Y` is for
+    screenshots.
 - **Title, save slots and settings (2026-11-02, the user's pick, built):** the game starts on
   `UI/TitleScreen.cs` (the home base drifting behind the name; Continue, New game, Load, Settings,
   Quit). Three slots (`Ranch.Slots`, `SlotPath`, `Peek`, `Summary`, `DeleteSlot`): slot 1 is the

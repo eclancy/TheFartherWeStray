@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using TheFartherWeStray.Tactics;
+using TheFartherWeStray.World;
 using Godot;
 
 namespace TheFartherWeStray.Ranching;
@@ -32,6 +33,9 @@ public static class HomeBase
             Blurb = "your beasts: pick the squad, name them, let them go" },
         new() { Id = "yard", Name = "Training Yard", Glyph = "fist", Prop = 'd', Built = _ => true,
             Blurb = "classes and the job tree" },
+        // The farmyard plan's first part (docs/farmyard-plan.md): decorating happens here, on the base itself.
+        new() { Id = "bench", Name = "The Workbench", Glyph = "hand", Prop = 'j', Built = _ => true,
+            Blurb = "put things out in the yard, and move them about" },
         new() { Id = "armory", Name = "The Armory", Glyph = "club", Prop = 'R', Built = r => r.ContractsWon >= 1,
             Blurb = "fit the gear you've bought", Needs = "your first contract" },
         new() { Id = "vats", Name = "Breeding Vats", Glyph = "sparkle", Prop = 'V', Built = r => r.ContractsWon >= 2,
@@ -44,8 +48,9 @@ public static class HomeBase
 
     public static StationDef Get(string id) => Stations.FirstOrDefault(s => s.Id == id);
 
-    // The base: a farmhouse with the war table on its porch, the lab's workshop, a vat shed, the
-    // training yard's dummies, the pens behind their fence, the armory's rack, and the gate south.
+    // The base: a farmhouse with the war table on its porch and the workbench by its wall, the lab's
+    // workshop, a vat shed, the training yard's dummies, the pens behind their fence, the armory's
+    // rack, and the gate south.
     static readonly string[] Terrain =
     {
         "hhhh........hhhh",
@@ -83,7 +88,7 @@ public static class HomeBase
     static readonly string[] Props =
     {
         "................",
-        "................",
+        "....j...........",
         "..W.........Q...",
         "L....f....f....L",
         "u....T....T.....",
@@ -108,12 +113,18 @@ public static class HomeBase
         for (int x = 0; x <= 4; x++) yield return new Vector2I(x, y);
     }
 
-    /// <summary>The base as it stands for this ranch: a station not yet built is a plot of scaffolding.</summary>
+    /// <summary>
+    /// The base as it stands for this ranch: a station not yet built is a plot of scaffolding, and the
+    /// pieces you've put out stand where you put them.
+    /// </summary>
     public static BattleMap Map(Ranch r)
     {
         var closed = Stations.Where(s => !s.Built(r)).Select(s => s.Prop).ToHashSet();
         var props = Props.Select(row => new string(row.Select(ch => closed.Contains(ch) ? 'Z' : ch).ToArray())).ToArray();
-        return BattleMap.Custom("Home Base", Terrain, Heights, props, "Ranch");
+        var map = BattleMap.Custom("Home Base", Terrain, Heights, props, "Ranch");
+        foreach (var d in r.Decor)
+            if (DecorBook.Get(d.Id) is { } def) map.Put(d.Tile, def.Prop);
+        return map;
     }
 
     /// <summary>The station a tile belongs to, if any (scaffolding included).</summary>

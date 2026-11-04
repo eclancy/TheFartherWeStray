@@ -17,6 +17,9 @@ public enum Prop
     // The home base's stations (the user's ask for a base you walk around, 2026-11-02), its fences
     // and gate, and the scaffolding that stands where a station hasn't opened yet.
     Vat, LabBench, Dummy, Rack, WarTable, Fence, FenceY, FenceCorner, Gate, Trough, Scaffold,
+    // The farmyard's workbench, where you decorate (docs/farmyard-plan.md). New props go last: a prop's
+    // look is seeded by its place in this list.
+    Workbench,
 }
 
 /// <summary>
@@ -39,6 +42,7 @@ public static class PropArt
         'e' => Prop.Hedge, 'H' => Prop.Chimney, 'l' => Prop.BrokenLamp, 'y' => Prop.Hydrant, 'v' => Prop.Vent,
         'V' => Prop.Vat, 'Q' => Prop.LabBench, 'd' => Prop.Dummy, 'R' => Prop.Rack, 'W' => Prop.WarTable,
         'n' => Prop.Fence, 'k' => Prop.FenceY, '+' => Prop.FenceCorner, 'O' => Prop.Gate, 'q' => Prop.Trough, 'Z' => Prop.Scaffold,
+        'j' => Prop.Workbench,
         _ => null,
     };
 
@@ -307,6 +311,25 @@ public static class PropArt
                 c.Ellipsoid(V(0.6f, -0.6f, 4.4f), new Vector3(1, 0, 0), 2.6f * k, 2.6f * k, 0.9f * k, Mat.Main, P());
                 break;
             }
+            case Prop.Workbench:
+            {
+                // A carpenter's bench against a wall: a thick top on open legs with a shelf low down,
+                // a pegboard rising behind it hung with a saw, a hammer and a wrench, a vise at one end
+                // and a plank on the top. (A model's X runs along the board's Y: the bench is long that way.)
+                c.Box(V(0, 0, 6.2f), V(4.6f, 2.0f, 0.5f), Mat.Second, part);
+                foreach (var (x, y) in new[] { (-3.8f, -1.5f), (3.8f, -1.5f), (-3.8f, 1.5f), (3.8f, 1.5f) })
+                    c.Tube(new[] { V(x, y, 0), V(x, y, 5.8f) }, 0.5f * k, 0.5f * k, Mat.Second, part);
+                c.Box(V(0, 0, 1.6f), V(3.8f, 1.5f, 0.25f), Mat.Second, P(), -0.1f);
+                c.Box(V(0, 2.3f, 10.4f), V(4.4f, 0.3f, 4.0f), Mat.Main, P(), 0.05f);
+                c.Box(V(-2.4f, 1.8f, 11.2f), V(1.4f, 0.1f, 0.8f), Mat.Metal, P(), 0.25f);
+                c.Tube(new[] { V(-1.0f, 1.8f, 11.2f), V(-0.4f, 1.8f, 11.2f) }, 0.35f * k, 0.35f * k, Mat.Second, P());
+                c.Tube(new[] { V(0.9f, 1.8f, 8.4f), V(0.9f, 1.8f, 11.8f) }, 0.25f * k, 0.25f * k, Mat.Second, P());
+                c.Box(V(0.9f, 1.8f, 12.2f), V(0.9f, 0.25f, 0.4f), Mat.Metal, P(), 0.2f);
+                c.Tube(new[] { V(2.8f, 1.8f, 8.6f), V(2.8f, 1.8f, 12.6f) }, 0.3f * k, 0.3f * k, Mat.Metal, P(), 0.2f);
+                c.Box(V(3.8f, -0.6f, 7.3f), V(0.7f, 0.8f, 0.6f), Mat.Metal, P(), 0.1f);
+                c.Box(V(-1.0f, -0.5f, 6.95f), V(2.4f, 0.7f, 0.2f), Mat.Main, P(), 0.15f);
+                break;
+            }
             case Prop.Vent:
             {
                 // A street grate, flush with the ground: slots over the dark (the steam is PropFx's).
@@ -481,6 +504,7 @@ public static class PropArt
             Prop.Fence or Prop.FenceY or Prop.FenceCorner => PaletteSpec.FromHex("#9a7448", "#6b4a32", stone, water, glow),
             Prop.Trough => PaletteSpec.FromHex("#c8b060", "#7a5a3a", stone, water, glow),
             Prop.Scaffold => PaletteSpec.FromHex("#7a6a5a", "#8a6a44", "#6b4a32", water, glow),
+            Prop.Workbench => PaletteSpec.FromHex("#c8a870", "#7a5432", "#5a4a3a", water, glow),
             _ => PaletteSpec.FromHex(leaves, bark, stone, water, glow),
         };
         return spec.Build();

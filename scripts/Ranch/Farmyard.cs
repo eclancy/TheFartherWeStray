@@ -41,8 +41,48 @@ public static class Farmyard
     /// <summary>How many pieces the yard holds: room to make it yours, and the board stays quick on a phone.</summary>
     public const int Most = 60;
 
-    /// <summary>How many beasts can be out and about at once (the plan's six, to start).</summary>
+    /// <summary>How many beasts can be out and about at once to start: the pens' upgrades make room for more.</summary>
     public const int MostOut = 6;
+
+    // ------------------------------------------------------------------ station levels (part 2)
+
+    public static int Level(Ranch r, string station) => r.Levels.GetValueOrDefault(station, 1);
+
+    /// <summary>Beasts that can be out in the yard: 6, 9 or 12 by the pens' level.</summary>
+    public static int OutCap(Ranch r) => MostOut + 3 * (Level(r, "pens") - 1);
+
+    /// <summary>The share of the squad's JP the beasts at home earn each battle, in percent: the training yard's.</summary>
+    public static int HomeShare(Ranch r) => (Level(r, "yard") - 1) * 25;
+
+    /// <summary>Glowberries every battle brings: 3, 4 or 5 by the armory's level.</summary>
+    public static int BattleBerries(Ranch r) => 2 + Level(r, "armory");
+
+    /// <summary>A dispatch's pay with the war table's level: a quarter more from level 2.</summary>
+    public static int DispatchPay(Ranch r, int reward) => Level(r, "war") >= 2 ? reward * 5 / 4 : reward;
+
+    /// <summary>A dispatch's days with the war table's level: a day sooner at level 3, never under one.</summary>
+    public static int DispatchDays(Ranch r, int days) => Level(r, "war") >= 3 ? System.Math.Max(1, days - 1) : days;
+
+    /// <summary>Carts at the gate: how many of a trip's first roads take no day.</summary>
+    public static int Carts(Ranch r) => Level(r, "gate") - 1;
+
+    /// <summary>A lab price with the lab's level: 10% off at level 2, 20% at level 3.</summary>
+    public static int LabPrice(Ranch r, int cost) => cost * (100 - 10 * (Level(r, "lab") - 1)) / 100;
+
+    /// <summary>Raises a station a level for chem and scrap, built at once (the user's call). Returns what happened.</summary>
+    public static string Upgrade(Ranch r, StationDef s)
+    {
+        if (s.Upgrades == null) return $"{s.Name} is as it is: there's nothing to build on.";
+        if (!s.Built(r)) return $"{s.Name} isn't built yet: it opens after {s.Needs}.";
+        int level = Level(r, s.Id);
+        if (level >= 3) return $"{s.Name} is as good as it gets.";
+        var (chem, scrap) = HomeBase.UpgradeCosts[level - 1];
+        if (r.Chem < chem || r.Scrap < scrap) return $"Level {level + 1} takes {chem} chem and {scrap} scrap: you have {r.Chem} and {r.Scrap}.";
+        r.Chem -= chem;
+        r.Scrap -= scrap;
+        r.Levels[s.Id] = level + 1;
+        return $"{s.Name} is level {level + 1}: {s.Upgrades[level - 1]}";
+    }
 
     /// <summary>A new farmyard's first pieces, given once (old saves get them too).</summary>
     public static void Starter(Ranch r)
@@ -66,7 +106,7 @@ public static class Farmyard
     {
         if (!r.Flags.Add(Ranch.OutFlag)) return;
         foreach (var rec in r.Creatures)
-            if (r.Out.Count < MostOut && !r.Squad.Contains(rec.Id) && !r.Out.Contains(rec.Id)) r.Out.Add(rec.Id);
+            if (r.Out.Count < OutCap(r) && !r.Squad.Contains(rec.Id) && !r.Out.Contains(rec.Id)) r.Out.Add(rec.Id);
     }
 
     /// <summary>Lets a beast out into the yard, or brings it back to the pen. Returns what happened.</summary>
@@ -75,7 +115,7 @@ public static class Farmyard
         string name = r.Get(id).Name;
         if (r.Out.Remove(id)) return $"{name} goes back in the pen.";
         if (r.Squad.Contains(id)) return $"{name} is in the squad: the squad waits in the pen between battles.";
-        if (r.Out.Count >= MostOut) return $"{MostOut} are out already: bring one back in first.";
+        if (r.Out.Count >= OutCap(r)) return $"{OutCap(r)} are out already: bring one back in first{(Level(r, "pens") < 3 ? ", or build up the pens at the workbench" : "")}.";
         r.Out.Add(id);
         return r.Away.ContainsKey(id) ? $"{name} will be out in the yard when it's back from its dispatch." : $"{name} is out and about in the yard.";
     }
@@ -157,7 +197,10 @@ public static class Farmyard
     public static void Tidy(Ranch r)
     {
         r.Out.RemoveAll(id => r.Squad.Contains(id) || r.Creatures.All(c => c.Id != id));
-        if (r.Out.Count > MostOut) r.Out.RemoveRange(MostOut, r.Out.Count - MostOut);
+        if (r.Out.Count > OutCap(r)) r.Out.RemoveRange(OutCap(r), r.Out.Count - OutCap(r));
+        // Station levels that make sense: known stations with levels, 1 to 3.
+        foreach (var id in r.Levels.Keys.ToList())
+            if (HomeBase.Get(id)?.Upgrades == null) r.Levels.Remove(id); else r.Levels[id] = Math.Clamp(r.Levels[id], 1, 3);
         var all = r.Decor.ToList();
         r.Decor.Clear();
         foreach (var d in all)

@@ -968,6 +968,53 @@ public partial class GameRoot : Node
             Check(farmBack.Machines.Count(m => m.Id == "still") == 1 && farmBack.Machines.All(m => m.Id != "no_such_machine"), "tidying keeps one of each, and only machines that exist");
             Check(World.MachineBook.All.All(m => Tactics.PropArt.Paint(m.Prop, 1, "Ranch").img.GetUsedRect().Size.X > 0), "every machine paints");
 
+            // Station upgrades (part 2): chem and scrap, built at once (the user's call), and each one's effect.
+            var town = Ranching.Ranch.New();
+            var pensDef = Ranching.HomeBase.Get("pens");
+            string poor = Ranching.Farmyard.Upgrade(town, pensDef);
+            Check(Ranching.Farmyard.Level(town, "pens") == 1, $"no upgrade without chem and scrap: {poor}");
+            town.Chem = 3000;
+            town.Scrap = 300;
+            string builtUp = Ranching.Farmyard.Upgrade(town, pensDef);
+            Check(Ranching.Farmyard.Level(town, "pens") == 2 && town.Chem == 3000 - 120 && town.Scrap == 300 - 15 && Ranching.Farmyard.OutCap(town) == 9, $"the pens built up at once: {builtUp}");
+            Ranching.Farmyard.Upgrade(town, pensDef);
+            string most = Ranching.Farmyard.Upgrade(town, pensDef);
+            Check(Ranching.Farmyard.Level(town, "pens") == 3 && Ranching.Farmyard.OutCap(town) == 12, $"level 3 holds 12 out, and that's the top: {most}");
+            Check(Ranching.Farmyard.Upgrade(town, Ranching.HomeBase.Get("bench")).Contains("nothing"), "the workbench has no levels");
+            Check(Ranching.Farmyard.Upgrade(town, Ranching.HomeBase.Get("armory")).Contains("isn't built"), "an armory not built yet can't be built up");
+            town.ContractsWon = 2;
+            town.Story.Add("main_foundry");
+            town.Encounter = 12;
+            foreach (var id in new[] { "armory", "vats", "vats", "lab", "war", "war", "gate", "yard" })
+                Ranching.Farmyard.Upgrade(town, Ranching.HomeBase.Get(id));
+            var packed = new Tactics.Mission { Seed = 5, MapName = "Lantern Row", Goal = Tactics.Objective.Rout, Pack = 3 }.CreateBattle(town.SquadCreatures());
+            town.LeadUnits(packed);
+            Check(packed.Berries == 4 + packed.BerriesBrought, $"the armory at level 2 packs 4 glowberries ({packed.Berries})");
+            Check(Ranching.Farmyard.LabPrice(town, 30) == 27 && Ranching.Farmyard.LabPrice(town, 50) == 45, "the lab at level 2 is 10% cheaper");
+            var mums = town.Creatures.Take(2).Select(c => c.Id).ToList();
+            var (child, _) = town.Breed(mums[0], mums[1]);
+            Check(town.Record(mums[0]).Rested && town.Record(mums[1]).Rested && town.Record(child).Rested, "the vats at level 3: the parents don't rest, and the child is born rested");
+            var job = World.DispatchBook.All.First(j => j.Days >= 2);
+            int sent = town.Creatures.First(c => !town.Squad.Contains(c.Id)).Id;
+            town.Send(sent, job);
+            Check(town.Away[sent].BackOn == town.Day + job.Days - 1 && Ranching.Farmyard.DispatchPay(town, 20) == 25, "the war table at level 3: dispatches a day sooner, and a quarter more pay");
+            var dest = World.Country.Route(town, town.Location, "lantern");
+            int roads = dest.Count - 1, dayBefore2 = town.Day;
+            town.TravelTo("lantern");
+            Check(town.Day == dayBefore2 + System.Math.Max(0, roads - 1), $"the gate's cart: {roads} road(s) to Lantern Row took {town.Day - dayBefore2} day(s)");
+            int homeId = town.Creatures.First(c => !town.Squad.Contains(c.Id) && !town.Away.ContainsKey(c.Id)).Id;
+            int jpBefore = town.Record(homeId).Training.JpIn(town.Record(homeId).Training.Class);
+            var fight = new Tactics.Mission { Seed = 9, MapName = "Lantern Row", Goal = Tactics.Objective.Rout, Pack = 3 }.CreateBattle(town.SquadCreatures());
+            town.LeadUnits(fight);
+            while (fight.Winner == null && fight.Round <= 30) { var who = fight.NextTurn(); if (who == null) break; fight.AiTurn(who); }
+            town.AfterBattle(fight);
+            int jpAfter = town.Record(homeId).Training.JpIn(town.Record(homeId).Training.Class);
+            Check(jpAfter > jpBefore, $"the training yard at level 2: a beast at home trained too ({jpBefore} -> {jpAfter} JP)");
+            Ranching.Ranch.SavePath = "user://base_test.json";
+            town.Save();
+            var townBack = Ranching.Ranch.Load();
+            Check(string.Join(",", townBack.Levels.OrderBy(kv => kv.Key)) == string.Join(",", town.Levels.OrderBy(kv => kv.Key)), $"station levels kept after a save and load: {string.Join(", ", townBack.Levels.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key} {kv.Value}"))}");
+
             // A yard to look at: --save=yard_show (screenshots of beasts out and about).
             var show = Ranching.Ranch.New();
             for (ulong seed = 41; seed < 47; seed++) show.Add(Creatures.Creature.Specimen(seed));
@@ -985,6 +1032,9 @@ public partial class GameRoot : Node
                 else show.Machines[^1].Level = level;
             }
             for (int d = 0; d < 6; d++) Ranching.Farmyard.PassDay(show);
+            show.Levels["pens"] = 2;
+            show.Chem = 400;
+            show.Scrap = 60;
             Ranching.Ranch.SavePath = "user://yard_show.json";
             show.Save();
             GD.Print($"  wrote yard_show: {show.Out.Count} out, {show.Decor.Count} pieces, machines {string.Join(", ", show.Machines.Select(m => $"{m.Id} L{m.Level} [{string.Join(",", m.Stored)}]"))}");

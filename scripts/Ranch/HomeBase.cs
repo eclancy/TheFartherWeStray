@@ -14,6 +14,7 @@ public sealed class StationDef
     public char Prop;                 // its prop on the base map (every tile with this prop is the station)
     public Func<Ranch, bool> Built;   // whether it's open yet
     public string Needs;              // what opens it, said to the player while it's scaffolding
+    public string[] Upgrades;         // what levels 2 and 3 do (docs/farmyard-plan.md, part 2); none: it has no levels
 }
 
 /// <summary>
@@ -28,25 +29,35 @@ public static class HomeBase
     public static readonly StationDef[] Stations =
     {
         new() { Id = "gate", Name = "The Gate", Glyph = "mountain", Prop = 'O', Built = _ => true,
-            Blurb = "out to the country: contracts, the story, the shops" },
+            Blurb = "out to the country: contracts, the story, the shops",
+            Upgrades = new[] { "A cart: the first road of every trip takes no day.", "A second cart: the first two roads take no day." } },
         new() { Id = "pens", Name = "The Pens", Glyph = "paw", Prop = 'q', Built = _ => true,
-            Blurb = "your beasts: pick the squad, name them, let them go" },
+            Blurb = "your beasts: pick the squad, name them, let them go",
+            Upgrades = new[] { "Room for 9 beasts out in the yard.", "Room for 12 beasts out in the yard." } },
         new() { Id = "yard", Name = "Training Yard", Glyph = "fist", Prop = 'd', Built = _ => true,
-            Blurb = "classes and the job tree" },
+            Blurb = "classes and the job tree",
+            Upgrades = new[] { "Beasts at home earn a quarter of the squad's JP each battle.", "Beasts at home earn half the squad's JP each battle." } },
         // The farmyard plan's first part (docs/farmyard-plan.md): decorating happens here, on the base itself.
         new() { Id = "bench", Name = "The Workbench", Glyph = "hand", Prop = 'j', Built = _ => true,
             Blurb = "put things out in the yard, and move them about" },
         new() { Id = "armory", Name = "The Armory", Glyph = "club", Prop = 'R', Built = r => r.ContractsWon >= 1,
-            Blurb = "fit the gear you've bought", Needs = "your first contract" },
+            Blurb = "fit the gear you've bought", Needs = "your first contract",
+            Upgrades = new[] { "4 glowberries packed for every battle.", "5 glowberries packed for every battle." } },
         new() { Id = "vats", Name = "Breeding Vats", Glyph = "sparkle", Prop = 'V', Built = r => r.ContractsWon >= 2,
-            Blurb = "breed two beasts into a new one", Needs = "two contracts won" },
+            Blurb = "breed two beasts into a new one", Needs = "two contracts won",
+            Upgrades = new[] { "Children are born rested: ready to fight or breed at once.", "And parents don't need to rest after breeding." } },
         new() { Id = "war", Name = "War Table", Glyph = "crown", Prop = 'W', Built = r => Party.TamerBook.Joined(r.Encounter).Count() >= 2,
-            Blurb = "your tamers and who each leads", Needs = "a second tamer joining you" },
+            Blurb = "your tamers and who each leads", Needs = "a second tamer joining you",
+            Upgrades = new[] { "Dispatches pay a quarter more chem.", "And dispatches come back a day sooner." } },
         new() { Id = "lab", Name = "The Lab", Glyph = "flask", Prop = 'Q', Built = r => r.Story.Contains("main_foundry"),
-            Blurb = "infuse, splice, fit augments, graft parts", Needs = "the road to the Foundry" },
+            Blurb = "infuse, splice, fit augments, graft parts", Needs = "the road to the Foundry",
+            Upgrades = new[] { "Grafts, infusions and splices 10% cheaper.", "Grafts, infusions and splices 20% cheaper." } },
     };
 
     public static StationDef Get(string id) => Stations.FirstOrDefault(s => s.Id == id);
+
+    /// <summary>What raising a station to level 2, then 3, costs: built at once (the user's call, 2026-11-03).</summary>
+    public static readonly (int chem, int scrap)[] UpgradeCosts = { (120, 15), (240, 40) };
 
     // The base: a farmhouse with the war table on its porch and the workbench by its wall, the lab's
     // workshop, a vat shed, the training yard's dummies, the pens behind their fence, the armory's

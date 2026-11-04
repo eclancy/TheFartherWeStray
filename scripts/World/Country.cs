@@ -123,7 +123,8 @@ public static class Country
     }
 
     /// <summary>Days of travel from where you are.</summary>
-    public static int Days(Ranch r, string to) => Math.Max(0, (Route(r, r.Location, to)?.Count ?? 1) - 1);
+    /// <summary>Days to get somewhere: a road each, less the gate's carts (the first roads of a trip take none).</summary>
+    public static int Days(Ranch r, string to) => Math.Max(0, (Route(r, r.Location, to)?.Count ?? 1) - 1 - Ranching.Farmyard.Carts(r));
 
     /// <summary>
     /// What's on offer everywhere: at each open place with a map, its regular job, one or two

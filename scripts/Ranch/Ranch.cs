@@ -124,6 +124,7 @@ public sealed class Ranch
     public Dictionary<string, int> Shed = new();
     public List<int> Out = new();   // beasts out and about in the yard (picked at the pens; never the squad)
     public List<PlacedMachine> Machines = new();  // machines out in the yard, filling their hoppers a day at a time
+    public Dictionary<string, int> Levels = new();   // stations raised past level 1 (docs/farmyard-plan.md, part 2)
     public int Scrap;                             // made by the scrap press, for upgrading machines
 
     readonly Dictionary<int, Creature> _cache = new();
@@ -312,6 +313,7 @@ public sealed class Ranch
         Shed ??= new();
         Out ??= new();
         Machines ??= new();
+        Levels ??= new();
         Farmyard.Starter(this);
         Farmyard.Tidy(this);
         Wanderers.RemoveAll(w => !World.Roaming.Roams(this, w.At));
@@ -335,6 +337,7 @@ public sealed class Ranch
     public void LeadUnits(Battle battle)
     {
         foreach (var id in Squad) battle.Lead(Get(id), LeaderOf(id));
+        battle.Berries = Farmyard.BattleBerries(this); // the armory packs more as it's built up
         battle.Pack(Items);
     }
 
@@ -467,9 +470,10 @@ public sealed class Ranch
     public string Send(int id, World.DispatchDef job)
     {
         int chance = System.Math.Min(96, World.DispatchBook.Chance(job, Get(id), Record(id).Training));
+        int days = Farmyard.DispatchDays(this, job.Days);
         RemoveFromSquad(id);
-        Away[id] = new AwayRecord { Job = job.Id, BackOn = Day + job.Days, Chance = chance };
-        return $"{Record(id).Name} sets off on \"{job.Title}\": back in {job.Days} {(job.Days == 1 ? "day" : "days")}, {chance}% to go well.";
+        Away[id] = new AwayRecord { Job = job.Id, BackOn = Day + days, Chance = chance };
+        return $"{Record(id).Name} sets off on \"{job.Title}\": back in {days} {(days == 1 ? "day" : "days")}, {chance}% to go well.";
     }
 
     /// <summary>Everyone back from a dispatch by today: chem and training if it went well, a story either way.</summary>
@@ -484,19 +488,26 @@ public sealed class Ranch
             bool well = rng.Int(100) < away.Chance;
             var training = Record(id).Training;
             training.Earn(well ? 25 : 10);
-            if (well) Chem += job.Reward;
+            int pay = Farmyard.DispatchPay(this, job.Reward);
+            if (well) Chem += pay;
             string moved = well && job.Location != null ? World.Standing.ForWork(this, job.Location, World.Standing.Dispatch) : "";
-            lines.Add($"{Record(id).Name} is back from \"{job.Title}\": {(well ? job.Success : job.Failure)}{(well ? $" +{job.Reward} chem{(moved != "" ? $"; {moved}" : "")}." : "")}");
+            lines.Add($"{Record(id).Name} is back from \"{job.Title}\": {(well ? job.Success : job.Failure)}{(well ? $" +{pay} chem{(moved != "" ? $"; {moved}" : "")}." : "")}");
         }
         return lines;
     }
 
-    /// <summary>One road's travel: a day passes (packs roam) and you arrive. Returns the pack waiting there, if any.</summary>
-    public World.Wanderer TravelStep(string next)
+    /// <summary>
+    /// One road's travel: a day passes (packs roam) and you arrive. Returns the pack waiting there, if any.
+    /// On a cart (the gate's upgrades, the first roads of a trip) the road takes no day.
+    /// </summary>
+    public World.Wanderer TravelStep(string next, bool cart = false)
     {
-        Day++;
-        World.Roaming.PassDay(this);
-        Farmyard.PassDay(this);
+        if (!cart)
+        {
+            Day++;
+            World.Roaming.PassDay(this);
+            Farmyard.PassDay(this);
+        }
         Location = next;
         return Wanderers.FirstOrDefault(w => w.At == next);
     }
@@ -506,8 +517,9 @@ public sealed class Ranch
     {
         var route = World.Country.Route(this, Location, location);
         if (route == null) { Location = location; return null; }
+        int road = 0;
         foreach (var stop in route.Skip(1))
-            if (TravelStep(stop) is { } met) return met;
+            if (TravelStep(stop, road++ < Farmyard.Carts(this)) is { } met) return met;
         return null;
     }
 
@@ -543,12 +555,12 @@ public sealed class Ranch
         // Parents as they were born to it: augments are bolted on, not blood.
         var result = Breeding.Breed(Record(a).ToCreature(augmented: false), Record(b).ToCreature(augmented: false), SeededRng.Derive(Encounter * 7919UL + (ulong)Bred, (ulong)(a * 131 + b)));
         Bred++;
-        Record(a).Rested = Record(b).Rested = false;
+        if (Farmyard.Level(this, "vats") < 3) Record(a).Rested = Record(b).Rested = false; // built up, the vats spare the parents
         // Breeding true is the city's way; crossing strains into a chimera is the undercity's.
         if (Classes.TierBook.Chimera(result.Child)) World.Standing.Shift(this, 0, World.Standing.Breeding);
         else World.Standing.Shift(this, World.Standing.Breeding, 0);
         Number(result.Child.Species);
-        int id = Add(result.Child, rested: false);
+        int id = Add(result.Child, rested: Farmyard.Level(this, "vats") >= 2); // and the children come out ready
 
         // The child is born knowing one skill from a parent (the notes' MVP: "a part mix plus 1 skill").
         var known = Record(a).Training.Skills.Concat(Record(b).Training.Skills)
@@ -689,8 +701,9 @@ public sealed class Ranch
         // Items used come out of the bag; glowberries only past the three every battle brings.
         foreach (var (item, n) in battle.Used)
             if ((Items[item] = Items.GetValueOrDefault(item) - n) <= 0) Items.Remove(item);
-        int berriesUsed = 3 + battle.BerriesBrought - battle.Berries;
-        if (battle.BerriesBrought > 0 && berriesUsed > 3 && (Items[World.ShopBook.Berry] -= berriesUsed - 3) <= 0) Items.Remove(World.ShopBook.Berry);
+        int free = Farmyard.BattleBerries(this);
+        int berriesUsed = free + battle.BerriesBrought - battle.Berries;
+        if (battle.BerriesBrought > 0 && berriesUsed > free && (Items[World.ShopBook.Berry] -= berriesUsed - free) <= 0) Items.Remove(World.ShopBook.Berry);
         // A Mimic keeps what it learned by watching its foes.
         foreach (var (u, skill) in battle.Learned)
             if (u.Side == Tactics.Side.Player && u.Training != null && !battle.Recruited.Contains(u) && !u.Training.Learned.Contains(skill))
@@ -699,14 +712,26 @@ public sealed class Ranch
                 Report.Add($"{u.Name} learned {ClassBook.Skill(skill).Name} by watching (Mimic).");
             }
         // Only your own creatures train here (a rival's are rebuilt for every duel).
+        var earned = new List<int>();
         foreach (var u in battle.Units.Where(u => u.Training != null && u.Side == Tactics.Side.Player))
         {
             // A favoured class (body-plan affinity) trains half again as fast.
             int jp = 12 + (u.Gone ? 0 : 4) + (battle.Winner == Tactics.Side.Player ? 4 : 0);
             jp = (int)(jp * ClassBook.JpRate(u.Creature, u.Training.Class) * Classes.TierBook.GrowthRate(u.Creature));
+            earned.Add(jp);
             foreach (var name in u.Training.Earn(jp))
                 Report.Add($"{u.Name} learned {name} ({u.Training.Class}).");
             if (u.Passive is { ChemBonus: > 0 } pick) { Chem += pick.ChemBonus; Report.Add($"{u.Name} pocketed {pick.ChemBonus} chem."); }
+        }
+        // The training yard's share: the beasts at home (not in the squad, not away) train on what the squad earned.
+        if (Farmyard.HomeShare(this) is > 0 and var share && earned.Count > 0)
+        {
+            int each = (int)(earned.Average() * share / 100);
+            var home = Creatures.Where(c => !Squad.Contains(c.Id) && !Away.ContainsKey(c.Id) && c.Training != null).ToList();
+            foreach (var rec in home)
+                foreach (var name in rec.Training.Earn(each))
+                    Report.Add($"{rec.Name} learned {name} at home ({rec.Training.Class}).");
+            if (each > 0 && home.Count > 0) Report.Add($"The training yard: {home.Count} at home trained, +{each} JP each.");
         }
         // Chem for the lab: more for a win and for every wild or rival creature driven off. Their parts enter the codex.
         bool Foe(Unit u) => u.Training == null || u.Side == Tactics.Side.Wild;

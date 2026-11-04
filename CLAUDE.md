@@ -147,6 +147,19 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
     the press).
   - New machines are `MachineBook` entries and a prop.
   - `--machine=ID` opens one for screenshots.
+  **Station upgrades** (phase 4, built):
+  - At the workbench, the cursor on a station and A opens its levels. Every station but the
+    workbench goes to level 3, built at once (the user's call) for chem and scrap
+    (`HomeBase.UpgradeCosts`; saved in `Ranch.Levels`).
+  - The effects stay on the loop, never battle stats. They're read through `Farmyard`:
+    - `Carts`: the gate's first roads take no day;
+    - `OutCap`: the pens hold 6, 9 or 12 beasts out;
+    - `HomeShare`: the yard trains the beasts at home on the squad's JP;
+    - `BattleBerries`: the armory packs 3, 4 or 5 glowberries;
+    - the vats' rest rules;
+    - `DispatchPay` and `DispatchDays`: the war table;
+    - `LabPrice`: the lab's discounts.
+  - New effects are an `Upgrades` line on the station and a rule that reads its level.
 - **Title, save slots and settings (2026-11-02, the user's pick, built):** the game starts on
   `UI/TitleScreen.cs` (the home base drifting behind the name; Continue, New game, Load, Settings,
   Quit). Three slots (`Ranch.Slots`, `SlotPath`, `Peek`, `Summary`, `DeleteSlot`): slot 1 is the

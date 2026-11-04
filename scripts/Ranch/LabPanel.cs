@@ -88,7 +88,8 @@ public partial class LabPanel : Control
             int id = _id.Value;
             string pid = p.Id;
             bool has = rec.Infusions.Contains(p.Id), full = rec.Infusions.Count >= Classes.InfusionBook.Slots;
-            var b = Btn($"{p.Name}  {Classes.InfusionBook.Cost}", !has && Ranch.Chem >= Classes.InfusionBook.Cost, () => Finish(Lab.Brew(Ranch, id, pid)));
+            int brew = Farmyard.LabPrice(Ranch, Classes.InfusionBook.Cost);
+            var b = Btn($"{p.Name}  {brew}", !has && Ranch.Chem >= brew, () => Finish(Lab.Brew(Ranch, id, pid)));
             b.Icon = flask;
             b.TooltipText = p.Text + (has ? "\nIt has this one." : full ? $"\nThe {Classes.InfusionBook.Get(rec.Infusions[0])?.Name} washes out." : "");
             draughts.AddChild(b);
@@ -104,7 +105,8 @@ public partial class LabPanel : Control
             foreach (var (strain, _, cost) in Lab.Infusions)
             {
                 int id = _id.Value;
-                var b = Btn($"{strain.Label()}  {cost}", Ranch.Chem >= cost, () => Finish(Lab.Infuse(Ranch, id, strain)));
+                int price = Farmyard.LabPrice(Ranch, cost);
+                var b = Btn($"{strain.Label()}  {price}", Ranch.Chem >= price, () => Finish(Lab.Infuse(Ranch, id, strain)));
                 b.Icon = flask;
                 bloods.AddChild(b);
             }
@@ -129,7 +131,7 @@ public partial class LabPanel : Control
             var what = Text(Classes.TierBook.AbilityText(kinds[0]), 300, dim);
             pick.ItemSelected += i => what.Text = Classes.TierBook.AbilityText((Form)pick.GetItemId((int)i));
             int id = _id.Value;
-            var splice = Btn($"Splice  {Classes.TierBook.SpliceCost}", Ranch.Chem >= Classes.TierBook.SpliceCost,
+            var splice = Btn($"Splice  {Farmyard.LabPrice(Ranch, Classes.TierBook.SpliceCost)}", Ranch.Chem >= Farmyard.LabPrice(Ranch, Classes.TierBook.SpliceCost),
                 () => Finish(Lab.Splice(Ranch, id, (Form)pick.GetItemId(pick.Selected))), 120);
             splice.Icon = flask;
             if (carried.Length >= Classes.TierBook.MaxSpliced) splice.TooltipText = $"It loses {Classes.TierBook.Ability(carried[0])}.";
@@ -174,7 +176,7 @@ public partial class LabPanel : Control
             row.AddChild(Btn(">", options.Count > 1, () => Cycle(slot.Name, options, 1), 34));
             int id = _id.Value;
             string name = slot.Name;
-            var graftButton = Btn($"Graft  {slot.Cost}", pick != current && Ranch.Chem >= slot.Cost, () => Finish(Lab.GraftPart(Ranch, id, name, _candidate[name])), 120);
+            var graftButton = Btn($"Graft  {Farmyard.LabPrice(Ranch, slot.Cost)}", pick != current && Ranch.Chem >= Farmyard.LabPrice(Ranch, slot.Cost), () => Finish(Lab.GraftPart(Ranch, id, name, _candidate[name])), 120);
             graftButton.Icon = flask;
             row.AddChild(graftButton);
             _rows.AddChild(row);

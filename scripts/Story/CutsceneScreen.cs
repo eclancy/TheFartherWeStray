@@ -480,6 +480,7 @@ public partial class SceneActor : Actor
     public int Size = 1;
     public MoveType Move;
     public bool Person;
+    public bool Quiet;        // no footfalls: the beasts pottering about the yard
     System.Func<Vector2I, int, Vector2> _feet;
 
     /// <summary>Makes the sprite; <paramref name="feet"/> says where a tile (and footprint size) puts its feet on the board.</summary>
@@ -497,6 +498,7 @@ public partial class SceneActor : Actor
 
     protected override void Stepped(int step)
     {
+        if (Quiet) return;
         if (Move == MoveType.Fly) { if (step % 2 == 1) Audio.Sound.Play("flap", 1, -6); }
         else Audio.Sound.Play("step", Person ? 1.25f : 1, -8);
     }

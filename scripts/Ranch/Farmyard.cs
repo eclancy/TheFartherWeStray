@@ -29,6 +29,9 @@ public static class Farmyard
     /// <summary>How many pieces the yard holds: room to make it yours, and the board stays quick on a phone.</summary>
     public const int Most = 60;
 
+    /// <summary>How many beasts can be out and about at once (the plan's six, to start).</summary>
+    public const int MostOut = 6;
+
     /// <summary>A new farmyard's first pieces, given once (old saves get them too).</summary>
     public static void Starter(Ranch r)
     {
@@ -37,6 +40,28 @@ public static class Farmyard
     }
 
     public static PlacedDecor At(Ranch r, Vector2I t) => r.Decor.FirstOrDefault(d => d.X == t.X && d.Y == t.Y);
+
+    /// <summary>
+    /// Beasts out and about (docs/farmyard-plan.md, part 3b): once per save, the ones not in the squad
+    /// go out, as many as fit, so the yard has life in it from the first day.
+    /// </summary>
+    public static void FirstOut(Ranch r)
+    {
+        if (!r.Flags.Add(Ranch.OutFlag)) return;
+        foreach (var rec in r.Creatures)
+            if (r.Out.Count < MostOut && !r.Squad.Contains(rec.Id) && !r.Out.Contains(rec.Id)) r.Out.Add(rec.Id);
+    }
+
+    /// <summary>Lets a beast out into the yard, or brings it back to the pen. Returns what happened.</summary>
+    public static string ToggleOut(Ranch r, int id)
+    {
+        string name = r.Get(id).Name;
+        if (r.Out.Remove(id)) return $"{name} goes back in the pen.";
+        if (r.Squad.Contains(id)) return $"{name} is in the squad: the squad waits in the pen between battles.";
+        if (r.Out.Count >= MostOut) return $"{MostOut} are out already: bring one back in first.";
+        r.Out.Add(id);
+        return r.Away.ContainsKey(id) ? $"{name} will be out in the yard when it's back from its dispatch." : $"{name} is out and about in the yard.";
+    }
 
     /// <summary>Why a piece can't go on a tile, or null if it can. <paramref name="you"/> is where you stand.</summary>
     public static string Why(Ranch r, string id, Vector2I t, Vector2I? you = null)
@@ -105,10 +130,12 @@ public static class Farmyard
 
     /// <summary>
     /// Keeps a loaded yard sound: a piece that's unknown now, or on a tile the base has since claimed
-    /// (a new station, say), goes back in the shed.
+    /// (a new station, say), goes back in the shed; the beasts out are ones you have, none in the squad.
     /// </summary>
     public static void Tidy(Ranch r)
     {
+        r.Out.RemoveAll(id => r.Squad.Contains(id) || r.Creatures.All(c => c.Id != id));
+        if (r.Out.Count > MostOut) r.Out.RemoveRange(MostOut, r.Out.Count - MostOut);
         var all = r.Decor.ToList();
         r.Decor.Clear();
         foreach (var d in all)

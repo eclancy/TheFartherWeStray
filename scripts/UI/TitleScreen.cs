@@ -38,11 +38,16 @@ public partial class TitleScreen : Control
     {
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         Audio.Music.Play("map");
-        // A base with everything built, to show off (never saved).
-        var show = Ranch.New();
-        show.ContractsWon = 5;
-        show.Story.Add("main_foundry");
-        show.Encounter = 12;
+        // Your own yard behind the name, from the slot played last: its pieces, and the beasts out in it
+        // (the user's ask, docs/farmyard-plan.md). With no save yet, a base with everything built.
+        var own = Ranch.Peek(Settings.LastSlot);
+        var show = own ?? Ranch.New();
+        if (own == null)
+        {
+            show.ContractsWon = 5;
+            show.Story.Add("main_foundry");
+            show.Encounter = 12;
+        }
         _map = HomeBase.Map(show);
         _art = new IsoArt(_map, Tactics.BattleScreen.Skirt);
         var bg = new TextureRect
@@ -57,8 +62,10 @@ public partial class TitleScreen : Control
         AddChild(_board);
         _board.AddChild(new Sprite2D { Texture = ImageTexture.CreateFromImage(_art.PaintBoard()), Centered = false });
         PropArt.Place(_board, _map, _art);
-        var yard = new[] { new Vector2I(8, 8), new Vector2I(9, 7), new Vector2I(7, 9), new Vector2I(10, 9) };
-        foreach (var (creature, i) in Encounter.StarterSquad().Select((x, i) => (x.Item1, i)).Take(yard.Length))
+        var who = own == null ? Encounter.StarterSquad().Select(x => x.Item1).ToList()
+            : (own.Out.Count > 0 ? own.Out : own.Squad).Where(id => !own.Away.ContainsKey(id)).Select(own.Get).Take(Ranching.Farmyard.MostOut).ToList();
+        var yard = Spots(who.Count);
+        foreach (var (creature, i) in who.Select((c, i) => (c, i)).Take(yard.Count))
         {
             var a = new SceneActor { Id = creature.Name };
             a.Setup(FeetAt, (v, ph, bl, po) => CreatureSculptor.Render(creature, false, v, ph, bl, po), creature.Seed, 1, Unit.From(creature, Tactics.Side.Player).MoveType, false);
@@ -126,6 +133,21 @@ public partial class TitleScreen : Control
     float PanelTop => _short ? 190 : 330;
 
     Vector2 FeetAt(Vector2I tile, int size) => _art.TileCenter(new Vector2(tile.X, tile.Y), _map.HeightAt(tile));
+
+    /// <summary>Where the beasts stand: round the middle of the yard, on free ground, a tile apart where there's room.</summary>
+    List<Vector2I> Spots(int count)
+    {
+        var centre = new Vector2I(8, 8);
+        bool Free(Vector2I t) => _map.InBounds(t) && !_map.Blocked(t) && _map.TerrainAt(t) != Terrain.Roof && !HomeBase.Pen().Contains(t);
+        var spots = new List<Vector2I>();
+        foreach (var t in new[] { new Vector2I(8, 8), new Vector2I(9, 7), new Vector2I(7, 9), new Vector2I(10, 9), new Vector2I(6, 7), new Vector2I(9, 10) })
+            if (spots.Count < count && Free(t)) spots.Add(t);
+        var rest = Enumerable.Range(0, _map.W * _map.H).Select(i => new Vector2I(i % _map.W, i / _map.W)).Where(t => Free(t) && !spots.Contains(t))
+            .OrderBy(t => Mathf.Abs(t.X - centre.X) + Mathf.Abs(t.Y - centre.Y)).ToList();
+        foreach (var t in rest)
+            if (spots.Count < count && spots.All(o => Mathf.Abs(o.X - t.X) + Mathf.Abs(o.Y - t.Y) > 1)) spots.Add(t);
+        return spots;
+    }
 
     /// <summary>A dark wash from the left edge, fading out by the middle of the screen.</summary>
     static Texture2D Wash()

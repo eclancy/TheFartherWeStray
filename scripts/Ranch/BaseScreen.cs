@@ -18,6 +18,9 @@ namespace TheFartherWeStray.Ranching;
 /// scaffolding with a sign saying what opens them; new ones are marked until first used. The workbench
 /// turns the base into build mode right here: a cursor on the board, the shed along the foot of the
 /// screen, pieces put out and picked up where you can see them (docs/farmyard-plan.md, part 1).
+/// The beasts you let out (at the pens) roam the yard and go to what's there by temper (part 3b): the
+/// curious to the newest piece, the loyal after you, the aggressive to the dummies; walk up to one, or
+/// click it, and it says hello.
 /// </summary>
 public partial class BaseScreen : Control
 {
@@ -77,7 +80,7 @@ public partial class BaseScreen : Control
         _you.Place(Standing is { } s && CanStand(s) ? s : HomeBase.Spawn);
         _you.Face(new Vector2(-1, 1));
         var pen = HomeBase.Pen().Where(CanStand).ToList();
-        foreach (var rec in Ranch.Creatures.Where(r => !Ranch.Away.ContainsKey(r.Id)).Take(Math.Min(8, pen.Count)))
+        foreach (var rec in Ranch.Creatures.Where(r => !Ranch.Away.ContainsKey(r.Id) && !Ranch.Out.Contains(r.Id)).Take(Math.Min(8, pen.Count)))
         {
             var creature = Ranch.Get(rec.Id);
             var unit = Unit.From(creature, Tactics.Side.Player);
@@ -91,6 +94,7 @@ public partial class BaseScreen : Control
             _herd.Add(a);
             _nextWander[a] = _rng.Range(0.5f, 3f);
         }
+        LetOut();
         _board.Position = Focus - (_you.Position - new Vector2(0, 20)) * Scale;
 
         BuildUi();
@@ -183,6 +187,233 @@ public partial class BaseScreen : Control
             .Select(t => (t, path: Paths.Find(_map, _you.Tile, t, CanStand, false))).Where(x => x.path != null).OrderBy(x => x.path.Count).ToList();
         if (beside.Count == 0) { Flash($"There's no way to {s.Name} from here."); return; }
         WalkTo(beside[0].t, s);
+    }
+
+    // ------------------------------------------------------------------ beasts out and about
+
+    enum Errand { Wander, Drink, Nap, Sit, Spar, Look, Follow, Perch, Admire, Edge }
+
+    /// <summary>A beast out in the yard: what it is, whether it flies, what it's doing and where it's bound.</summary>
+    sealed class Roamer
+    {
+        public SceneActor Actor;
+        public Creature Creature;
+        public bool Flies;
+        public bool Busy;
+        public double Next;     // when it next picks something to do
+        public Vector2I Bound;  // where it's going, kept for it
+    }
+
+    readonly List<Roamer> _roamers = new();
+
+    /// <summary>Somewhere a beast out in the yard can stand: not in the pen or a building; fliers may sit on a roof.</summary>
+    bool Roam(Vector2I t, bool flies) => _map.InBounds(t) && !_map.Blocked(t) && !HomeBase.Pen().Contains(t)
+        && _map.TerrainAt(t) is not (Terrain.Pit or Terrain.Water or Terrain.Chem or Terrain.Lava) && (flies || _map.TerrainAt(t) != Terrain.Roof);
+
+    bool Taken(Vector2I t, Roamer me) => t == _you.Tile || _roamers.Any(o => o != me && (o.Actor.Tile == t || o.Bound == t));
+
+    /// <summary>The beasts let out at the pens, each somewhere in the yard.</summary>
+    void LetOut()
+    {
+        var taken = new HashSet<Vector2I>(_herd.Select(h => h.Tile)) { _you.Tile };
+        foreach (int id in Ranch.Out.Where(id => !Ranch.Away.ContainsKey(id) && Ranch.Creatures.Any(c => c.Id == id)))
+        {
+            var creature = Ranch.Get(id);
+            var unit = Unit.From(creature, Tactics.Side.Player);
+            bool flies = unit.MoveType == MoveType.Fly;
+            var spots = new List<Vector2I>();
+            for (int y = 0; y < _map.H; y++)
+            for (int x = 0; x < _map.W; x++)
+                if (Roam(new Vector2I(x, y), flies) && _map.TerrainAt(new Vector2I(x, y)) != Terrain.Roof && !taken.Contains(new Vector2I(x, y))) spots.Add(new Vector2I(x, y));
+            if (spots.Count == 0) break;
+            var a = new SceneActor { Id = id.ToString(), Shown = creature.Name, Quiet = true };
+            a.Setup(FeetAt, (v, ph, bl, po) => CreatureSculptor.Render(creature, false, v, ph, bl, po), creature.Seed, 1, unit.MoveType, false);
+            _board.AddChild(a);
+            var spot = spots[_rng.Int(spots.Count)];
+            taken.Add(spot);
+            a.Place(spot);
+            a.Face(new Vector2(_rng.Range(-1f, 1f), _rng.Range(-1f, 1f)));
+            _roamers.Add(new Roamer { Actor = a, Creature = creature, Flies = flies, Next = _rng.Range(0.5f, 3f), Bound = spot });
+        }
+    }
+
+    /// <summary>A free spot beside something on the board, for a beast to go and stand at.</summary>
+    Vector2I? Beside(Vector2I thing, Roamer r)
+    {
+        var free = new[] { Vector2I.Right, Vector2I.Left, Vector2I.Down, Vector2I.Up }.Select(d => thing + d)
+            .Where(t => Roam(t, r.Flies) && !Taken(t, r)).ToList();
+        return free.Count == 0 ? null : free[_rng.Int(free.Count)];
+    }
+
+    /// <summary>A free spot beside one of the things on the board that fit, picked at random.</summary>
+    (Vector2I spot, Vector2I thing)? BesideAny(Func<Prop, bool> fits, Roamer r)
+    {
+        var things = _map.Props.Where(p => fits(p.prop)).Select(p => p.tile).OrderBy(_ => _rng.Int(1000)).ToList();
+        foreach (var t in things)
+            if (Beside(t, r) is { } spot) return (spot, t);
+        return null;
+    }
+
+    /// <summary>
+    /// What a beast does next, by its temper and what's in the yard: the aggressive spar with the dummies,
+    /// the curious go to look at the newest piece, the loyal come to you, the proud stand somewhere grand
+    /// (fliers up on a roof), the skittish keep to the edges and away from you. Otherwise a drink, a nap
+    /// in the shade, a sit by a lamp, or a wander.
+    /// </summary>
+    (Vector2I to, Errand errand, Vector2I? face) Decide(Roamer r)
+    {
+        var here = r.Actor.Tile;
+        float roll = _rng.Range(0f, 1f);
+        int near = Mathf.Abs(_you.Tile.X - here.X) + Mathf.Abs(_you.Tile.Y - here.Y);
+        switch (r.Creature.Attitude)
+        {
+            case Attitude.Aggressive when roll < 0.5f && BesideAny(p => p == Prop.Dummy, r) is { } dummy:
+                return (dummy.spot, Errand.Spar, dummy.thing);
+            case Attitude.Curious when roll < 0.5f && Ranch.Decor.Count > 0 && Beside(Ranch.Decor[^1].Tile, r) is { } look:
+                return (look, Errand.Look, Ranch.Decor[^1].Tile);
+            case Attitude.Loyal when roll < 0.6f && Beside(_you.Tile, r) is { } heel:
+                return (heel, Errand.Follow, _you.Tile);
+            case Attitude.Proud when roll < 0.5f:
+                if (r.Flies)
+                {
+                    var roofs = Enumerable.Range(0, _map.W * _map.H).Select(i => new Vector2I(i % _map.W, i / _map.W))
+                        .Where(t => _map.TerrainAt(t) == Terrain.Roof && !Taken(t, r)).ToList();
+                    if (roofs.Count > 0) return (roofs[_rng.Int(roofs.Count)], Errand.Perch, null);
+                }
+                else if (BesideAny(p => p is Prop.Statue or Prop.Pillar or Prop.Fountain or Prop.Crystals or Prop.Gate, r) is { } grand)
+                    return (grand.spot, Errand.Admire, grand.thing);
+                break;
+            case Attitude.Skittish when roll < 0.5f || near <= 2:
+                var edges = Enumerable.Range(0, _map.W * _map.H).Select(i => new Vector2I(i % _map.W, i / _map.W))
+                    .Where(t => (t.X == 0 || t.Y == 0 || t.X == _map.W - 1 || t.Y == _map.H - 1) && Roam(t, r.Flies) && !Taken(t, r))
+                    .OrderByDescending(t => Mathf.Abs(t.X - _you.Tile.X) + Mathf.Abs(t.Y - _you.Tile.Y)).Take(6).ToList();
+                if (edges.Count > 0) return (edges[_rng.Int(edges.Count)], Errand.Edge, null);
+                break;
+        }
+        float pick = _rng.Range(0f, 1f);
+        if (pick < 0.25f && BesideAny(p => p is Prop.Trough or Prop.Fountain, r) is { } drink) return (drink.spot, Errand.Drink, drink.thing);
+        if (pick < 0.5f && BesideAny(p => p is Prop.Tree or Prop.Pine or Prop.Bush or Prop.Hedge or Prop.Mushroom, r) is { } shade) return (shade.spot, Errand.Nap, shade.thing);
+        if (pick < 0.7f && BesideAny(p => p is Prop.Lamp or Prop.Neon or Prop.Banner or Prop.Stall or Prop.Barrel or Prop.Crate, r) is { } sit) return (sit.spot, Errand.Sit, sit.thing);
+        var steps = new List<Vector2I>();
+        for (int dy = -3; dy <= 3; dy++)
+        for (int dx = -3; dx <= 3; dx++)
+        {
+            var t = here + new Vector2I(dx, dy);
+            if ((dx != 0 || dy != 0) && Roam(t, r.Flies) && _map.TerrainAt(t) != Terrain.Roof && !Taken(t, r)) steps.Add(t);
+        }
+        return (steps.Count > 0 ? steps[_rng.Int(steps.Count)] : here, Errand.Wander, null);
+    }
+
+    /// <summary>Goes and does it: walks there, turns to it, and drinks, naps, spars, looks or just stands a while.</summary>
+    async void Potter(Roamer r)
+    {
+        r.Busy = true;
+        var (to, errand, face) = Decide(r);
+        r.Bound = to;
+        if (to != r.Actor.Tile)
+        {
+            var path = Paths.Find(_map, r.Actor.Tile, to, t => Roam(t, r.Flies), r.Flies);
+            if (path is { Count: > 1 })
+            {
+                await r.Actor.Walk(path, r.Flies ? 0.22f : 0.32f);
+                if (!Here) return;
+            }
+            else { r.Bound = r.Actor.Tile; errand = Errand.Wander; face = null; }
+        }
+        if (face is { } f) r.Actor.Face(FeetAt(f, 1) - r.Actor.Position);
+        switch (errand)
+        {
+            case Errand.Drink:
+                Emote(r.Actor, "wave");
+                await r.Actor.Act(Pose.Strike, 0.6f);
+                await Pause(1.0);
+                if (Here) await r.Actor.Act(Pose.Strike, 0.6f);
+                break;
+            case Errand.Nap:
+                r.Actor.Rest(true);
+                Emote(r.Actor, "moon");
+                await Pause(_rng.Range(4f, 8f));
+                if (Here) r.Actor.Rest(false);
+                break;
+            case Errand.Spar:
+                Emote(r.Actor, "fist");
+                for (int i = 0; i < 3 && Here; i++) { await r.Actor.Act(Pose.Strike, 0.38f); await Pause(0.45); }
+                break;
+            case Errand.Look:
+                Emote(r.Actor, "?");
+                await r.Actor.Act(Pose.Cast, 0.5f);
+                await Pause(1.5);
+                break;
+            case Errand.Follow:
+                if (_rng.Chance(0.4f)) Emote(r.Actor, "hp");
+                await Pause(_rng.Range(1f, 2f));
+                break;
+            case Errand.Perch or Errand.Admire:
+                if (_rng.Chance(0.4f)) Emote(r.Actor, "crown");
+                await r.Actor.Act(Pose.Cast, 0.5f);
+                await Pause(_rng.Range(2f, 4f));
+                break;
+            default:
+                await Pause(_rng.Range(1f, 3f));
+                break;
+        }
+        if (!Here) return;
+        r.Busy = false;
+        r.Next = _clock + _rng.Range(1.5f, 4f);
+    }
+
+    async System.Threading.Tasks.Task Pause(double seconds)
+    {
+        if (Here) await ToSignal(GetTree().CreateTimer(seconds), SceneTreeTimer.SignalName.Timeout);
+    }
+
+    /// <summary>Still the screen on show: an errand that outlives the base (you went to a station) stops there.</summary>
+    bool Here => IsInstanceValid(this) && IsInsideTree();
+
+    /// <summary>A balloon over a beast for a moment: a glyph, or ! ? ...</summary>
+    void Emote(SceneActor a, string kind, bool sound = false)
+    {
+        var balloon = new EmoteBalloon { Kind = kind, Position = a.Position + new Vector2(0, -a.SpriteHeight - 6), ZIndex = 460, Scale = new Vector2(0.2f, 0.2f) };
+        _board.AddChild(balloon);
+        if (sound) Audio.Sound.Play(kind == "!" ? "turn" : "tick", kind == "?" ? 0.8f : 1f);
+        var tw = CreateTween();
+        tw.TweenProperty(balloon, "scale", Vector2.One, 0.12f).SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+        tw.TweenInterval(0.9f);
+        tw.TweenProperty(balloon, "modulate:a", 0f, 0.2f);
+        tw.TweenCallback(Callable.From(balloon.QueueFree));
+    }
+
+    /// <summary>The beast out in the yard whose sprite is at this point on the screen.</summary>
+    Roamer RoamerAt(Vector2 screen)
+    {
+        var p = (screen - _board.Position) / Scale;
+        return _roamers.Where(r => Mathf.Abs(p.X - r.Actor.Position.X) < 12 && p.Y < r.Actor.Position.Y + 4 && p.Y > r.Actor.Position.Y - r.Actor.SpriteHeight - 2)
+            .OrderByDescending(r => r.Actor.ZIndex).FirstOrDefault();
+    }
+
+    Roamer NearRoamer() => _roamers.FirstOrDefault(r => Mathf.Abs(r.Actor.Tile.X - _you.Tile.X) + Mathf.Abs(r.Actor.Tile.Y - _you.Tile.Y) == 1);
+
+    static string Greeting(Attitude a) => a switch
+    {
+        Attitude.Aggressive => "squares up to you, then decides you're not worth it.",
+        Attitude.Skittish => "startles, then creeps back for a scratch.",
+        Attitude.Loyal => "leans against your legs.",
+        Attitude.Curious => "sniffs your pockets for glowberries.",
+        _ => "lets you admire it.",
+    };
+
+    /// <summary>Saying hello to a beast out in the yard: it wakes, turns to you, and shows its temper.</summary>
+    void Greet(Roamer r)
+    {
+        var c = r.Creature;
+        r.Actor.Rest(false);
+        r.Actor.Face(_you.Position - r.Actor.Position);
+        _you.Face(r.Actor.Position - _you.Position);
+        Flash($"{c.Name} {Greeting(c.Attitude)} ({c.Attitude}: in battle it {AttitudeInfo.Reaction(c.Attitude)}.)");
+        Emote(r.Actor, c.Attitude switch { Attitude.Aggressive or Attitude.Skittish => "!", Attitude.Curious => "?", Attitude.Loyal => "hp", _ => "crown" }, true);
+        var pose = c.Attitude switch { Attitude.Aggressive => Pose.Strike, Attitude.Skittish => Pose.Hurt, Attitude.Loyal => Pose.Idle, _ => Pose.Cast };
+        if (pose != Pose.Idle) _ = r.Actor.Act(pose, 0.45f);
+        r.Next = Math.Max(r.Next, _clock + 2.5);
     }
 
     void UseStation(StationDef s)
@@ -507,8 +738,17 @@ public partial class BaseScreen : Control
         else
         {
             var near = _walking ? null : Near();
-            _prompt.Text = near == null ? "" : near.Built(Ranch) ? $"[{Phone.Keys("E", "A")}]  {near.Name}: {near.Blurb}" : $"{near.Name}: being built. Opens after {near.Needs}.";
-            _prompt.AddThemeColorOverride("font_color", near != null && near.Built(Ranch) ? Ink : Dim);
+            var beast = near == null && !_walking ? NearRoamer() : null;
+            _prompt.Text = near != null ? (near.Built(Ranch) ? $"[{Phone.Keys("E", "A")}]  {near.Name}: {near.Blurb}" : $"{near.Name}: being built. Opens after {near.Needs}.")
+                : beast != null ? $"[{Phone.Keys("E", "A")}]  {beast.Creature.Name}" : "";
+            _prompt.AddThemeColorOverride("font_color", near == null || near.Built(Ranch) ? Ink : Dim);
+        }
+        // The beasts out in the yard potter about; a skittish one near you moves off at once.
+        foreach (var r in _roamers)
+        {
+            if (r.Busy) continue;
+            bool startled = r.Creature.Attitude == Attitude.Skittish && Mathf.Abs(r.Actor.Tile.X - _you.Tile.X) + Mathf.Abs(r.Actor.Tile.Y - _you.Tile.Y) <= 1;
+            if (_clock >= r.Next || startled) Potter(r);
         }
         // The herd wanders the pens, a step now and then.
         foreach (var a in _herd)
@@ -548,6 +788,7 @@ public partial class BaseScreen : Control
         if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click)
         {
             if (StationAt(click.Position) is { } s) GoTo(s);
+            else if (RoamerAt(click.Position) is { } r) Greet(r);
             else if (TileAt(click.Position) is { } t && CanStand(t)) WalkTo(t);
             GetViewport().SetInputAsHandled();
             return;
@@ -572,6 +813,11 @@ public partial class BaseScreen : Control
         {
             _you.Face(FeetAt(HomeBase.Tiles(n).OrderBy(t => (t - _you.Tile).LengthSquared()).First(), 1) - _you.Position);
             UseStation(n);
+            GetViewport().SetInputAsHandled();
+        }
+        else if (!k.Echo && k.Keycode is Key.E or Key.Enter or Key.KpEnter or Key.Space && !_walking && NearRoamer() is { } beast)
+        {
+            Greet(beast);
             GetViewport().SetInputAsHandled();
         }
     }

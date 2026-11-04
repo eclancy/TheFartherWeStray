@@ -127,6 +127,16 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   - New pieces are `DecorBook` entries; a new kind of prop goes last in the `Prop` enum.
   - `--basetest` checks it all headless; `--goto=bench --holding=ID --cursor=X,Y` is for
     screenshots.
+  **Beasts out and about** (phase 2, built):
+  - At the pens, up to six beasts not in the squad are let out into the yard (`Ranch.Out`;
+    `Farmyard.ToggleOut`, Y; their cards lit green).
+  - They roam the yard by temper and go to what's in it (`BaseScreen.Decide` / `Potter`): the
+    aggressive spar with the dummies, the curious look at the newest piece, the loyal follow you,
+    the proud stand somewhere grand, and the skittish keep to the edges. Otherwise they drink,
+    nap or sit by things.
+  - Click one, or press A beside it, to say hello.
+  - The title screen shows the last slot's own yard and its out beasts.
+  - `--save=yard_show` (written by `--basetest`) is a yard to look at.
 - **Title, save slots and settings (2026-11-02, the user's pick, built):** the game starts on
   `UI/TitleScreen.cs` (the home base drifting behind the name; Continue, New game, Load, Settings,
   Quit). Three slots (`Ranch.Slots`, `SlotPath`, `Peek`, `Summary`, `DeleteSlot`): slot 1 is the

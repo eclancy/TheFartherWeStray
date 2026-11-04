@@ -41,7 +41,7 @@ public partial class RanchScreen : Control
     VBoxContainer _detail, _training;
     Control _headerChips;
     VatPanel _vats;
-    Button _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _labButton, _boardButton, _jobsButton;
+    Button _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _labButton, _boardButton, _jobsButton, _yardButton;
     HBoxContainer _buttonsRow;
     Button _nameButton, _gearButton;
     LineEdit _nameBox;
@@ -126,6 +126,7 @@ public partial class RanchScreen : Control
         _vatButton = Make("Vat", () => { if (_selected is { } id) TogglePen(id); });
         _releaseButton = Make("Release", () => { if (_selected is { } id) Release(id); });
         _nameButton = Make("Name", () => { if (_selected is { } id) StartNaming(id); });
+        _yardButton = Make("Out in the yard", () => { if (_selected is { } id) ToggleOut(id); });
         _gearButton = Make("Gear", () => { if (_selected is { } id) CycleGear(id); });
         // Enter breeds on a desktop; a phone's pad needs a button for it.
         _breedButton = Make("Breed", Breed);
@@ -206,12 +207,12 @@ public partial class RanchScreen : Control
         SetPanel(Station switch { "lab" => Panel.Lab, "yard" => Panel.Jobs, "war" => Panel.Party, _ => Panel.Vats });
         var keep = Station switch
         {
-            "pens" => new[] { _squadButton, _nameButton, _releaseButton },
+            "pens" => new[] { _squadButton, _yardButton, _nameButton, _releaseButton },
             "vats" => Phone.On ? new[] { _vatButton, _breedButton } : new[] { _vatButton },
             "armory" => new[] { _gearButton },
             _ => Array.Empty<Button>(),
         };
-        foreach (var b in new[] { _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _nameButton, _gearButton, _breedButton }) b.Visible = keep.Contains(b);
+        foreach (var b in new[] { _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _nameButton, _gearButton, _breedButton, _yardButton }) b.Visible = keep.Contains(b);
         if (Station != "vats")
         {
             // No vats here: the creature's detail moves up into their space, and the base keeps the news.
@@ -223,19 +224,19 @@ public partial class RanchScreen : Control
         else if (Phone.On) _training.Visible = false;
         _help.Text = Phone.On ? Station switch
         {
-            "pens" => "A or tap: select    the buttons: squad, name, release    B: back to the base    Start: menu",
+            "pens" => "A or tap: select    the buttons: squad, the yard, name, release    B: back to the base    Start: menu",
             "vats" => "A or tap: select    Into vat, twice, then Breed    B: back to the base    Start: menu",
             _ => "A or tap: select    B: back to the base    Start: menu",
         } : Station switch
         {
-            "pens" => "Click: select    S: squad    Delete twice: release    Esc: back to the base    N: sound",
+            "pens" => "Click: select    S: squad    Y: out in the yard    Delete twice: release    Esc: back to the base    N: sound",
             "vats" => "Click: select    Right-click: into a vat    Enter: breed    Esc: back to the base    N: sound",
             "armory" => "Click: select    Gear: next piece from the bag    Esc: back to the base    N: sound",
             _ => "Click: select a beast    Esc: back to the base    N: sound",
         };
         Flash(Station switch
         {
-            "pens" => "The pens: pick the squad (S), name your beasts, or let one go.",
+            "pens" => $"The pens: pick the squad (S), let up to {Farmyard.MostOut} others out in the yard (Y), name your beasts, or let one go.",
             "vats" => Phone.On ? "The vats: put two beasts into the vats (Into vat), then Breed." : "The vats: right-click two beasts into the vats, then Enter to breed.",
             "armory" => "The armory: fit gear from the bag (Gear cycles through it).",
             "yard" => "The training yard: every class this beast could train, and what each still needs.",
@@ -370,7 +371,7 @@ public partial class RanchScreen : Control
     void RefreshSelected()
     {
         bool any = _selected != null && Ranch.Creatures.Any(r => r.Id == _selected);
-        foreach (var b in new[] { _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _nameButton, _gearButton }) b.Disabled = !any;
+        foreach (var b in new[] { _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _nameButton, _gearButton, _yardButton }) b.Disabled = !any;
         _breedButton.Disabled = _pen.Count < 2;
         Clear(_training);
         if (!any) return;
@@ -378,6 +379,9 @@ public partial class RanchScreen : Control
         var c = Ranch.Get(id);
         var t = Ranch.Record(id).Training;
         _squadButton.Text = InSquad(id) ? "Leave squad" : "Join squad";
+        _yardButton.Text = Ranch.Out.Contains(id) ? "Back to the pen" : "Out in the yard";
+        _yardButton.Disabled = InSquad(id);
+        _yardButton.TooltipText = InSquad(id) ? "The squad waits in the pen between battles" : $"Up to {Farmyard.MostOut} beasts roam the yard; the rest stay in the pen";
         _classButton.Text = $"{t.Class}  >";
         _classButton.Icon = Glyphs.Get(SkillIcons.ClassEmblem(t.Class), 1);
         _classButton.TooltipText = "Cycle the main class";
@@ -521,6 +525,13 @@ public partial class RanchScreen : Control
         Ranch.Save();
         Rebuild();
         if (_panel == Panel.Party) _party.Refresh();
+    }
+
+    void ToggleOut(int id)
+    {
+        Flash(Farmyard.ToggleOut(Ranch, id));
+        Ranch.Save();
+        Rebuild();
     }
 
     /// <summary>The short name on a squad creature's card: who leads it.</summary>
@@ -668,6 +679,7 @@ public partial class RanchScreen : Control
             else if (k.Keycode == Phone.Start) AddChild(new PauseMenu { Save = Ranch.Save, ToTitle = ToTitle });
             else if (k.Keycode is Key.Enter or Key.KpEnter && Station == "vats") Breed();
             else if (k.Keycode == Key.S && Station == "pens" && _selected is { } ps) ToggleSquad(ps);
+            else if (k.Keycode == Key.Y && Station == "pens" && _selected is { } py) ToggleOut(py);
             else if (k.Keycode == Key.Delete && Station == "pens" && _selected is { } pd) Release(pd);
             else return;
             GetViewport().SetInputAsHandled();
@@ -746,10 +758,12 @@ public partial class RanchCard : Control
         var rec = Screen.Ranch.Record(Id);
         bool squad = Screen.InSquad(Id);
         int pen = Screen.PenSlot(Id);
-        // The card's tube says where it stands: gold when chosen, pink in a vat, cyan in the squad.
+        bool yard = !squad && Screen.Ranch.Out.Contains(Id) && !Screen.Ranch.Away.ContainsKey(Id);
+        // The card's tube says where it stands: gold when chosen, pink in a vat, cyan in the squad, green out in the yard.
         var box = Screen.IsSelected(Id) ? UiSkin.Lit(UiPart.Button, Color.FromHtml("#f2c14e"), true)
             : pen >= 0 ? UiSkin.Lit(UiPart.Button, Color.FromHtml("#ff4f9a"))
             : squad ? UiSkin.Lit(UiPart.Button, Color.FromHtml("#4fe3ff"))
+            : yard ? UiSkin.Lit(UiPart.Button, Color.FromHtml("#5fe08a"))
             : UiSkin.Box(UiPart.Button, _hover ? UiState.Hover : UiState.Normal);
         DrawStyleBox(box, new Rect2(Vector2.Zero, Size));
         if (HasFocus()) DrawStyleBox(UiSkin.Box(UiPart.Button, UiState.Focus), new Rect2(Vector2.Zero, Size)); // where the pad is
@@ -769,9 +783,10 @@ public partial class RanchCard : Control
 
         // Marks in the top corners.
         if (squad) DrawString(font, new Vector2(18, 30), Screen.LeaderTag(Id), HorizontalAlignment.Left, -1, 13, Color.FromHtml("#4fe3ff"));
+        if (yard) DrawString(font, new Vector2(18, 30), "IN THE YARD", HorizontalAlignment.Left, -1, 13, Color.FromHtml("#5fe08a"));
         if (Screen.Ranch.Away.TryGetValue(Id, out var away))
             DrawString(font, new Vector2(18, 30), $"AWAY {Math.Max(0, away.BackOn - Screen.Ranch.Day)}d", HorizontalAlignment.Left, -1, 13, Color.FromHtml("#ff4f9a"));
-        if (pen >= 0) DrawString(font, new Vector2(18, squad ? 48 : 30), pen == 0 ? "VAT A" : "VAT B", HorizontalAlignment.Left, -1, 13, Color.FromHtml("#ff4f9a"));
+        if (pen >= 0) DrawString(font, new Vector2(18, squad || yard ? 48 : 30), pen == 0 ? "VAT A" : "VAT B", HorizontalAlignment.Left, -1, 13, Color.FromHtml("#ff4f9a"));
         string tag = Screen.IsNew(Id) ? "NEW" : c.Generation > 0 ? $"GEN {c.Generation}" : "";
         if (tag != "") DrawString(font, new Vector2(0, 30), tag, HorizontalAlignment.Right, Size.X - 18, 13, Color.FromHtml("#f2c14e"));
         if (rec.Steeping) DrawString(font, new Vector2(0, 48), "steeping", HorizontalAlignment.Right, Size.X - 18, 12, Color.FromHtml("#4ff0a0"));

@@ -40,9 +40,37 @@ which ones are out and about". Plan first, nothing built yet. The decisions mark
 - **Not yet:**
   - Turning a piece.
   - Crafting, which comes with the machines' goods.
-  - The title screen showing your own yard (with phase 2).
   - Tints.
   - Beast statues and trophies.
+
+**Phase 2, beasts out and about (built 2026-11-03).**
+
+- **Choosing them.** At the pens, "Out in the yard" (Y on a desktop) lets a beast not in the squad
+  out, or brings it back in. Up to six can be out (`Farmyard.MostOut`).
+  - Their cards light green and say IN THE YARD; the squad stays cyan.
+  - Joining the squad, or being let go, brings a beast back in.
+  - A new ranch lets out the starters outside the squad. An old save gets up to six once
+    (`save:out`).
+  - Saved in `Ranch.Out`.
+- **Roaming.** The out beasts roam the whole yard (`BaseScreen`, `Roamer`, `Decide`, `Potter`).
+  - They never go into the pen or a building; fliers may perch on a roof.
+  - You walk through them, and their footfalls are quiet.
+  - What they do comes from their temper and what's in the yard:
+    - The aggressive spar with the training dummies.
+    - The curious go to look at the newest piece.
+    - The loyal come and stand by you.
+    - The proud stand by a statue, a column, the fountain or the gate, or fliers perch up on a
+      roof.
+    - The skittish keep to the edges, and move off when you come near.
+  - Otherwise they drink at the trough or a fountain, nap in the shade of a tree, bush or hedge
+    (the faint pose held, with a moon above them), sit by a lamp or a barrel, or wander.
+  - Their emote balloons are the cutscenes'.
+- **Saying hello.** Click a beast out in the yard, or press A (or E) beside it.
+  - It wakes, turns to you and shows its temper in a line, with how it reacts in battle.
+- **The title screen** now shows the last slot's own yard behind the name: its pieces, its
+  stations, and its out beasts (or its squad).
+- **The checks:** `--basetest` grows to 33 checks. It also writes `user://yard_show.json`, a
+  yard with six beasts out and nine pieces, for screenshots (`--save=yard_show`).
 
 ## Where it starts
 
@@ -273,10 +301,10 @@ are already an open idea. Both come after the rest.
 
 ## Build order
 
-1. **Groundwork and decorating:** the data, the save, the overlay, build mode with its rules, a
+1. **Groundwork and decorating** (built): the data, the save, the overlay, build mode with its rules, a
    dozen pieces from props that exist, and shop stock.
-2. **Beasts out and about:** choosing them at the pens, roaming the yard, the things they do
-   with the decorations, and the title screen showing them.
+2. **Beasts out and about** (built): choosing them at the pens, roaming the yard, the things
+   they do with the decorations, and the title screen showing them.
 3. **Machines:** the still, the beds and the scrap press, hoppers and collecting, and upgrades.
 4. **Station upgrades:** levels, scaffolding while they build, the effects, and the check with
    `--country`.

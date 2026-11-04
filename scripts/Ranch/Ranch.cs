@@ -122,6 +122,7 @@ public sealed class Ranch
     // The farmyard (docs/farmyard-plan.md): the pieces put out, and the ones in the shed.
     public List<PlacedDecor> Decor = new();
     public Dictionary<string, int> Shed = new();
+    public List<int> Out = new();   // beasts out and about in the yard (picked at the pens; never the squad)
 
     readonly Dictionary<int, Creature> _cache = new();
 
@@ -158,6 +159,8 @@ public sealed class Ranch
     public const string TiersFlag = "save:tiers";
     /// <summary>Set once a farmyard has had its starter pieces (new ranches get them; old saves once).</summary>
     public const string DecorFlag = "save:decor";
+    /// <summary>Set once a save has had its first beasts let out into the yard.</summary>
+    public const string OutFlag = "save:out";
 
     public static Ranch New()
     {
@@ -173,6 +176,7 @@ public sealed class Ranch
         foreach (var rec in r.Creatures) Lab.Learn(r, r.Get(rec.Id));
         World.Roaming.Spawn(r, new SeededRng(0x60A3)); // a pack is out there from the start
         Farmyard.Starter(r);
+        Farmyard.FirstOut(r);
         return r;
     }
 
@@ -252,6 +256,7 @@ public sealed class Ranch
         if (tamer == null || !Fielded.Contains(tamer) || Led(tamer) >= TamerBook.CreaturesEach) return false;
         Squad.Add(id);
         LedBy[id] = tamer;
+        Out.Remove(id); // the squad waits in the pen between battles
         return true;
     }
 
@@ -303,6 +308,7 @@ public sealed class Ranch
         // The farmyard: old saves get the starter pieces once, and anything that no longer fits goes back in the shed.
         Decor ??= new();
         Shed ??= new();
+        Out ??= new();
         Farmyard.Starter(this);
         Farmyard.Tidy(this);
         Wanderers.RemoveAll(w => !World.Roaming.Roams(this, w.At));
@@ -319,6 +325,7 @@ public sealed class Ranch
         LedBy.Clear();
         foreach (var id in squad)
             if (!(leaders[id] is { } w && Fielded.Contains(w) && AddToSquad(id, w))) AddToSquad(id);
+        Farmyard.FirstOut(this);
     }
 
     /// <summary>Puts each squad creature in a battle under its tamer.</summary>
@@ -516,6 +523,7 @@ public sealed class Ranch
         Chem += 5; // salvage
         Creatures.RemoveAll(r => r.Id == id);
         RemoveFromSquad(id);
+        Out.Remove(id);
         _cache.Remove(id);
     }
 

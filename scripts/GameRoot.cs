@@ -871,6 +871,55 @@ public partial class GameRoot : Node
                 if (img.GetUsedRect().Size.X > 0) painted++; else GD.Print($"  {def.Name} paints nothing");
             }
             Check(painted == World.DecorBook.All.Length && Tactics.PropArt.Paint(Tactics.Prop.Workbench, 0, "Ranch").img.GetUsedRect().Size.X > 0, $"every piece paints ({painted}), and the workbench");
+
+            // Beasts out and about (part 3b): picked at the pens, never the squad, six at most, saved.
+            var herd = Ranching.Ranch.New();
+            Check(herd.Out.Count == herd.Creatures.Count(c => !herd.Squad.Contains(c.Id)) && herd.Out.All(id => !herd.Squad.Contains(id)),
+                $"a new ranch lets its {herd.Out.Count} beast(s) outside the squad out into the yard");
+            int squadOne = herd.Squad[0];
+            string refused = Ranching.Farmyard.ToggleOut(herd, squadOne);
+            Check(!herd.Out.Contains(squadOne), $"a squad beast stays in: {refused}");
+            for (ulong seed = 31; seed < 39; seed++) herd.Add(Creatures.Creature.Specimen(seed));
+            var spare = herd.Creatures.Select(c => c.Id).Where(id => !herd.Squad.Contains(id) && !herd.Out.Contains(id)).ToList();
+            foreach (int id in spare) Ranching.Farmyard.ToggleOut(herd, id);
+            Check(herd.Out.Count == Ranching.Farmyard.MostOut, $"no more than {Ranching.Farmyard.MostOut} out at once ({herd.Out.Count})");
+            int outOne = herd.Out[0];
+            Ranching.Farmyard.ToggleOut(herd, outOne);
+            Check(!herd.Out.Contains(outOne), "toggling one that's out brings it back in");
+            Ranching.Farmyard.ToggleOut(herd, outOne);
+            herd.RemoveFromSquad(squadOne);
+            herd.AddToSquad(outOne);
+            Check(!herd.Out.Contains(outOne), "joining the squad brings a beast in from the yard");
+            int gone = herd.Out[^1];
+            herd.Release(gone);
+            Check(!herd.Out.Contains(gone), "a beast let go is out of the list too");
+            herd.Save();
+            var back = Ranching.Ranch.Load();
+            Check(back.Out.SequenceEqual(herd.Out), $"who's out is the same after a save and load: {string.Join(", ", back.Out)}");
+            back.Out.Add(999);
+            back.Out.Add(back.Squad[0]);
+            back.Tidy();
+            Check(!back.Out.Contains(999) && !back.Out.Contains(back.Squad[0]), "tidying drops a beast you don't have, and a squad beast");
+            back.Out.Clear();
+            back.Tidy();
+            Check(back.Out.Count == 0, "an empty yard you chose stays empty");
+            back.Flags.Remove(Ranching.Ranch.OutFlag);
+            back.Tidy();
+            Check(back.Out.Count > 0, $"an old save lets {back.Out.Count} out once");
+
+            // A yard to look at: --save=yard_show (screenshots of beasts out and about).
+            var show = Ranching.Ranch.New();
+            for (ulong seed = 41; seed < 47; seed++) show.Add(Creatures.Creature.Specimen(seed));
+            show.Out.Clear();
+            foreach (var c in show.Creatures.Where(c => !show.Squad.Contains(c.Id))) Ranching.Farmyard.ToggleOut(show, c.Id);
+            foreach (var (id, x, y) in new[] { ("fountain", 8, 6), ("tree", 4, 5), ("tree", 10, 3), ("lamp", 6, 7), ("statue", 10, 7), ("bush", 3, 7), ("barrel", 9, 12), ("hedge", 11, 9), ("banner", 6, 3) })
+            {
+                show.Shed[id] = show.Shed.GetValueOrDefault(id) + 1;
+                if (Ranching.Farmyard.Place(show, id, new Vector2I(x, y)) is { } no) GD.Print($"  (show yard: {id} at {x},{y}: {no})");
+            }
+            Ranching.Ranch.SavePath = "user://yard_show.json";
+            show.Save();
+            GD.Print($"  wrote yard_show: {show.Out.Count} out, {show.Decor.Count} pieces");
             GD.Print($"basetest: {pass} passed, {fail} failed");
             GetTree().Quit();
             return;

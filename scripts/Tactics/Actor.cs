@@ -113,6 +113,9 @@ public partial class Actor : Node2D
 
     public Task Cast() => Act(Pose.Cast, 0.45f);
 
+    /// <summary>Lies down (the faint pose, held, with no fading) or gets up: a nap at the base.</summary>
+    public void Rest(bool down) => _fainted = down;
+
     /// <summary>A red flash, fading (a hit).</summary>
     protected void Flash() => _flash = 1;
 

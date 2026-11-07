@@ -1926,7 +1926,7 @@ public partial class GameRoot : Node
     }
 
     Ranching.RanchScreen Station(string id, bool vatDemo = false, string select = null) =>
-        new() { Ranch = _ranch, Station = id, Back = () => Show(_home()), Fight = StartRanchBattle, OpenMap = ShowMap, VatDemo = vatDemo, StartOn = select, ToTitle = ShowTitle };
+        new() { Ranch = _ranch, Station = id, Back = () => Show(_home()), VatDemo = vatDemo, StartOn = select, ToTitle = ShowTitle };
 
     void ShowMap() => Show(new World.CountryScreen { Ranch = _ranch, Fight = StartRanchBattle, Back = () => Show(_home()), DemoDispatch = _demoDispatch, DemoShop = _demoShop, ToTitle = ShowTitle });
     bool _demoDispatch, _demoShop;
@@ -1994,7 +1994,8 @@ public partial class GameRoot : Node
             return;
         }
         // Tab swaps between the Sprite Lab and home (the ranch, or a one-off battle), never mid-fight.
-        if (e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Tab }) return;
+        // The lab is a tool for making the game: an exported game (a release) never opens it.
+        if (e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Tab } || OS.HasFeature("template")) return;
         if (_screen is SpriteLabScreen) Show(_home());
         else if (_screen is Ranching.RanchScreen or Ranching.BaseScreen || _ranch == null) Show(_lab());
     }

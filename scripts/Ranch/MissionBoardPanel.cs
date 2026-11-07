@@ -16,9 +16,9 @@ public partial class MissionBoardPanel : Control
 {
     public Ranch Ranch;
     public Action<Mission> Depart;
-    public Func<List<Mission>> Source;       // the missions to show (the encounter's whole board if unset)
+    public Func<List<Mission>> Source;       // the missions to show
     public string Heading;                   // the title over them
-    public string DepartLabel = "Depart  (F)";
+    public string DepartLabel = "Depart";
     public Func<Mission, string> DepartLabelFor; // the Depart button's words for the picked mission, if they vary
     Button _depart;
 
@@ -28,7 +28,7 @@ public partial class MissionBoardPanel : Control
 
     public void Refresh()
     {
-        Missions = Source?.Invoke() ?? Mission.Board(Ranch.Encounter, Ranch.Codex, rivalWins: Ranch.Rivals);
+        Missions = Source?.Invoke() ?? new List<Mission>();
         Selected = Math.Clamp(Selected, 0, Math.Max(0, Missions.Count - 1));
         foreach (var child in GetChildren()) { RemoveChild(child); child.QueueFree(); }
         if (Missions.Count == 0) return;
@@ -70,7 +70,7 @@ public partial class MissionBoardPanel : Control
 
     public override void _Draw()
     {
-        DrawString(GetThemeDefaultFont(), new Vector2(0, 18), Heading ?? $"MISSION BOARD · encounter {Ranch.Encounter}",
+        DrawString(GetThemeDefaultFont(), new Vector2(0, 18), Heading ?? "",
             HorizontalAlignment.Left, Size.X, 16, Color.FromHtml("#f2c14e"));
     }
 

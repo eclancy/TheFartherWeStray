@@ -11,21 +11,15 @@ using Godot;
 namespace TheFartherWeStray.Ranching;
 
 /// <summary>
-/// The ranch: your roster, the squad, training, and the breeding vats. Click a creature to select
-/// it: its panel sets squad, class and secondary skills. Right-click puts it in a breeding vat;
-/// Enter breeds; F goes to battle.
+/// A station of the home base, walked to and opened: the roster down the left, and on the right only
+/// that station's part (the pens' squad and names, the vats, the armory's gear, the training yard's
+/// job tree, the war table's tamers, the lab). Esc goes back to the base.
 /// </summary>
 public partial class RanchScreen : Control
 {
     public Ranch Ranch;
-    public Action<Mission> Fight;
-    public Action OpenMap;                // the country map, where missions are picked
     public List<int> JustJoined = new(); // recruits from the last battle, to point out
     public bool VatDemo;                  // screenshots: fill the vats with the first rested pair and the newest child
-    public bool AutoFight;                // --autoplay: head into the next battle on its own (an attract loop)
-    public bool StartInLab;               // --labmode: open on the lab (screenshots)
-    public bool StartOnJobs;              // --jobsmode: open on the job tree (screenshots)
-    public bool StartOnParty;             // --partymode: open on the party (screenshots)
     public string StartOn;                // --select=NAME: open with that creature selected (screenshots)
     public string Station;                // one station of the home base: only its part shows (pens, vats, lab, yard, armory, war)
     public Action Back;                   // back out to the base
@@ -41,7 +35,7 @@ public partial class RanchScreen : Control
     VBoxContainer _detail, _training;
     Control _headerChips;
     VatPanel _vats;
-    Button _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _labButton, _boardButton, _jobsButton, _yardButton;
+    Button _squadButton, _vatButton, _releaseButton, _yardButton;
     HBoxContainer _buttonsRow;
     Button _nameButton, _gearButton;
     LineEdit _nameBox;
@@ -53,7 +47,6 @@ public partial class RanchScreen : Control
     Panel _panel = Panel.Vats;
     JobsPanel _jobs;
     PartyPanel _party;
-    Button _partyButton;
     readonly List<int> _pen = new();
     int? _selected, _releaseArmed;
     double _releaseTimer;
@@ -90,8 +83,6 @@ public partial class RanchScreen : Control
         _grid.AddThemeConstantOverride("v_separation", 8);
         scroll.AddChild(_grid);
         _help = Text(16, Dim, new Vector2(32, vp.Y - 44), new Vector2(_right - 50, 30));
-        _help.Text =
-            "Click: select    Right-click: vat    Enter: breed    J: jobs    L: lab    M: map    S: squad    Delete twice: release    N: sound    Tab: Sprite Lab";
 
         float vatsH = Phone.On ? 190 : 320, notesH = Phone.On ? 44 : 96;
         _vats = new VatPanel { Position = new Vector2(_right, _top), Size = new Vector2(720, vatsH), Screen = this, MouseFilter = MouseFilterEnum.Ignore };
@@ -121,16 +112,13 @@ public partial class RanchScreen : Control
             return b;
         }
         _squadButton = Make("Squad", () => { if (_selected is { } id) ToggleSquad(id); });
-        _classButton = Make("Class", () => { if (_selected is { } id) CycleClass(id); });
-        _secondButton = Make("Secondary", () => { if (_selected is { } id) CycleSecondary(id); });
         _vatButton = Make("Vat", () => { if (_selected is { } id) TogglePen(id); });
         _releaseButton = Make("Release", () => { if (_selected is { } id) Release(id); });
         _nameButton = Make("Name", () => { if (_selected is { } id) StartNaming(id); });
         _yardButton = Make("Out in the yard", () => { if (_selected is { } id) ToggleOut(id); });
         _gearButton = Make("Gear", () => { if (_selected is { } id) CycleGear(id); });
-        // Enter breeds on a desktop; a phone's pad needs a button for it.
+        // Breed is a button everywhere (Enter does it too on a desktop).
         _breedButton = Make("Breed", Breed);
-        _breedButton.Visible = false;
         _nameBox = new LineEdit { PlaceholderText = Phone.Keys("A name (Enter keeps, Esc cancels)", "A name (Done keeps it)"), MaxLength = 14, Visible = false, Position = new Vector2(_right, vp.Y - 164), CustomMinimumSize = new Vector2(420, 44) };
         _nameBox.AddThemeFontSizeOverride("font_size", 18);
         _nameBox.TextSubmitted += text => FinishNaming(text);
@@ -147,18 +135,6 @@ public partial class RanchScreen : Control
         _party = new PartyPanel { Ranch = Ranch, Selected = () => _selected, Position = new Vector2(_right, _top), Size = new Vector2(Phone.On ? 720 : 730, panelH), Visible = false };
         _party.Changed = msg => { Flash(msg); Rebuild(); };
         AddChild(_party);
-        Button Header(string text, float x, Action onPress)
-        {
-            var b = new Button { Text = text, FocusMode = FocusModeEnum.None, Position = new Vector2(x, 22), CustomMinimumSize = new Vector2(150, 40) };
-            b.AddThemeFontSizeOverride("font_size", 16);
-            b.Pressed += onPress;
-            AddChild(b);
-            return b;
-        }
-        _partyButton = Header("Party  (P)", _right + 90, () => SetPanel(_panel == Panel.Party ? Panel.Vats : Panel.Party));
-        _jobsButton = Header("Jobs  (J)", _right + 250, () => SetPanel(_panel == Panel.Jobs ? Panel.Vats : Panel.Jobs));
-        _labButton = Header("Lab  (L)", _right + 410, () => SetPanel(_panel == Panel.Lab ? Panel.Vats : Panel.Lab));
-        _boardButton = Header("Map  (M)", _right + 570, () => GoToMap());
 
         if (VatDemo)
         {
@@ -171,12 +147,7 @@ public partial class RanchScreen : Control
         if (Ranch.Report.Count > 0) _notes.Text = string.Join("\n", Ranch.Report);
         Select(Ranch.Creatures.FirstOrDefault(r => r.Name == StartOn)?.Id ?? Ranch.Squad.FirstOrDefault(Ranch.Creatures[0].Id));
         Rebuild();
-        if (Station == null) AskChoice(this, Ranch, AutoFight, Flash, Rebuild);
-        if (StartInLab) SetPanel(Panel.Lab);
-        if (StartOnJobs) SetPanel(Panel.Jobs);
-        if (StartOnParty) SetPanel(Panel.Party);
-        if (Station != null) ApplyStation();
-        if (AutoFight && Station == null) GetTree().CreateTimer(1.5).Timeout += () => { if (IsInsideTree()) AutoBattle(this, Ranch, Fight); };
+        ApplyStation();
     }
 
     /// <summary>The attract loop's next battle: the story when it can, else the nearest contract.</summary>
@@ -199,7 +170,6 @@ public partial class RanchScreen : Control
     /// </summary>
     void ApplyStation()
     {
-        foreach (var b in new[] { _partyButton, _jobsButton, _labButton, _boardButton }) b.Visible = false;
         var back = new Button { Text = Phone.Keys("Back to the base  (Esc)", "Back to the base  (B)"), FocusMode = FocusModeEnum.None, Position = new Vector2(GetViewportRect().Size.X - 280, 22), CustomMinimumSize = new Vector2(250, 40) };
         back.AddThemeFontSizeOverride("font_size", 16);
         back.Pressed += () => Back?.Invoke();
@@ -208,11 +178,11 @@ public partial class RanchScreen : Control
         var keep = Station switch
         {
             "pens" => new[] { _squadButton, _yardButton, _nameButton, _releaseButton },
-            "vats" => Phone.On ? new[] { _vatButton, _breedButton } : new[] { _vatButton },
+            "vats" => new[] { _vatButton, _breedButton },
             "armory" => new[] { _gearButton },
             _ => Array.Empty<Button>(),
         };
-        foreach (var b in new[] { _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _nameButton, _gearButton, _breedButton, _yardButton }) b.Visible = keep.Contains(b);
+        foreach (var b in new[] { _squadButton, _vatButton, _releaseButton, _nameButton, _gearButton, _breedButton, _yardButton }) b.Visible = keep.Contains(b);
         if (Station != "vats")
         {
             // No vats here: the creature's detail moves up into their space, and the base keeps the news.
@@ -230,14 +200,15 @@ public partial class RanchScreen : Control
         } : Station switch
         {
             "pens" => "Click: select    S: squad    Y: out in the yard    Delete twice: release    Esc: back to the base    N: sound",
-            "vats" => "Click: select    Right-click: into a vat    Enter: breed    Esc: back to the base    N: sound",
+            "vats" => "Click: select    Right-click: into a vat    Breed or Enter: breed    Esc: back to the base    N: sound",
             "armory" => "Click: select    Gear: next piece from the bag    Esc: back to the base    N: sound",
             _ => "Click: select a beast    Esc: back to the base    N: sound",
         };
         Flash(Station switch
         {
-            "pens" => $"The pens: pick the squad (S), let up to {Farmyard.OutCap(Ranch)} others out in the yard (Y), name your beasts, or let one go.",
-            "vats" => Phone.On ? "The vats: put two beasts into the vats (Into vat), then Breed." : "The vats: right-click two beasts into the vats, then Enter to breed.",
+            "pens" => Phone.Keys($"The pens: pick the squad (S), let up to {Farmyard.OutCap(Ranch)} others out in the yard (Y), name your beasts, or let one go.",
+                $"The pens: pick the squad, let up to {Farmyard.OutCap(Ranch)} others out in the yard, name your beasts, or let one go."),
+            "vats" => Phone.Keys("The vats: put two beasts into the vats (Into vat, or right-click), then Breed (or Enter).", "The vats: put two beasts into the vats (Into vat), then Breed."),
             "armory" => "The armory: fit gear from the bag (Gear cycles through it).",
             "yard" => "The training yard: every class this beast could train, and what each still needs.",
             "war" => "The war table: your tamers lead from off the field, up to two, three beasts each.",
@@ -323,17 +294,17 @@ public partial class RanchScreen : Control
         {
             var card = new RanchCard { Screen = this, Id = rec.Id };
             int id = rec.Id;
-            card.Clicked += right => { if (right && Station is null or "vats") TogglePen(id); else Select(id); };
+            card.Clicked += right => { if (right && Station == "vats") TogglePen(id); else Select(id); };
             card.Hovered += () => ShowDetail(id);
             _grid.AddChild(card);
             if (Phone.On && id == _selected) PadNav.First(card);
         }
-        _header.Text = Station != null ? HomeBase.Get(Station)?.Name.ToUpperInvariant() ?? "THE RANCH" : "THE RANCH";
+        _header.Text = HomeBase.Get(Station)?.Name.ToUpperInvariant() ?? "";
         _headerChips?.QueueFree();
         var chips = new List<Chip>
         {
             new Chip("paw", Ranch.Creatures.Count.ToString(), Ink, "your beasts"),
-            new Chip("fist", $"{Ranch.Squad.Count}/{Ranch.SquadSize}", Ranch.Squad.Count == 0 ? Ui.Bad : Ink, "squad: three beasts for each tamer leading (P)"),
+            new Chip("fist", $"{Ranch.Squad.Count}/{Ranch.SquadSize}", Ranch.Squad.Count == 0 ? Ui.Bad : Ink, "squad: three beasts for each tamer leading (tamers are fielded at the war table)"),
             new Chip("flask", Ranch.Chem.ToString(), Gold, "chem, for the lab"),
             new Chip("mountain", "#" + Ranch.Encounter, Ink, "next encounter"),
             new Chip("sun", Ranch.CityStanding.ToString(), Gold, "standing with the city above"),
@@ -371,7 +342,7 @@ public partial class RanchScreen : Control
     void RefreshSelected()
     {
         bool any = _selected != null && Ranch.Creatures.Any(r => r.Id == _selected);
-        foreach (var b in new[] { _squadButton, _classButton, _secondButton, _vatButton, _releaseButton, _nameButton, _gearButton, _yardButton }) b.Disabled = !any;
+        foreach (var b in new[] { _squadButton, _vatButton, _releaseButton, _nameButton, _gearButton, _yardButton }) b.Disabled = !any;
         _breedButton.Disabled = _pen.Count < 2;
         Clear(_training);
         if (!any) return;
@@ -382,12 +353,6 @@ public partial class RanchScreen : Control
         _yardButton.Text = Ranch.Out.Contains(id) ? "Back to the pen" : "Out in the yard";
         _yardButton.Disabled = InSquad(id);
         _yardButton.TooltipText = InSquad(id) ? "The squad waits in the pen between battles" : $"Up to {Farmyard.OutCap(Ranch)} beasts roam the yard (more as the pens are built up); the rest stay in the pen";
-        _classButton.Text = $"{t.Class}  >";
-        _classButton.Icon = Glyphs.Get(SkillIcons.ClassEmblem(t.Class), 1);
-        _classButton.TooltipText = "Cycle the main class";
-        _secondButton.Text = $"2nd: {t.Secondary ?? "none"}  >";
-        _secondButton.Icon = t.Secondary != null ? Glyphs.Get(SkillIcons.ClassEmblem(t.Secondary), 1) : null;
-        _secondButton.TooltipText = "Cycle the secondary skill set";
         _vatButton.Text = PenSlot(id) >= 0 ? "Out of vat" : "Into vat";
         _gearButton.Text = $"Gear: {ClassBook.Passive(t.Gear)?.Name ?? "none"}  >";
         var bag = Ranch.Items.Where(kv => GearBook.IsGear(kv.Key)).Select(kv => $"{kv.Value} {ClassBook.Passive(kv.Key).Name}").ToList();
@@ -442,7 +407,7 @@ public partial class RanchScreen : Control
             new Chip("check", $"{standings.Count(s => s == ClassBook.Standing.Open)} open", Ui.Good, "classes it can train now"),
             new Chip("lock", $"{standings.Count(s => s == ClassBook.Standing.Locked)} locked", Dim, "classes it could unlock"),
             new Chip("x", $"{standings.Count(s => s == ClassBook.Standing.Never)} never", Ui.Bad, "classes its body can never take"),
-        }.Concat(Station == null ? new[] { new Chip("dot", "J: job tree", Dim) } : Array.Empty<Chip>()), 15));
+        }, 15));
     }
     /// <summary>Swaps the right-hand side between breeding and training, and the lab.</summary>
     void SetPanel(Panel p)
@@ -453,26 +418,9 @@ public partial class RanchScreen : Control
         _lab.Visible = p == Panel.Lab;
         _jobs.Visible = p == Panel.Jobs;
         _party.Visible = p == Panel.Party;
-        _partyButton.Text = p == Panel.Party ? "Vats  (P)" : "Party  (P)";
         if (p == Panel.Party) _party.Refresh();
-        _jobsButton.Text = p == Panel.Jobs ? "Vats  (J)" : "Jobs  (J)";
         if (p == Panel.Jobs && _selected is { } jid) { _jobs.Reset(); _jobs.ShowCreature(jid); }
-        _labButton.Text = p == Panel.Lab ? "Vats  (L)" : "Lab  (L)";
         if (p == Panel.Lab && _selected is { } id) _lab.ShowCreature(id);
-        Flash(p switch
-        {
-            Panel.Lab => "The lab (chem): tune stats with infusions, put in new blood, splice in another species' ability, fit augments from the bag, or graft parts.",
-            Panel.Jobs => "The job tree: every class this beast could ever train, and what each still needs.",
-            Panel.Party => "Your tamers lead from off the field: up to two, three beasts each.",
-            _ => "",
-        });
-    }
-
-    void GoToMap()
-    {
-        if (Ranch.Squad.Count == 0) { Flash("Pick at least one beast for the squad (S) first."); return; }
-        Ranch.Save();
-        OpenMap?.Invoke();
     }
 
     /// <summary>The next piece of gear from the bag (or none), in name order.</summary>
@@ -482,35 +430,12 @@ public partial class RanchScreen : Control
         var options = new List<string> { null };
         options.AddRange(Ranch.Items.Where(kv => GearBook.IsGear(kv.Key) && kv.Value > 0).Select(kv => kv.Key).Append(t.Gear)
             .Where(g => g != null).Distinct().OrderBy(g => ClassBook.Passive(g).Name));
-        if (options.Count == 1) { Flash("No gear in the bag: shops on the map (M) sell it."); return; }
+        if (options.Count == 1) { Flash("No gear in the bag: the shops sell it (out through the gate)."); return; }
         string next = options[(options.IndexOf(t.Gear) + 1) % options.Count];
         Flash(Ranch.Equip(id, next));
         Ranch.Save();
         Rebuild();
         ShowDetail(id);
-        RefreshSelected();
-    }
-
-    void CycleClass(int id)
-    {
-        var c = Ranch.Get(id);
-        var t = Ranch.Record(id).Training;
-        var open = ClassBook.Available(c, t).Select(k => k.Id).ToList();
-        t.Class = open[(open.IndexOf(t.Class) + 1) % open.Count];
-        if (t.Secondary == t.Class) t.Secondary = null;
-        Ranch.Save();
-        RefreshSelected();
-    }
-
-    void CycleSecondary(int id)
-    {
-        // Any other class it has learned something in, or none.
-        var t = Ranch.Record(id).Training;
-        var options = new List<string> { null };
-        options.AddRange(ClassBook.Classes.Select(k => k.Id).Where(k => k != t.Class && t.LearnedIn(k) > 0));
-        t.Secondary = options[(options.IndexOf(t.Secondary) + 1) % options.Count];
-        if (options.Count == 1) Flash("Learn a skill in another class first; then it can be a secondary skill set.");
-        Ranch.Save();
         RefreshSelected();
     }
 
@@ -521,7 +446,7 @@ public partial class RanchScreen : Control
         else if (Ranch.Record(id).Steeping) { Flash($"{Ranch.Get(id).Name} is steeping: a new infusion is taking. It can fight again after the next battle."); return; }
         else if (Ranch.Record(id).Recovering) { Flash($"{Ranch.Get(id).Name} is recovering from an episode. It can fight again after the next battle."); return; }
         else if (Ranch.AddToSquad(id)) Flash($"{Ranch.Get(id).Name} joins {Ranch.LeaderOf(id).Name}'s squad.");
-        else { Flash("Every tamer leads three already: take someone out first, or field another tamer (P)."); return; }
+        else { Flash("Every tamer leads three already: take someone out first, or field another tamer at the war table."); return; }
         Ranch.Save();
         Rebuild();
         if (_panel == Panel.Party) _party.Refresh();
@@ -545,13 +470,13 @@ public partial class RanchScreen : Control
         else if (_pen.Count >= 2) { Flash("Both vats are full: take one out first."); return; }
         else _pen.Add(id);
         ChildShown = null;
-        _notes.Text = _pen.Count == 2 ? "Press Enter to breed." : "";
+        _notes.Text = _pen.Count == 2 ? Phone.Keys("Ready: Breed (or Enter) makes one child.", "Ready: Breed makes one child.") : "";
         Rebuild();
     }
 
     void Breed()
     {
-        if (_pen.Count < 2) { Flash("Put two rested beasts in the vats first (right-click)."); return; }
+        if (_pen.Count < 2) { Flash(Phone.Keys("Put two rested beasts in the vats first (Into vat, or right-click).", "Put two rested beasts in the vats first (Into vat).")); return; }
         var a = Ranch.Get(_pen[0]);
         var b = Ranch.Get(_pen[1]);
         var (id, result) = Ranch.Breed(_pen[0], _pen[1]);
@@ -671,48 +596,15 @@ public partial class RanchScreen : Control
     public override void _UnhandledInput(InputEvent e)
     {
         if (e is not InputEventKey { Pressed: true, Echo: false } k) return;
-        if (Station != null)
-        {
-            // At a station only its own keys work; the rest of the ranch is walked to.
-            if (k.Keycode == Key.Escape && _nameBox.Visible) { _nameBox.Visible = false; }
-            else if (k.Keycode == Key.Escape) Back?.Invoke();
-            else if (k.Keycode == Phone.Start) AddChild(new PauseMenu { Save = Ranch.Save, ToTitle = ToTitle });
-            else if (k.Keycode is Key.Enter or Key.KpEnter && Station == "vats") Breed();
-            else if (k.Keycode == Key.S && Station == "pens" && _selected is { } ps) ToggleSquad(ps);
-            else if (k.Keycode == Key.Y && Station == "pens" && _selected is { } py) ToggleOut(py);
-            else if (k.Keycode == Key.Delete && Station == "pens" && _selected is { } pd) Release(pd);
-            else return;
-            GetViewport().SetInputAsHandled();
-            return;
-        }
-        switch (k.Keycode)
-        {
-            case Key.Enter:
-            case Key.KpEnter:
-                Breed();
-                break;
-            case Key.F:
-            case Key.M:
-                GoToMap();
-                break;
-            case Key.J:
-                SetPanel(_panel == Panel.Jobs ? Panel.Vats : Panel.Jobs);
-                break;
-            case Key.P:
-                SetPanel(_panel == Panel.Party ? Panel.Vats : Panel.Party);
-                break;
-            case Key.L:
-                SetPanel(_panel == Panel.Lab ? Panel.Vats : Panel.Lab);
-                break;
-            case Key.S when _selected is { } sid:
-                ToggleSquad(sid);
-                break;
-            case Key.Delete when _selected is { } did:
-                Release(did);
-                break;
-            default:
-                return;
-        }
+        // Only the station's own keys work here; the rest of the base is walked to.
+        if (k.Keycode == Key.Escape && _nameBox.Visible) { _nameBox.Visible = false; }
+        else if (k.Keycode == Key.Escape) Back?.Invoke();
+        else if (k.Keycode == Phone.Start) AddChild(new PauseMenu { Save = Ranch.Save, ToTitle = ToTitle });
+        else if (k.Keycode is Key.Enter or Key.KpEnter && Station == "vats") Breed();
+        else if (k.Keycode == Key.S && Station == "pens" && _selected is { } ps) ToggleSquad(ps);
+        else if (k.Keycode == Key.Y && Station == "pens" && _selected is { } py) ToggleOut(py);
+        else if (k.Keycode == Key.Delete && Station == "pens" && _selected is { } pd) Release(pd);
+        else return;
         GetViewport().SetInputAsHandled();
     }
 }

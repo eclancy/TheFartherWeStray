@@ -109,14 +109,19 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   is home: you as a person (`SceneActor`), click to walk (`Paths.Find`) or WASD, E or click a
   station to use it, the herd wandering the pens, the camera following; it asks the pending
   choice and runs the attract loop (`RanchScreen.AskChoice`, `AutoBattle`). A station opens
-  `RanchScreen` with `Station` set: only that part shows (pens: squad, name, release; vats: the
-  vats; armory: gear; yard: jobs; war: party; lab: lab), its Back button goes home; the old
+  `RanchScreen` with `Station` set: only that part shows (pens: the squad, name, release; vats: the
+  vats; armory: gear; yard: jobs; war: tamers; lab: lab), its Back button goes home; the old
   shortcuts are off there. `BaseScreen.Standing` keeps where you stood.
   **One top bar** (`UI/TopBar.cs`, 2026-11-07): home, every station and the map show the same
   bar: the screen's name, then beasts, squad, chem, scrap, the day, both standings (and titles
   once there are any), and Back home on the right. It refreshes itself; screens only place it
   and start below `TopBar.Bottom`. A station says what it is once (its label at home, its name
-  in the bar): no intro line, no key line.
+  in the bar): no intro line, no key line. **One beast in the column** (2026-11-07): the selected
+  one; the pointer only lights a card. Its parts show only at the lab, open and locked classes
+  only at the yard. **The squad is picked only at the pens** (`Ranch.AddToSquad` puts a beast
+  under a fielded tamer whose specialty boosts it when one has room); the war table fields
+  tamers and shows who leads whom, and with two leading moves a beast across (`MoveLeader`, or
+  pick one and one of the other's: `SwapLeaders`).
   **Home's name** (the user's call, 2026-11-07): "Home" until the player renames it (Name your
   home, in home's pause menu). Saved as `Ranch.HomeName` (`Ranch.Home` to show, `NameHome` to
   change); `Country.HomeName` is the save in play's, so home's place on the map, the bar's
@@ -158,7 +163,9 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   - New machines are `MachineBook` entries and a prop.
   - `--machine=ID` opens one for screenshots.
   **Station upgrades** (phase 4, built):
-  - At the workbench, the cursor on a station and A opens its levels. Every station but the
+  - Build up opens a station's levels (`Ranch/BuildUpPanel.cs`): at the workbench (the cursor on
+    a station and A) and in the station's own top bar (`TopBar.Station`; the gate's is on the map;
+    `--station=ID --buildup` or `--mapmode --buildup` opens it for screenshots). Every station but the
     workbench goes to level 3, built at once (the user's call) for chem and scrap
     (`HomeBase.UpgradeCosts`; saved in `Ranch.Levels`).
   - The effects stay on the loop, never battle stats. They're read through `Farmyard`:
@@ -312,7 +319,7 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   tamers and six creatures per battle, swapped between battles. `scripts/Party/Tamers.cs` holds
   them as data (a specialty boost, which creatures it reaches, the encounter they join at: a
   placeholder for the story); `Ranch.Fielded`/`LedBy` save who leads whom; `Battle.Lead` applies
-  the boost before the first turn; the war table at the home base (the Party panel) fields tamers and fills slots. Details, defaults and open
+  the boost before the first turn; the war table at the home base (the Party panel) fields tamers and moves beasts between them (the squad itself is picked at the pens). Details, defaults and open
   questions are in `docs/design-notes.md`, with PvP (casual, turn timers, your own squad, one
   shiny, basic matchmaking planned) and shinies (1 in 512; the battle opens with a camera pan and
   a glint on each one; each has a unique second passive, `ClassBook.ShinyPassives`, picked by its

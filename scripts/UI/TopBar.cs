@@ -9,18 +9,25 @@ namespace TheFartherWeStray.UI;
 /// The bar along the top of home, its stations and the map (docs/menus-plan.md, part B): the screen's name, the same
 /// counts everywhere (your beasts, the squad, chem, scrap, the day, standing with each side, and titles once there
 /// are any), and the way back home wherever there's one. It keeps itself up to date: a screen only places it.
+/// At a station with levels, Build up opens them (as the workbench does).
 /// </summary>
 public partial class TopBar : HBoxContainer
 {
     public Ranch Ranch;
     public string Title;
-    public Action Back;   // unset at home itself
+    public Action Back;            // unset at home itself
+    public string Station;         // the station this screen is, if it has levels to build: Build up shows
+    public Action<string> Built;   // after building a level: what changed, for the screen to say
 
     static readonly Color Moon = Color.FromHtml("#ff4f9a");
     Label _title;
     Control _chips;
-    Button _back;
+    Button _back, _build;
+    BuildUpPanel _levels;
     string _shown;
+
+    /// <summary>Whether its Build up panel is open (it takes Esc and B itself).</summary>
+    public bool Building => _levels != null;
 
     /// <summary>Where a screen's own things can start below it.</summary>
     public static float Bottom => Phone.On ? 56 : 62;
@@ -37,6 +44,13 @@ public partial class TopBar : HBoxContainer
         _title = Ui.Text("", Phone.On ? 21 : 26, Ui.Ink, 6);
         _title.CustomMinimumSize = new Vector2(Phone.On ? 170 : 290, 0);
         AddChild(_title);
+        if (HomeBase.Get(Station) is { Upgrades: not null } st && st.Built(Ranch))
+        {
+            _build = new Button { Text = "Build up", FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(Phone.On ? 110 : 140, 40), SizeFlagsVertical = SizeFlags.ShrinkCenter };
+            _build.AddThemeFontSizeOverride("font_size", 16);
+            _build.Pressed += () => OpenLevels(st);
+            AddChild(_build);
+        }
         if (Back != null)
         {
             _back = new Button { FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(Phone.On ? 150 : 200, 40), SizeFlagsVertical = SizeFlags.ShrinkCenter };
@@ -49,14 +63,26 @@ public partial class TopBar : HBoxContainer
 
     public override void _Process(double delta) => Refresh();
 
+    /// <summary>Opens the station's Build up (the button, or `--buildup` for screenshots).</summary>
+    public void OpenLevels() { if (HomeBase.Get(Station) is { Upgrades: not null } st && st.Built(Ranch)) OpenLevels(st); }
+
+    void OpenLevels(StationDef st)
+    {
+        if (_levels != null) return;
+        _levels = new BuildUpPanel { Ranch = Ranch, Station = st, Built = said => Built?.Invoke(said), Closed = () => _levels = null };
+        AddChild(_levels);
+    }
+
     /// <summary>Redraws the counts when one has changed (a purchase, a rename, a new beast).</summary>
     void Refresh()
     {
+        int level = Station != null ? Farmyard.Level(Ranch, Station) : 0;
         string now = $"{Title}|{Ranch.Creatures.Count}|{Ranch.Squad.Count}/{Ranch.SquadSize}|{Ranch.Chem}|{Ranch.Scrap}|{Ranch.Day}|"
-            + $"{Ranch.CityStanding}|{Ranch.UnderStanding}|{Ranch.Titles.Count}|{World.Country.BackHome}";
+            + $"{Ranch.CityStanding}|{Ranch.UnderStanding}|{Ranch.Titles.Count}|{World.Country.BackHome}|{level}";
         if (now == _shown) return;
         _shown = now;
         _title.Text = Title ?? "";
+        if (_build != null) _build.TooltipText = level >= 3 ? $"Level 3: built up all the way" : $"Level {level} of 3: build it up with chem and scrap";
         if (_back != null) _back.Text = Phone.Keys(World.Country.BackHome, World.Country.BackHome + "  (B)");
         _chips?.QueueFree();
         _chips = Ui.Chips(Counts(Ranch), Phone.On ? 18 : 22, 2, Phone.On ? 14 : 22);

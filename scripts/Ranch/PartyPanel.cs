@@ -7,19 +7,20 @@ using Godot;
 namespace TheFartherWeStray.Ranching;
 
 /// <summary>
-/// The party: every tamer, who's joined, who's going into the next battle (at most two), and the
-/// three creatures each one leads. Tamers stay off the field; their specialty boosts the creatures
-/// they lead. Click a creature to send it back to the ranch; "+ selected" puts the creature selected
-/// on the left under that tamer.
+/// The war table: every tamer, who's joined, who's going into the next battle (at most two), and who leads whom.
+/// Tamers stay off the field; their specialty boosts the beasts they lead. The squad itself is picked at the pens
+/// (docs/menus-plan.md, part B); here, with two tamers leading, a beast can go to the other one: to an empty place,
+/// or swapped with one of theirs (pick it, then one of the other's).
 /// </summary>
 public partial class PartyPanel : Control
 {
     public Ranch Ranch;
-    public Func<int?> Selected;
     public Action<string> Changed;
     VBoxContainer _box;
+    int? _picked;   // a beast picked to swap with one of the other tamer's
+    string _keep;   // the pad: the button to put the focus back on after the panel is rebuilt ("beast:ID", "tamer:ID")
 
-    static readonly Color Ink = Ui.Ink, Dim = Ui.Dim, Gold = Ui.Gold;
+    static readonly Color Ink = Ui.Ink, Dim = Ui.Dim, Gold = Ui.Gold, Cyan = Color.FromHtml("#4fe3ff");
 
     public override void _Ready()
     {
@@ -38,11 +39,21 @@ public partial class PartyPanel : Control
         return b;
     }
 
+    /// <summary>On a phone, the button pressed keeps the pad's focus when the panel is rebuilt round it.</summary>
+    void Keep(Button b, string key)
+    {
+        if (!Phone.On || _keep != key) return;
+        _keep = null;
+        b.CallDeferred(Control.MethodName.GrabFocus);
+    }
+
     public void Refresh()
     {
         if (_box == null) return;
         foreach (var child in _box.GetChildren()) { _box.RemoveChild(child); child.QueueFree(); }
-        _box.AddChild(Ui.Text($"PARTY · {Ranch.Fielded.Count}/{TamerBook.MaxFielded} tamers leading · {Ranch.Squad.Count}/{Ranch.SquadSize} beasts", 17, Gold));
+        if (_picked is { } p && !Ranch.Squad.Contains(p)) _picked = null;
+        _box.AddChild(Ui.Text($"{Ranch.Fielded.Count}/{TamerBook.MaxFielded} tamers leading · {Ranch.Squad.Count}/{Ranch.SquadSize} beasts", 17, Gold));
+        _box.AddChild(Ui.Text("The squad is picked at the pens.", 14, Dim, 4));
         var joined = Ranch.Party.Select(w => w.Id).ToHashSet();
         foreach (var w in TamerBook.All)
         {
@@ -66,55 +77,73 @@ public partial class PartyPanel : Control
             if (isIn)
             {
                 var id = w.Id;
-                head.AddChild(Btn(fielded ? "Stand down" : "Lead", () => Toggle(id), fielded ? Ranch.Fielded.Count > 1 : Ranch.Fielded.Count < TamerBook.MaxFielded));
+                string key = $"tamer:{id}";
+                var lead = Btn(fielded ? "Stand down" : "Lead", () => { _keep = key; Toggle(id); }, fielded ? Ranch.Fielded.Count > 1 : Ranch.Fielded.Count < TamerBook.MaxFielded);
+                Keep(lead, key);
+                head.AddChild(lead);
             }
             rows.AddChild(head);
             var text = Ui.Text(w.Text, 14, isIn ? Ink : Dim, 4);
             text.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             rows.AddChild(text);
-
-            if (fielded)
-            {
-                // Their three places in the squad.
-                var slots = new HFlowContainer();
-                slots.AddThemeConstantOverride("h_separation", 6);
-                foreach (var cid in Ranch.Squad.Where(c => Ranch.LeaderOf(c)?.Id == w.Id).ToList())
-                {
-                    var c = Ranch.Get(cid);
-                    var b = Btn(c.Name, () => Remove(cid));
-                    b.Icon = Glyphs.Get(w.Boosts(c) ? "up" : "dot", 1);
-                    b.TooltipText = w.Boosts(c) ? $"Boosted: {w.Text}\nClick to take it out of the squad." : $"Not boosted: {w.Name} leads {w.LeadsHint}.\nClick to take it out of the squad.";
-                    slots.AddChild(b);
-                }
-                int room = TamerBook.CreaturesEach - Ranch.Led(w.Id);
-                for (int k = 0; k < room; k++) slots.AddChild(Ui.Text("· empty ·", 14, Dim, 3));
-                var wid = w.Id;
-                var sel = Selected?.Invoke();
-                if (room > 0 && sel is { } sid && Ranch.LeaderOf(sid)?.Id != w.Id)
-                    slots.AddChild(Btn($"+ {Ranch.Get(sid).Name}", () => Add(sid, wid)));
-                rows.AddChild(slots);
-            }
+            if (fielded) rows.AddChild(Led(w));
             _box.AddChild(card);
         }
+    }
+
+    /// <summary>The three places a fielded tamer leads: who's in them, and, with another tamer leading, a way across.</summary>
+    Control Led(TamerDef w)
+    {
+        var slots = new HFlowContainer();
+        slots.AddThemeConstantOverride("h_separation", 6);
+        var other = Ranch.Fielded.Where(f => f != w.Id).Select(TamerBook.Get).FirstOrDefault();
+        foreach (var cid in Ranch.Squad.Where(c => Ranch.LeaderOf(c)?.Id == w.Id).ToList())
+        {
+            var c = Ranch.Get(cid);
+            string boost = w.Boosts(c) ? $"Boosted: {w.Text}" : $"Not boosted: {w.Name} leads {w.LeadsHint}.";
+            if (other == null)
+            {
+                slots.AddChild(Ui.ChipView(new Chip(w.Boosts(c) ? "up" : "dot", c.Name, Ink, boost), 15));
+                continue;
+            }
+            bool room = Ranch.Led(other.Id) < TamerBook.CreaturesEach, picked = _picked == cid;
+            string key = $"beast:{cid}";
+            var b = Btn(c.Name, () => { _keep = key; Across(cid, w, other); });
+            Keep(b, key);
+            b.Icon = Glyphs.Get(w.Boosts(c) ? "up" : "dot", 1);
+            if (picked) b.AddThemeColorOverride("font_color", Cyan);
+            b.TooltipText = boost + "\n" + (room ? $"Moves it to {other.Name}."
+                : picked ? $"Picked: now one of {other.Name}'s to swap with (or this one again to put it down)."
+                : _picked != null && Ranch.LeaderOf(_picked.Value)?.Id == other.Id ? $"Swaps it with {Ranch.Get(_picked.Value).Name}."
+                : $"Pick it, then one of {other.Name}'s, to swap them.");
+            slots.AddChild(b);
+        }
+        for (int k = Ranch.Led(w.Id); k < TamerBook.CreaturesEach; k++) slots.AddChild(Ui.Text("· empty ·", 14, Dim, 3));
+        return slots;
+    }
+
+    /// <summary>A beast to the other tamer: straight there if they've room, else picked, then swapped with one of theirs.</summary>
+    void Across(int id, TamerDef from, TamerDef to)
+    {
+        if (_picked == id) { _picked = null; Refresh(); return; }
+        if (_picked is { } p && Ranch.LeaderOf(p)?.Id != from.Id && Ranch.SwapLeaders(p, id))
+        {
+            _picked = null;
+            Done($"{Ranch.Get(p).Name} and {Ranch.Get(id).Name} swap: {Ranch.Get(p).Name} goes to {Ranch.LeaderOf(p).Name}, {Ranch.Get(id).Name} to {Ranch.LeaderOf(id).Name}.");
+            return;
+        }
+        if (Ranch.MoveLeader(id, to.Id)) { _picked = null; Done($"{Ranch.Get(id).Name} goes to {to.Name}."); return; }
+        _picked = id;
+        Changed?.Invoke($"{Ranch.Get(id).Name} picked: now one of {to.Name}'s to swap with.");
+        Refresh();
     }
 
     void Toggle(string tamer)
     {
         bool was = Ranch.Fielded.Contains(tamer);
         if (!Ranch.ToggleField(tamer)) return;
-        Done(was ? $"{TamerBook.Get(tamer).Name} stands down; their beasts stay home." : $"{TamerBook.Get(tamer).Name} will lead in the next battle.");
-    }
-
-    void Remove(int id)
-    {
-        Ranch.RemoveFromSquad(id);
-        Done($"{Ranch.Get(id).Name} stays home.");
-    }
-
-    void Add(int id, string tamer)
-    {
-        if (!Ranch.AddToSquad(id, tamer)) return;
-        Done($"{Ranch.Get(id).Name} joins {TamerBook.Get(tamer).Name}'s squad.");
+        _picked = null;
+        Done(was ? $"{TamerBook.Get(tamer).Name} stands down; their beasts stay home." : $"{TamerBook.Get(tamer).Name} will lead in the next battle: pick their beasts at the pens.");
     }
 
     void Done(string message)

@@ -115,7 +115,7 @@ public static class Farmyard
         string name = r.Get(id).Name;
         if (r.Out.Remove(id)) return $"{name} goes back in the pen.";
         if (r.Squad.Contains(id)) return $"{name} is in the squad: the squad waits in the pen between battles.";
-        if (r.Out.Count >= OutCap(r)) return $"{OutCap(r)} are out already: bring one back in first{(Level(r, "pens") < 3 ? ", or build up the pens at the workbench" : "")}.";
+        if (r.Out.Count >= OutCap(r)) return $"{OutCap(r)} are out already: bring one back in first{(Level(r, "pens") < 3 ? ", or build up the pens" : "")}.";
         r.Out.Add(id);
         return r.Away.ContainsKey(id) ? $"{name} will be out in the yard when it's back from its dispatch." : $"{name} is out and about in the yard.";
     }

@@ -71,12 +71,13 @@ public static class ControlsBook
                 ("Delete, twice", "let a beast go (the pens)"),
                 ("Right-click a beast", "into a vat, or out (the vats)"),
                 ("Enter", "breed (the vats)"),
+                ("Build up", "the button, top right: the station's levels"),
                 ("Back home", "the button, top right"),
             },
             new[]
             {
                 ("A or tap a beast", "select it"),
-                ("The buttons", "squad, the yard, name, release, vats, breed, gear"),
+                ("The buttons", "squad, the yard, name, release, vats, breed, gear; Build up, at the top"),
                 ("B", "back home"),
             }),
         new("map", "The map",

@@ -22,6 +22,7 @@ public partial class CountryScreen : Control
     public Ranch Ranch;
     public Action<Mission> Fight;
     public Action Back;
+    public bool DemoBuildUp;   // --mapmode --buildup: open on the gate's Build up panel (screenshots)
     public bool DemoDispatch;   // --dispatchdemo: open on the first dispatch's chooser (screenshots)
     public bool DemoShop;       // --shopdemo: open on the shop where you stand (screenshots)
     public Action ToTitle;      // the pause menu's way back to the title
@@ -42,6 +43,7 @@ public partial class CountryScreen : Control
     readonly Dictionary<int, (Texture2D tex, Vector2I anchor)> _packs = new(); // each roaming pack's leader, painted once
     VBoxContainer _place;
     Label _status;
+    TopBar _bar;
 
     public override void _Ready()
     {
@@ -55,7 +57,9 @@ public partial class CountryScreen : Control
         _panelX = Phone.On ? MapAt.X + CountryArt.W * Scale + 24 : vp.X - 750;
         _panelW = Phone.On ? vp.X - _panelX - 16 : 720;
         _overY = Phone.On ? 96 : 262;
-        AddChild(new TopBar { Ranch = Ranch, Title = "THE COUNTRY", Back = () => Back?.Invoke() });
+        // The map is the gate's own screen: its Build up (carts) is here too.
+        AddChild(_bar = new TopBar { Ranch = Ranch, Title = "THE COUNTRY", Back = () => Back?.Invoke(), Station = "gate", Built = said => _status.Text = said });
+        if (DemoBuildUp) _bar.OpenLevels();
 
         _place = new VBoxContainer { Position = new Vector2(_panelX, 96), Size = new Vector2(_panelW, 160) };
         _place.AddThemeConstantOverride("separation", 6);
@@ -404,6 +408,7 @@ public partial class CountryScreen : Control
 
     public override void _UnhandledInput(InputEvent e)
     {
+        if (_bar.Building) return; // the gate's Build up panel is up: it takes the keys
         if (e is InputEventKey { Pressed: true } pad && !_travelling && _chooser == null && _shop == null)
         {
             bool inPanel = GetViewport().GuiGetFocusOwner() is { } owner && IsAncestorOf(owner);

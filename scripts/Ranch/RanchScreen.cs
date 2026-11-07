@@ -24,6 +24,7 @@ public partial class RanchScreen : Control
     public string Station;                // one station of the home base: only its part shows (pens, vats, lab, yard, armory, war)
     public Action Back;                   // back out to the base
     public Action ToTitle;                // the pause menu's way back to the title
+    public bool DemoBuildUp;              // --buildup: open on the station's Build up panel (screenshots)
 
     static readonly Color Cyan = Color.FromHtml("#4fe3ff"), Magenta = Color.FromHtml("#ff4f9a"), Gold = Color.FromHtml("#f2c14e");
     static readonly Color Ink = Color.FromHtml("#e8e2f4"), Dim = Color.FromHtml("#9a91b4");
@@ -71,7 +72,7 @@ public partial class RanchScreen : Control
         var vp = GetViewportRect().Size;
         _right = vp.X - 720 - (Phone.On ? 16 : 30);
         _top = Phone.On ? 112 : 96;
-        _bar = new TopBar { Ranch = Ranch, Title = HomeBase.Get(Station)?.Name.ToUpperInvariant() ?? "", Back = () => Back?.Invoke() };
+        _bar = new TopBar { Ranch = Ranch, Title = HomeBase.Get(Station)?.Name.ToUpperInvariant() ?? "", Back = () => Back?.Invoke(), Station = Station, Built = said => { Flash(said); Rebuild(); } };
         AddChild(_bar);
         _status = Text(17, Gold, new Vector2(32, TopBar.Bottom), new Vector2(Phone.On ? vp.X - 64 : 1100, 30));
         _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -88,7 +89,7 @@ public partial class RanchScreen : Control
         AddChild(_vats);
         _notes = Text(15, Ink, new Vector2(_right, _top + vatsH + 16), new Vector2(720, notesH));
         _notes.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        // Hover detail and the selected creature's training, stacked in one column.
+        // The selected beast, and only it: what it is, then its training (the pointer only lights the cards).
         var column = _column = new VBoxContainer { Position = new Vector2(_right, _top + vatsH + notesH + 20), Size = new Vector2(720, 430) };
         column.AddThemeConstantOverride("separation", 14);
         AddChild(column);
@@ -126,12 +127,12 @@ public partial class RanchScreen : Control
 
         float panelH = vp.Y - _top - 54;
         _lab = new LabPanel { Ranch = Ranch, Position = new Vector2(_right, _top), Size = new Vector2(720, panelH), Visible = false };
-        _lab.Done = msg => { Flash(msg); Rebuild(); if (_selected is { } sid) ShowDetail(sid); };
+        _lab.Done = msg => { Flash(msg); Rebuild(); };
         AddChild(_lab);
         _jobs = new JobsPanel { Ranch = Ranch, Position = new Vector2(_right, _top), Size = new Vector2(Phone.On ? 720 : 730, panelH), Visible = false };
-        _jobs.Changed = msg => { Flash(msg); Rebuild(); if (_selected is { } sid) ShowDetail(sid); };
+        _jobs.Changed = msg => { Flash(msg); Rebuild(); };
         AddChild(_jobs);
-        _party = new PartyPanel { Ranch = Ranch, Selected = () => _selected, Position = new Vector2(_right, _top), Size = new Vector2(Phone.On ? 720 : 730, panelH), Visible = false };
+        _party = new PartyPanel { Ranch = Ranch, Position = new Vector2(_right, _top), Size = new Vector2(Phone.On ? 720 : 730, panelH), Visible = false };
         _party.Changed = msg => { Flash(msg); Rebuild(); };
         AddChild(_party);
 
@@ -147,6 +148,7 @@ public partial class RanchScreen : Control
         Select(Ranch.Creatures.FirstOrDefault(r => r.Name == StartOn)?.Id ?? Ranch.Squad.FirstOrDefault(Ranch.Creatures[0].Id));
         Rebuild();
         ApplyStation();
+        if (DemoBuildUp) _bar.OpenLevels();
     }
 
     /// <summary>The attract loop's next battle: the story when it can, else the nearest contract.</summary>
@@ -257,7 +259,6 @@ public partial class RanchScreen : Control
         Flash(Ranch.Rename(_naming, text));
         Ranch.Save();
         Rebuild();
-        if (_selected is { } sid) { ShowDetail(sid); RefreshSelected(); }
     }
 
     void Rebuild()
@@ -268,7 +269,6 @@ public partial class RanchScreen : Control
             var card = new RanchCard { Screen = this, Id = rec.Id };
             int id = rec.Id;
             card.Clicked += right => { if (right && Station == "vats") TogglePen(id); else Select(id); };
-            card.Hovered += () => ShowDetail(id);
             _grid.AddChild(card);
             if (Phone.On && id == _selected) PadNav.First(card);
         }
@@ -290,19 +290,23 @@ public partial class RanchScreen : Control
         if (_panel == Panel.Jobs) { _jobs.Reset(); _jobs.ShowCreature(id); }
         if (_panel == Panel.Party) _party.Refresh();
         foreach (var card in _grid.GetChildren().OfType<RanchCard>()) card.QueueRedraw();
-        ShowDetail(id);
         RefreshSelected();
     }
 
-    /// <summary>The selected creature's training: class, stars and JP, skill icons, slots, and the job tree in brief.</summary>
+    /// <summary>
+    /// The column: the selected beast (the only one it shows), then its training: class, stars and JP, skill icons and
+    /// slots. What only one station needs stays there: the parts at the lab, open and locked classes at the yard.
+    /// </summary>
     void RefreshSelected()
     {
         bool any = _selected != null && Ranch.Creatures.Any(r => r.Id == _selected);
         foreach (var b in new[] { _squadButton, _vatButton, _releaseButton, _nameButton, _gearButton, _yardButton }) b.Disabled = !any;
         _breedButton.Disabled = _pen.Count < 2;
+        Clear(_detail);
         Clear(_training);
         if (!any) return;
         int id = _selected.Value;
+        ShowDetail(id);
         var c = Ranch.Get(id);
         var t = Ranch.Record(id).Training;
         _squadButton.Text = InSquad(id) ? "Leave squad" : "Join squad";
@@ -356,14 +360,6 @@ public partial class RanchScreen : Control
             extras.AddChild(Ui.Text(p.Name, 14, p == shine || p == gear ? Gold : p == natural ? Color.FromHtml(TierBook.Hex(tierNow == Tier.Thoroughbred ? Tier.Thoroughbred : Tier.Chimera)) : p.Kind == PassiveKind.Reaction ? Ui.Pink : Ui.Good, 4));
         }
         if (extras.GetChildCount() > 0) _training.AddChild(extras);
-
-        var standings = ClassBook.Classes.Select(k => ClassBook.StandingOf(k, c, t)).ToList();
-        _training.AddChild(Ui.Chips(new[]
-        {
-            new Chip("check", $"{standings.Count(s => s == ClassBook.Standing.Open)} open", Ui.Good, "classes it can train now"),
-            new Chip("lock", $"{standings.Count(s => s == ClassBook.Standing.Locked)} locked", Dim, "classes it could unlock"),
-            new Chip("x", $"{standings.Count(s => s == ClassBook.Standing.Never)} never", Ui.Bad, "classes its body can never take"),
-        }, 15));
     }
     /// <summary>Swaps the right-hand side between breeding and training, and the lab.</summary>
     void SetPanel(Panel p)
@@ -391,8 +387,6 @@ public partial class RanchScreen : Control
         Flash(Ranch.Equip(id, next));
         Ranch.Save();
         Rebuild();
-        ShowDetail(id);
-        RefreshSelected();
     }
 
     void ToggleSquad(int id)
@@ -482,10 +476,9 @@ public partial class RanchScreen : Control
         return row;
     }
 
-    /// <summary>The hovered creature: what it is, its stats in glyphs, its gear, its parts, its lineage.</summary>
+    /// <summary>The selected beast: what it is, its stats in glyphs, its gear, its lineage.</summary>
     void ShowDetail(int id)
     {
-        Clear(_detail);
         var c = Ranch.Get(id);
         var rec = Ranch.Record(id);
         var u = Unit.From(c, Tactics.Side.Player, rec.Training);
@@ -525,15 +518,6 @@ public partial class RanchScreen : Control
                 $"reacts: {AttitudeInfo.Reaction(c.Attitude)}\nrecruit: {AttitudeInfo.Recruit(c.Attitude)}"),
         }, 16));
 
-        // Parts, for grafting: only the ones it has.
-        var p = c.Parts;
-        var parts = new (string slot, Enum part)[] { ("head", p.Head), ("ears", p.Ears), ("eyes", p.Eyes), ("horns", p.Horns), ("back", p.Back), ("limbs", p.Limbs), ("tail", p.Tail), ("wings", p.Wings), ("pattern", p.Pattern) }
-            .Select(x => (x.slot, word: Creature.Words(x.part))).Where(x => x.word != "none").Select(x => $"{x.slot} {x.word}");
-        string grafts = s.Strain != Strain.Natural && s.Grafts != Graft.None ? "   ·   grafts: " + s.Grafts.ToString().ToLowerInvariant() : "";
-        var partsLine = Ui.Text(string.Join(" · ", parts) + grafts, 13, Dim, 3);
-        partsLine.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _detail.AddChild(partsLine);
-
         var tags = new List<Chip>();
         if (c.Generation > 0) tags.Add(new Chip("paw", $"gen {c.Generation}: {c.ParentA} + {c.ParentB}", Dim, "bred in the vats"));
         if (!rec.Rested) tags.Add(new Chip("clock", "resting", Gold, "can breed again after the next battle"));
@@ -551,7 +535,7 @@ public partial class RanchScreen : Control
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (e is not InputEventKey { Pressed: true, Echo: false } k) return;
+        if (e is not InputEventKey { Pressed: true, Echo: false } k || _bar.Building) return;
         // Only the station's own keys work here; the rest of the base is walked to. Esc is the menu on a desktop
         // (the Back button goes back); on a phone B goes back and Start is the menu.
         if (k.Keycode == Key.Escape && _nameBox.Visible) { _nameBox.Visible = false; }
@@ -572,7 +556,6 @@ public partial class RanchCard : Control
     public RanchScreen Screen;
     public int Id;
     public event Action<bool> Clicked;
-    public event Action Hovered;
 
     Texture2D _tex;
     bool _hover;
@@ -583,13 +566,13 @@ public partial class RanchCard : Control
         TextureFilter = TextureFilterEnum.Nearest;
         MouseFilter = MouseFilterEnum.Stop;
         _tex = ImageTexture.CreateFromImage(CreaturePainter.Paint(Screen.Ranch.Get(Id), false));
-        MouseEntered += () => { _hover = true; QueueRedraw(); Hovered?.Invoke(); };
+        // The pointer only lights the card; a click (or A) selects it, and the column shows the selected one.
+        MouseEntered += () => { _hover = true; QueueRedraw(); };
         MouseExited += () => { _hover = false; QueueRedraw(); };
-        // The pad: a card takes the focus (A selects it), and shows its detail as hovering does.
         if (Phone.On)
         {
             FocusMode = FocusModeEnum.All;
-            FocusEntered += () => { QueueRedraw(); Hovered?.Invoke(); };
+            FocusEntered += QueueRedraw;
             FocusExited += QueueRedraw;
         }
     }
@@ -610,9 +593,9 @@ public partial class RanchCard : Control
         bool yard = !squad && Screen.Ranch.Out.Contains(Id) && !Screen.Ranch.Away.ContainsKey(Id);
         // The card's tube says where it stands: gold when chosen, pink in a vat, cyan in the squad, green out in the yard.
         var box = Screen.IsSelected(Id) ? UiSkin.Lit(UiPart.Button, Color.FromHtml("#f2c14e"), true)
-            : pen >= 0 ? UiSkin.Lit(UiPart.Button, Color.FromHtml("#ff4f9a"))
-            : squad ? UiSkin.Lit(UiPart.Button, Color.FromHtml("#4fe3ff"))
-            : yard ? UiSkin.Lit(UiPart.Button, Color.FromHtml("#5fe08a"))
+            : pen >= 0 ? UiSkin.Lit(UiPart.Button, Color.FromHtml("#ff4f9a"), _hover)
+            : squad ? UiSkin.Lit(UiPart.Button, Color.FromHtml("#4fe3ff"), _hover)
+            : yard ? UiSkin.Lit(UiPart.Button, Color.FromHtml("#5fe08a"), _hover)
             : UiSkin.Box(UiPart.Button, _hover ? UiState.Hover : UiState.Normal);
         DrawStyleBox(box, new Rect2(Vector2.Zero, Size));
         if (HasFocus()) DrawStyleBox(UiSkin.Box(UiPart.Button, UiState.Focus), new Rect2(Vector2.Zero, Size)); // where the pad is

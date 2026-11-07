@@ -99,7 +99,7 @@ public partial class BaseScreen : Control
         _board.Position = Focus - (_you.Position - new Vector2(0, 20)) * Scale;
 
         BuildUi();
-        if (JustJoined.Count > 0) Flash($"{string.Join(", ", JustJoined.Select(id => Ranch.Get(id).Name))} joined the ranch: they're in the pens.");
+        if (JustJoined.Count > 0) Flash($"{string.Join(", ", JustJoined.Select(id => Ranch.Get(id).Name))} joined you: they're in the pens.");
         RanchScreen.AskChoice(this, Ranch, AutoFight, Flash, Refresh);
         if (AutoFight) GetTree().CreateTimer(1.5).Timeout += () => { if (IsInsideTree()) RanchScreen.AutoBattle(this, Ranch, Fight); };
         if (HomeBase.Get(DemoGoTo) is { } demo) GetTree().CreateTimer(0.6).Timeout += () => { if (IsInsideTree()) GoTo(demo); };
@@ -260,7 +260,6 @@ public partial class BaseScreen : Control
             Flash(Farmyard.Collect(Ranch, m));
             Ranch.Save();
             Audio.Sound.Play("confirm");
-            RefreshHud();
             RefreshMachineTags();
             OpenMachine(m);
         };
@@ -284,7 +283,6 @@ public partial class BaseScreen : Control
             Flash(Farmyard.Upgrade(Ranch, m));
             Ranch.Save();
             Audio.Sound.Play("hatch");
-            RefreshHud();
             RefreshMachineTags();
             OpenMachine(m);
         };
@@ -357,7 +355,6 @@ public partial class BaseScreen : Control
                 Flash(Farmyard.Upgrade(Ranch, st));
                 Ranch.Save();
                 Audio.Sound.Play("hatch");
-                RefreshHud();
                 Refresh();
                 OpenStation(st);
             };
@@ -374,6 +371,54 @@ public partial class BaseScreen : Control
     {
         _machineLayer?.QueueFree();
         _machineLayer = null;
+    }
+
+    /// <summary>
+    /// Naming home (docs/menus-plan.md, part B), from the pause menu: a box with its name in it. Enter, A or Keep keeps
+    /// it (blank, or "Home", goes back to Home); Esc, B or Cancel leaves it as it was. The name is the screen's title,
+    /// the Back buttons' and the map's.
+    /// </summary>
+    void OpenRename()
+    {
+        CloseMachine();
+        _machineLayer = new CanvasLayer { Layer = 5 };
+        AddChild(_machineLayer);
+        var vp = GetViewportRect().Size;
+        var panel = new PanelContainer { CustomMinimumSize = new Vector2(Mathf.Min(560, vp.X - 80), 0) };
+        panel.AddThemeStyleboxOverride("panel", UiSkin.Box(UiPart.Panel, UiState.Normal));
+        panel.AnchorLeft = panel.AnchorRight = 0.5f;
+        panel.AnchorTop = panel.AnchorBottom = 0.5f;
+        panel.GrowHorizontal = panel.GrowVertical = GrowDirection.Both;
+        var col = new VBoxContainer();
+        col.AddThemeConstantOverride("separation", 12);
+        panel.AddChild(col);
+        col.AddChild(Ui.Text("NAME YOUR HOME", 22, Gold));
+        var box = new LineEdit { Text = Ranch.HomeName ?? "", PlaceholderText = World.Country.DefaultHome, MaxLength = Ranch.HomeNameLength, CustomMinimumSize = new Vector2(0, 48) };
+        box.AddThemeFontSizeOverride("font_size", 20);
+        col.AddChild(box);
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 10);
+        col.AddChild(row);
+        void Keep()
+        {
+            Flash(Ranch.NameHome(box.Text));
+            Ranch.Save();
+            _bar.Title = Ranch.Home.ToUpperInvariant();
+            Audio.Sound.Play("confirm");
+            CloseMachine();
+        }
+        var keep = new Button { Text = "Keep", FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(160, 44) };
+        keep.Pressed += Keep;
+        row.AddChild(keep);
+        var cancel = new Button { Text = Phone.Keys("Cancel  (Esc)", "Cancel  (B)"), FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(160, 44) };
+        cancel.Pressed += CloseMachine;
+        row.AddChild(cancel);
+        box.TextSubmitted += _ => Keep();
+        // The box keeps Esc (and the pad's B) to itself: it cancels here.
+        box.GuiInput += e => { if (e is InputEventKey { Pressed: true, Keycode: Key.Escape }) { box.AcceptEvent(); CloseMachine(); } };
+        _machineLayer.AddChild(panel);
+        box.CaretColumn = box.Text.Length;
+        box.CallDeferred(Control.MethodName.GrabFocus);
     }
 
     // ------------------------------------------------------------------ beasts out and about
@@ -899,14 +944,12 @@ public partial class BaseScreen : Control
     {
         var ui = new CanvasLayer { Layer = 2 };
         AddChild(ui);
-        var title = Ui.Text("HOME BASE", 26, Ink, 6);
-        title.Position = new Vector2(32, 20);
-        ui.AddChild(title);
         _ui = ui;
-        RefreshHud();
+        _bar = new TopBar { Ranch = Ranch, Title = Ranch.Home.ToUpperInvariant() };
+        ui.AddChild(_bar);
         _status = Ui.Text("", 18, Gold, 5);
         var vp = GetViewportRect().Size;
-        _status.Position = new Vector2(32, 64);
+        _status.Position = new Vector2(32, TopBar.Bottom + 2);
         _status.Size = new Vector2(Mathf.Min(1200, vp.X - 64), 30);
         _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         ui.AddChild(_status);
@@ -937,27 +980,8 @@ public partial class BaseScreen : Control
     }
 
     CanvasLayer _ui;
-    Control _hudChips;
+    TopBar _bar;   // home's name and the counts (it keeps them up to date itself)
     readonly Dictionary<PlacedMachine, Label> _machineTags = new();
-
-    /// <summary>The counts along the top: beasts, squad, chem, scrap, the day, standing.</summary>
-    void RefreshHud()
-    {
-        _hudChips?.QueueFree();
-        _hudChips = Ui.Chips(new List<Chip>
-        {
-            new("paw", Ranch.Creatures.Count.ToString(), Ink, "your beasts"),
-            new("fist", $"{Ranch.Squad.Count}/{Ranch.SquadSize}", Ranch.Squad.Count == 0 ? Ui.Bad : Ink, "squad, picked at the pens"),
-            new("flask", Ranch.Chem.ToString(), Gold, "chem"),
-            new("gear", Ranch.Scrap.ToString(), Ink, "scrap: the press makes it, machines are upgraded with it"),
-            new("clock", "day " + Ranch.Day, Ink, "the day"),
-            new("sun", Ranch.CityStanding.ToString(), Gold, "standing with the city above"),
-            new("moon", Ranch.UnderStanding.ToString(), Color.FromHtml("#ff4f9a"), "standing with the undercity"),
-        }, 22, 2, 22);
-        _hudChips.Position = new Vector2(250, 20);
-        _hudChips.Size = new Vector2(1100, 40);
-        _ui.AddChild(_hudChips);
-    }
 
     /// <summary>A label over each machine: its name and what's in its hopper, gold when it's full.</summary>
     void RefreshMachineTags()
@@ -1063,6 +1087,7 @@ public partial class BaseScreen : Control
     {
         if (_pause != null) return;
         _pause = new PauseMenu { Save = () => { Standing = _you.Tile; Ranch.Save(); }, ToTitle = ToTitle, Closed = () => _pause = null, Screen = _building ? "build" : "base" };
+        if (!_building) _pause.Extra.Add(("Name your home", OpenRename));
         AddChild(_pause);
     }
 

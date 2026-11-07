@@ -12,6 +12,7 @@ goes in **Your notes**. The list under it is what this week left open, to pick f
      `docs/menus-plan.md`.
    - **Part A (the cleanup) built on 2026-11-07** and merged.
    - **Part B, step 1 (the pause everywhere, Controls, first-time hints) built on 2026-11-07.**
+   - **Part B, step 2 (one top bar, a station named once, home's name) built on 2026-11-07.**
    - **Decided by the user on 2026-11-07: all of Part B goes in.**
      - Key help: hints the first few times, plus a Controls page in the pause menu.
      - Jobs: the open classes first, with "Show locked". The lab: one section at a time as tabs.

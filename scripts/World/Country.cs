@@ -11,10 +11,13 @@ namespace TheFartherWeStray.World;
 
 public enum Side { City, Undercity, Wilds }
 
-/// <summary>A place on the country map: a battle map to fight on (the ranch has none), and which side it's on.</summary>
+/// <summary>A place on the country map: a battle map to fight on (home has none), and which side it's on.</summary>
 public sealed class LocationDef
 {
-    public string Id, Name, MapName, Glyph, Blurb;
+    public string Id, MapName, Glyph, Blurb;
+    string _name;
+    /// <summary>Its name on screen. Home is called whatever the player calls it (<see cref="Country.HomeName"/>).</summary>
+    public string Name { get => Id == Country.Home ? Country.HomeName : _name; init => _name = value; }
     public Side Side;
     public Vector2I At;           // on the painted map, in its pixels
     public string OpenedBy;       // the main mission that opens it; null: open from the start
@@ -33,10 +36,21 @@ public static class Country
 {
     public const string Home = "ranch";
 
+    /// <summary>
+    /// What the player calls home (the user's call, 2026-11-07): "Home" until they rename it. It's the save in play's
+    /// (set where a ranch is made or loaded, and on renaming); the title, the Back buttons and the map read it.
+    /// </summary>
+    public static string HomeName = DefaultHome;
+    public const string DefaultHome = "Home";
+
+    /// <summary>The way back, in words: "Back home", or "Back to Thornfield" once it's renamed.</summary>
+    public static string BackHome => HomeName == DefaultHome ? "Back home" : $"Back to {HomeName}";
+    public static string BackHomeLow => HomeName == DefaultHome ? "back home" : $"back to {HomeName}";
+
     public static readonly LocationDef[] Locations =
     {
-        new() { Id = Home, Name = "The Ranch", Glyph = "paw", Side = Side.Wilds, At = new(36, 128),
-            Blurb = "Your ranch on the outskirts, between the city and the undercity. Your beasts rest and breed here." },
+        new() { Id = Home, Glyph = "paw", Side = Side.Wilds, At = new(36, 128),
+            Blurb = "Your home on the outskirts, between the city and the undercity. Your beasts rest, breed and train here." },
         new() { Id = "gardens", Name = "Gilded Gardens", MapName = "Gilded Gardens", Glyph = "sun", Side = Side.City, At = new(78, 52),
             Regular = "Weed Whacking", RegularAsk = "Pests are at the prize roses again. Shoo them off." },
         new() { Id = "lantern", Name = "Lantern Row", MapName = "Lantern Row", Glyph = "flame", Side = Side.Undercity, At = new(98, 168),

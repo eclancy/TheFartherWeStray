@@ -391,7 +391,7 @@ public partial class BattleScreen : Control
             _skillBar.AddChild(BarSlot(SkillIcons.Skill(item, 3), "", $"{item.Name} (item)\n{item.Text}", !_active.Acted, item == _skill, 0,
                 () => SelectSkill(item), _battle.Bag[item.Id].ToString()));
         if (_mode == Mode.Command && _battle.CanUndo(_active))
-            _skillBar.AddChild(BarSlot(SkillIcons.Action("undo", 3), "Esc", "Undo the move", true, false, 0, () => PlayerAct(() => _battle.Order(CommandKind.Undo, _active))));
+            _skillBar.AddChild(BarSlot(SkillIcons.Action("undo", 3), "Bksp", UI.Phone.Keys("Undo the move (Backspace or right-click)", "Undo the move"), true, false, 0, () => PlayerAct(() => _battle.Order(CommandKind.Undo, _active))));
         if (_mode == Mode.Command)
             _skillBar.AddChild(BarSlot(SkillIcons.Action("end", 3), "Spc", "End the turn", true, false, 0, EndPlayerTurn));
     }
@@ -648,6 +648,15 @@ public partial class BattleScreen : Control
     public override void _UnhandledInput(InputEvent e)
     {
         if (e is InputEventMouseMotion mouse && mouse.Device != InputEvent.DeviceIdEmulation && !UI.Phone.On) _keyCursor = false;
+        // The menu: Start on a phone, Esc on a desktop once there's no aimed skill or command bar for it to drop
+        // first. Time stops while it's open (the turn timer, the pack's turns). Not on the result: that goes on.
+        if (e is InputEventKey { Pressed: true, Echo: false } menu && _mode != Mode.Over && UI.PauseMenu.Opens(menu)
+            && !(menu.Keycode == Key.Escape && (BarFocused() || _mode is Mode.Skill or Mode.Berry)))
+        {
+            AddChild(new UI.PauseMenu { Screen = "battle" });
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         bool choosing = _mode is Mode.Command or Mode.Skill or Mode.Berry && _active?.Side == Side.Player && !AutoPlay;
         if (choosing && e is InputEventKey { Pressed: true } arrow && arrow.Keycode is Key.Up or Key.Down or Key.Left or Key.Right)
         {
@@ -659,7 +668,7 @@ public partial class BattleScreen : Control
         }
         if (e is InputEventKey { Pressed: true, Echo: false } pad && choosing)
         {
-            if (pad.Keycode == UI.Phone.Start || pad.Keycode == Key.Escape && BarFocused())
+            if (pad.Keycode == Key.Escape && BarFocused())
             {
                 if (BarFocused()) GetViewport().GuiReleaseFocus(); else FocusBar();
                 GetViewport().SetInputAsHandled();
@@ -717,7 +726,8 @@ public partial class BattleScreen : Control
             if (_mode != Mode.Command) return;
             switch (k.Keycode)
             {
-                case Key.Escape when _battle.CanUndo(_active):
+                case Key.Escape when _battle.CanUndo(_active): // the pad's B (a desktop's Esc is the menu)
+                case Key.Backspace when _battle.CanUndo(_active):
                     PlayerAct(() => _battle.Order(CommandKind.Undo, _active));
                     break;
                 case Key.B:
@@ -840,7 +850,7 @@ public partial class BattleScreen : Control
         if (_mode == Mode.Berry)
         {
             _info.AddChild(new HSeparator());
-            _info.AddChild(UI.Ui.Chips(new UI.Chip[] { new("berry", $"{_battle.Berries}", Gold), new("mini:area", "green tile", Ink), new("undo", "Esc", Dim) }));
+            _info.AddChild(UI.Ui.Chips(new UI.Chip[] { new("berry", $"{_battle.Berries}", Gold), new("mini:area", "green tile", Ink), new("undo", UI.Phone.Keys("Esc", "B"), Dim) }));
         }
         else if (_mode == Mode.Command && !_active.Moved || _mode == Mode.Command && !_active.Acted)
         {

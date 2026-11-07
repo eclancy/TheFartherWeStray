@@ -170,7 +170,7 @@ public partial class RanchScreen : Control
     /// </summary>
     void ApplyStation()
     {
-        var back = new Button { Text = Phone.Keys("Back to the base  (Esc)", "Back to the base  (B)"), FocusMode = FocusModeEnum.None, Position = new Vector2(GetViewportRect().Size.X - 280, 22), CustomMinimumSize = new Vector2(250, 40) };
+        var back = new Button { Text = Phone.Keys("Back to the base", "Back to the base  (B)"), FocusMode = FocusModeEnum.None, Position = new Vector2(GetViewportRect().Size.X - 280, 22), CustomMinimumSize = new Vector2(250, 40) };
         back.AddThemeFontSizeOverride("font_size", 16);
         back.Pressed += () => Back?.Invoke();
         AddChild(back);
@@ -192,18 +192,19 @@ public partial class RanchScreen : Control
         }
         // A phone's vats leave no room under them for the training too: the creature's detail is enough there.
         else if (Phone.On) _training.Visible = false;
-        _help.Text = Phone.On ? Station switch
+        // The keys, the first few times each station opens (then the Controls page in the menu has them).
+        _help.Text = !Hints.Show("station_" + Station) ? "" : (Phone.On ? Station switch
         {
-            "pens" => "A or tap: select    the buttons: squad, the yard, name, release    B: back to the base    Start: menu",
-            "vats" => "A or tap: select    Into vat, twice, then Breed    B: back to the base    Start: menu",
-            _ => "A or tap: select    B: back to the base    Start: menu",
+            "pens" => "A or tap: select    the buttons: squad, the yard, name, release    B: back    ",
+            "vats" => "A or tap: select    Into vat, twice, then Breed    B: back    ",
+            _ => "A or tap: select    B: back to the base    ",
         } : Station switch
         {
-            "pens" => "Click: select    S: squad    Y: out in the yard    Delete twice: release    Esc: back to the base    N: sound",
-            "vats" => "Click: select    Right-click: into a vat    Breed or Enter: breed    Esc: back to the base    N: sound",
-            "armory" => "Click: select    Gear: next piece from the bag    Esc: back to the base    N: sound",
-            _ => "Click: select a beast    Esc: back to the base    N: sound",
-        };
+            "pens" => "Click: select    S: squad    Y: out in the yard    Delete twice: release    ",
+            "vats" => "Click: select    Right-click: into a vat    Breed or Enter: breed    ",
+            "armory" => "Click: select    Gear: next piece from the bag    ",
+            _ => "Click: select a beast    ",
+        }) + Hints.Menu;
         Flash(Station switch
         {
             "pens" => Phone.Keys($"The pens: pick the squad (S), let up to {Farmyard.OutCap(Ranch)} others out in the yard (Y), name your beasts, or let one go.",
@@ -596,10 +597,11 @@ public partial class RanchScreen : Control
     public override void _UnhandledInput(InputEvent e)
     {
         if (e is not InputEventKey { Pressed: true, Echo: false } k) return;
-        // Only the station's own keys work here; the rest of the base is walked to.
+        // Only the station's own keys work here; the rest of the base is walked to. Esc is the menu on a desktop
+        // (the Back button goes back); on a phone B goes back and Start is the menu.
         if (k.Keycode == Key.Escape && _nameBox.Visible) { _nameBox.Visible = false; }
-        else if (k.Keycode == Key.Escape) Back?.Invoke();
-        else if (k.Keycode == Phone.Start) AddChild(new PauseMenu { Save = Ranch.Save, ToTitle = ToTitle });
+        else if (PauseMenu.Opens(k)) AddChild(new PauseMenu { Save = Ranch.Save, ToTitle = ToTitle, Screen = "station" });
+        else if (PauseMenu.GoesBack(k)) Back?.Invoke();
         else if (k.Keycode is Key.Enter or Key.KpEnter && Station == "vats") Breed();
         else if (k.Keycode == Key.S && Station == "pens" && _selected is { } ps) ToggleSquad(ps);
         else if (k.Keycode == Key.Y && Station == "pens" && _selected is { } py) ToggleOut(py);

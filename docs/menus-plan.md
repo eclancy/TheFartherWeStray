@@ -99,7 +99,11 @@ called "Home" by default and the player can rename it.
 Part A first. Then Part B, a screen at a time so each can be checked on a phone:
 
 1. The pause and the key help, together. Esc pauses everywhere, and the Controls page takes over
-   from the help lines.
+   from the help lines. **Built 2026-11-07:** Esc (Start on a phone) opens the menu on every
+   screen once nothing's open for it to close; time stops while it's open; Controls lists every
+   key, the screen you're on first; each screen's key line shows its first three times. In battle
+   Backspace or right-click undoes a move on a desktop, and on a phone Start is the menu there too
+   (A on your own beast opens the command bar). A scene's menu has Skip the scene.
 2. One top bar, a station saying what it is once, and home's name.
 3. The pens: one beast in the column, the squad chosen only there, and Build up at each station.
 4. The job tree, with the open classes first.

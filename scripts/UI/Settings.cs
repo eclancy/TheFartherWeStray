@@ -5,9 +5,10 @@ using Godot;
 namespace TheFartherWeStray.UI;
 
 /// <summary>
-/// The player's settings (the title screen's and the base's pause menu), kept in user://settings.cfg
-/// and applied as the game starts: music and effects volume, mute, how fast cutscene lines type out,
-/// the battle turn timer, fullscreen, and the save slot played last.
+/// The player's settings (the title screen's and the pause menu's), kept in user://settings.cfg and
+/// applied as the game starts: music and effects volume, mute, how fast cutscene lines type out, the
+/// battle turn timer, fullscreen, the save slot played last, and how often each key hint has shown
+/// (<see cref="Hints"/>).
 /// </summary>
 public static class Settings
 {
@@ -36,6 +37,9 @@ public static class Settings
             TurnTimer = (int)cf.GetValue("game", "turn_timer", TurnTimer);
             Fullscreen = (bool)cf.GetValue("display", "fullscreen", Fullscreen);
             LastSlot = Math.Clamp((int)cf.GetValue("game", "last_slot", LastSlot), 1, Ranching.Ranch.Slots);
+            Hints.Seen.Clear();
+            if (cf.HasSection("hints"))
+                foreach (var id in cf.GetSectionKeys("hints")) Hints.Seen[id] = (int)cf.GetValue("hints", id, 0);
         }
         Apply();
     }
@@ -50,6 +54,7 @@ public static class Settings
         cf.SetValue("game", "turn_timer", TurnTimer);
         cf.SetValue("game", "last_slot", LastSlot);
         cf.SetValue("display", "fullscreen", Fullscreen);
+        foreach (var (id, n) in Hints.Seen) cf.SetValue("hints", id, n);
         cf.Save(Path);
     }
 

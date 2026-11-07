@@ -166,11 +166,24 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   old `user://ranch.json`, so saves from before slots are slot 1; overwriting or deleting asks
   twice. `UI/Settings.cs` keeps music and effects volume, mute, cutscene text speed, the battle
   turn timer, fullscreen and the last slot in `user://settings.cfg`, applied at start
-  (`Settings.Apply`); `SettingsPanel` edits them on the title and in the base's pause menu (Esc:
-  resume, settings, save and return to title, save and quit). N saves the mute. Test and
-  screenshot flags (`--save`, `--newranch`, `--autoplay`, `--station`, `--scene`, `--mapmode`...)
-  skip the title; `--title[=new|load|settings]` opens it anyway, `--slots=NAME` keeps slots in test
-  files, `--pause` opens the base's pause menu, `--slotstest` checks slots and settings headless.
+  (`Settings.Apply`); `SettingsPanel` edits them on the title and in the pause menu. N saves the
+  mute. Test and screenshot flags (`--save`, `--newranch`, `--autoplay`, `--station`, `--scene`,
+  `--mapmode`...) skip the title; `--title[=new|load|settings]` opens it anyway, `--slots=NAME`
+  keeps slots in test files, `--pause` opens the base's pause menu (`--pause=controls` on its
+  Controls page), `--slotstest` checks slots and settings headless.
+- **The pause menu and the keys (2026-11-07, the user's call; `docs/menus-plan.md`):**
+  - **Esc pauses on every screen on a desktop**: the base, the stations, the map, battle and
+    scenes (`UI/PauseMenu.cs`; `PauseMenu.Opens`). Esc still closes an open panel or stops aiming
+    first. Going back is the Back button; on a phone B goes back and Start is the menu.
+  - **The game stands still while it's open** (`Engine.TimeScale` 0): walks, turns, the turn
+    timer and scenes wait. Timers that must run anyway take `ignoreTimeScale` (the `--pad` tool).
+  - Its items: Resume, the screen's own (a scene's Skip the scene), Controls, Settings, and where
+    there's a game to save, save and return to title, save and quit.
+  - **Controls** (`UI/Controls.cs`, `ControlsBook`): every key, screen by screen, the screen
+    you're on first; a desktop's keys, or the phone's pad and taps. New keys go there.
+  - **Key hints show the first three times a screen opens** (`Hints.Show(id)`, counted in
+    `settings.cfg`), each ending with where the rest are (`Hints.Menu`). A run with flags shows
+    every hint and counts none; `--nohints` shows none.
 - Ranch and breeding (`scripts/Ranch/`, `Creatures/Breeding.cs`): a saved roster, squad picking,
   two-vat breeding (one child per pair; parents rest until the next battle), and the
   ranch-battle-ranch loop. Bred species exist only in the save, so `CreatureRecord` stores the
@@ -456,14 +469,14 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   it, a gold frame shows it, the first arrow or A lands on the frontmost layer's first control
   (`PadNav.First` marks one), and the focused or tapped control's tooltip shows beside it (no
   hover on a phone). Per screen: the base walks on the D-pad and A uses a station; Start opens the
-  pause menu (`UI/PauseMenu.cs`) at the base, at stations and on the map (B closes it). Stations
+  pause menu (`UI/PauseMenu.cs`) on every screen (B closes it). Stations
   and the map get every action as a button (the vats' Breed, the map's Shop and Depart); the map's
   D-pad picks a place, A goes into its missions (A on a card moves to Depart), B comes back out.
   Battles have a cursor: the arrows step it along the board's rows turned a quarter (up is
-  up-right), A acts on it (on your own creature it opens the command bar, as Start does), B
-  cancels or undoes; on a phone a tap moves the cursor, a second tap on it acts, a drag pans.
-  Cutscenes: A or B goes on, Start skips. The desktop is as it was, except that the arrows move
-  the battle cursor now (WASD pans). **New screens and actions:** lay out from the viewport, give
+  up-right), A acts on it (on your own creature it opens the command bar), B cancels or undoes;
+  on a phone a tap moves the cursor, a second tap on it acts, a drag pans. Cutscenes: A or B goes
+  on; Start is the menu, which can skip the scene. On the desktop the arrows move the battle
+  cursor (WASD pans) and Backspace or right-click undoes a move. **New screens and actions:** lay out from the viewport, give
   every action a button, and look with `--phone`. `--pad=down,down,a,...` presses the pad's
   buttons after the screen settles (`--padwait=S`), logging where the focus went.
 - **Android export (2026-11-03):** `tools/android-build.sh` writes a release-signed

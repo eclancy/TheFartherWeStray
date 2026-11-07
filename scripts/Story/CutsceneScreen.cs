@@ -208,8 +208,8 @@ public partial class CutsceneScreen : Control
         _more.Visible = false;
         ui.AddChild(_more);
 
-        var hint = Ui.Text(Phone.Keys("Enter: next   Esc: skip", "A: next   Start: skip"), 16, Dim, 4);
-        hint.Position = new Vector2(vp.X - 260, 20);
+        var hint = Ui.Text(Hints.Show("scene") ? Phone.Keys("Enter: next    Esc: menu, or skip", "A: next    Start: menu, or skip") : "", 16, Dim, 4);
+        hint.Position = new Vector2(vp.X - 360, 20);
         ui.AddChild(hint);
         _fade = new ColorRect { Color = Colors.Black, MouseFilter = MouseFilterEnum.Ignore };
         _fade.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
@@ -220,8 +220,9 @@ public partial class CutsceneScreen : Control
     {
         if (e is InputEventKey { Pressed: true, Echo: false } k)
         {
-            // On a phone Start skips and B goes on like A (B is cancel, and a whole scene is a lot to lose to a slip).
-            if (k.Keycode == Phone.Start || k.Keycode == Key.Escape && !Phone.On) { _skipped = true; Finish(); }
+            // Esc on a desktop, Start on a phone: the menu, which can skip the scene (a whole scene is a lot to lose to
+            // a slip). On a phone B goes on like A.
+            if (PauseMenu.Opens(k)) AddChild(new PauseMenu { Screen = "scene", Extra = { ("Skip the scene", () => { _skipped = true; Finish(); }) } });
             else if (k.Keycode is Key.Enter or Key.KpEnter or Key.Space or Key.Z or Key.Escape) _advance = true;
             else return;
             GetViewport().SetInputAsHandled();

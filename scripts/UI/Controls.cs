@@ -71,13 +71,13 @@ public static class ControlsBook
                 ("Delete, twice", "let a beast go (the pens)"),
                 ("Right-click a beast", "into a vat, or out (the vats)"),
                 ("Enter", "breed (the vats)"),
-                ("Back to the base", "the button, top right"),
+                ("Back home", "the button, top right"),
             },
             new[]
             {
                 ("A or tap a beast", "select it"),
                 ("The buttons", "squad, the yard, name, release, vats, breed, gear"),
-                ("B", "back to the base"),
+                ("B", "back home"),
             }),
         new("map", "The map",
             new[]
@@ -86,7 +86,7 @@ public static class ControlsBook
                 ("Click a mission", "pick it"),
                 ("F", "depart: travel there and start it"),
                 ("S", "the place's shop"),
-                ("Home", "the button, top right: back home"),
+                ("Back home", "the button, top right"),
             },
             new[]
             {

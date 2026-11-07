@@ -153,7 +153,7 @@ public static class StoryBook
     static string Words(Milestone m) => m switch
     {
         Milestone.Contracts => "contracts won",
-        Milestone.Creatures => "beasts at the ranch",
+        Milestone.Creatures => "beasts at home",
         Milestone.CodexParts => "parts in the codex",
         Milestone.CityStanding => "standing with the city",
         Milestone.UndercityStanding => "standing with the undercity",

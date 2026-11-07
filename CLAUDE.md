@@ -110,8 +110,18 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   station to use it, the herd wandering the pens, the camera following; it asks the pending
   choice and runs the attract loop (`RanchScreen.AskChoice`, `AutoBattle`). A station opens
   `RanchScreen` with `Station` set: only that part shows (pens: squad, name, release; vats: the
-  vats; armory: gear; yard: jobs; war: party; lab: lab), Esc goes `Back`; the old shortcuts are
-  off there. `BaseScreen.Standing` keeps where you stood. `--goto=ID` walks to a station and uses
+  vats; armory: gear; yard: jobs; war: party; lab: lab), its Back button goes home; the old
+  shortcuts are off there. `BaseScreen.Standing` keeps where you stood.
+  **One top bar** (`UI/TopBar.cs`, 2026-11-07): home, every station and the map show the same
+  bar: the screen's name, then beasts, squad, chem, scrap, the day, both standings (and titles
+  once there are any), and Back home on the right. It refreshes itself; screens only place it
+  and start below `TopBar.Bottom`. A station says what it is once (its label at home, its name
+  in the bar): no intro line, no key line.
+  **Home's name** (the user's call, 2026-11-07): "Home" until the player renames it (Name your
+  home, in home's pause menu). Saved as `Ranch.HomeName` (`Ranch.Home` to show, `NameHome` to
+  change); `Country.HomeName` is the save in play's, so home's place on the map, the bar's
+  title, `Country.BackHome` ("Back home", or "Back to Thornfield") and the slot summary use it.
+  On screen, home is "home" (never the ranch or the base); the code still says ranch and base. `--goto=ID` walks to a station and uses
   it; `--station=ID` (and `--labmode`, `--jobsmode`, `--partymode`, `--vatdemo`) opens one
   directly. New stations: a `StationDef` entry, a prop letter on the map, and a `Station` case.
   **Decorating the farmyard** (the user's ask, 2026-11-03; phase 1 of `docs/farmyard-plan.md`,
@@ -177,8 +187,8 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
     first. Going back is the Back button; on a phone B goes back and Start is the menu.
   - **The game stands still while it's open** (`Engine.TimeScale` 0): walks, turns, the turn
     timer and scenes wait. Timers that must run anyway take `ignoreTimeScale` (the `--pad` tool).
-  - Its items: Resume, the screen's own (a scene's Skip the scene), Controls, Settings, and where
-    there's a game to save, save and return to title, save and quit.
+  - Its items: Resume, the screen's own (a scene's Skip the scene, home's Name your home),
+    Controls, Settings, and where there's a game to save, save and return to title, save and quit.
   - **Controls** (`UI/Controls.cs`, `ControlsBook`): every key, screen by screen, the screen
     you're on first; a desktop's keys, or the phone's pad and taps. New keys go there.
   - **Key hints show the first three times a screen opens** (`Hints.Show(id)`, counted in

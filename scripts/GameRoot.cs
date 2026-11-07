@@ -1582,6 +1582,7 @@ public partial class GameRoot : Node
             for (ulong k = 0; k < 1000; k++) { var p = Party.RivalBook.Draw(Party.RivalBook.All[2], ranch.Titles, k); drawn[p.Rarity] = drawn.GetValueOrDefault(p.Rarity) + 1; }
             GD.Print($"  prize odds over 1000 wins against {Party.RivalBook.All[2].Name}: {string.Join(", ", Enum.GetValues<Party.Rarity>().Select(r => $"{Party.RivalBook.Word(r)} {drawn.GetValueOrDefault(r) / 10f:0.#}%"))}");
             GD.Print("  " + ranch.Rename(tank, "  Gearjaw the Unbelievably Long  "));
+            GD.Print("  " + ranch.NameHome("  the   Old  Mill  "));
 
             ranch.Save();
             var loaded = Ranching.Ranch.Load();
@@ -1597,6 +1598,12 @@ public partial class GameRoot : Node
             GD.Print($"training: {trained}/{ranch.Creatures.Count} identical after save and load; " + string.Join("; ", ranch.Creatures.Select(r => $"{ranch.Get(r.Id).Species.Name} {r.Training.Class} [{string.Join(",", r.Training.Skills)}]{(r.Training.Innate != null ? " innate " + r.Training.Innate : "")}")));
             GD.Print($"roundtrip: {same}/{ranch.Creatures.Count} creatures identical after save and load; squad {string.Join(",", loaded.Squad)}; next encounter {loaded.Encounter}");
             GD.Print($"names: {(loaded.Get(tank).Name == ranch.Get(tank).Name && loaded.Get(tank).Nickname != null ? "kept" : "LOST")} after save and load ({loaded.Get(tank).Name}, a {loaded.Get(tank).Species.Name})");
+            // Home's name: kept, on the map and the Back buttons; "home" (or blank) goes back to Home.
+            bool homeKept = loaded.HomeName == ranch.HomeName && loaded.Home == "the Old Mill" && World.Country.Get(World.Country.Home).Name == loaded.Home
+                && World.Country.BackHome == "Back to the Old Mill";
+            ranch.NameHome(" HOME ");
+            bool homeReset = ranch.HomeName == null && World.Country.HomeName == "Home" && World.Country.BackHome == "Back home" && ranch.Summary().StartsWith("Home");
+            GD.Print($"home: {(homeKept ? "kept" : "LOST")} after save and load ({loaded.Home}); {(homeReset ? "\"home\" goes back to Home" : "RESET FAILED")}");
             bool rivalsKept = ranch.Rivals.Count == loaded.Rivals.Count && ranch.Rivals.All(kv => loaded.Rivals.GetValueOrDefault(kv.Key) == kv.Value)
                 && ranch.RivalLosses.Count == loaded.RivalLosses.Count && ranch.RivalLosses.All(kv => loaded.RivalLosses.GetValueOrDefault(kv.Key) == kv.Value);
             GD.Print($"rivals: {(rivalsKept ? "identical" : "DIFFERENT")} after save and load; {string.Join(", ", loaded.Rivals.Select(kv => $"{kv.Key} beaten {kv.Value}x").Concat(loaded.RivalLosses.Select(kv => $"{kv.Key} lost to {kv.Value}x running")))}");

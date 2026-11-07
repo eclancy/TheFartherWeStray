@@ -126,6 +126,22 @@ public sealed class Ranch
     public List<PlacedMachine> Machines = new();  // machines out in the yard, filling their hoppers a day at a time
     public Dictionary<string, int> Levels = new();   // stations raised past level 1 (docs/farmyard-plan.md, part 2)
     public int Scrap;                             // made by the scrap press, for upgrading machines
+    public string HomeName;                       // what the player calls home; null: "Home" (docs/menus-plan.md)
+
+    /// <summary>Home's name on screen: the player's, or "Home".</summary>
+    [JsonIgnore] public string Home => string.IsNullOrWhiteSpace(HomeName) ? World.Country.DefaultHome : HomeName;
+
+    public const int HomeNameLength = 20;
+
+    /// <summary>Calls home something new (blank, or "home", goes back to "Home"), and says so.</summary>
+    public string NameHome(string name)
+    {
+        name = string.Join(" ", (name ?? "").Split(' ', System.StringSplitOptions.RemoveEmptyEntries));
+        if (name.Length > HomeNameLength) name = name[..HomeNameLength].TrimEnd();
+        HomeName = name == "" || name.Equals(World.Country.DefaultHome, System.StringComparison.OrdinalIgnoreCase) ? null : name;
+        World.Country.HomeName = Home;
+        return HomeName == null ? "Home is just home." : $"Home is {HomeName} now.";
+    }
 
     readonly Dictionary<int, Creature> _cache = new();
 
@@ -170,6 +186,7 @@ public sealed class Ranch
         var r = new Ranch();
         r.Flags.Add(TiersFlag);
         ClassBook.TrialDone = id => r.Flags.Contains(World.TrialBook.Flag(id));
+        World.Country.HomeName = r.Home;
         foreach (var (c, t) in Tactics.Encounter.StarterSquad())
         {
             int id = r.Add(c);
@@ -202,10 +219,11 @@ public sealed class Ranch
     public static Ranch Peek(int slot)
     {
         if (!SlotUsed(slot)) return null;
-        var keep = SavePath;
+        // Loading makes a ranch the one in play (its trials, its home's name): put the one in play back after.
+        var (keep, trials, home) = (SavePath, ClassBook.TrialDone, World.Country.HomeName);
         SavePath = SlotPath(slot);
         try { return Load(); }
-        finally { SavePath = keep; }
+        finally { (SavePath, ClassBook.TrialDone, World.Country.HomeName) = (keep, trials, home); }
     }
 
     /// <summary>When a slot was last saved (local time), or null if it's empty.</summary>
@@ -221,7 +239,7 @@ public sealed class Ranch
 
     /// <summary>A slot in a line: where you are, the day, the roster, the story so far.</summary>
     public string Summary() =>
-        $"{World.Country.Get(Location)?.Name ?? "The Ranch"}  ·  day {Day}  ·  {Creatures.Count} beasts  ·  {Chem} chem  ·  {Plural(Story.Count(m => World.StoryBook.Get(m)?.Ending == null), "main mission")}"
+        $"{(Location == World.Country.Home ? Home : World.Country.Get(Location)?.Name ?? Home)}  ·  day {Day}  ·  {Creatures.Count} beasts  ·  {Chem} chem  ·  {Plural(Story.Count(m => World.StoryBook.Get(m)?.Ending == null), "main mission")}"
         + (Ending != null ? $"  ·  ending: {World.StoryBook.Get(Ending)?.Ending}" : "");
 
     public int Add(Creature c, bool rested = true)
@@ -291,8 +309,9 @@ public sealed class Ranch
     /// </summary>
     public void Tidy()
     {
-        // Class trials won in this save open their classes.
+        // Class trials won in this save open their classes; home is called what this save calls it.
         ClassBook.TrialDone = id => Flags.Contains(World.TrialBook.Flag(id));
+        World.Country.HomeName = Home;
         // Saves from before traits: every creature gets the ones its seed was born with.
         foreach (var rec in Creatures.Where(rec => rec.Traits == null)) { rec.Traits = Classes.TraitBook.Roll(rec.Seed); _cache.Remove(rec.Id); }
         // Saves from before tiers: a creature caught wild whose blood isn't the one its species is born

@@ -526,8 +526,8 @@ public partial class BattleScreen : Control
             : _battle.Rival is { } rival ? $"VICTORY\n{rival.Name} is beaten"
             : $"VICTORY\n{(n == 0 ? "no strays recruited" : n == 1 ? "1 stray joins you" : $"{n} strays join you")}";
         _banner.Visible = true;
-        AddLog(Finished != null ? "Enter: back to the ranch" : "R: next encounter    Tab: Sprite Lab");
-        if (UI.Phone.On) _banner.Text += "\n" + (Finished != null ? "A: back to the base" : "A: next encounter");
+        AddLog(Finished != null ? "Enter: " + World.Country.BackHomeLow : "R: next encounter    Tab: Sprite Lab");
+        if (UI.Phone.On) _banner.Text += "\n" + (Finished != null ? "A: " + World.Country.BackHomeLow : "A: next encounter");
         if (AutoPlay && Finished != null) GetTree().CreateTimer(2.5).Timeout += () => { if (IsInsideTree()) Finished(_battle); };
         RefreshPanel();
     }

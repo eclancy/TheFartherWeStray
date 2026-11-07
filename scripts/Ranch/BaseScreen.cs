@@ -686,7 +686,7 @@ public partial class BaseScreen : Control
             new("hand", $"{Ranch.Decor.Count}/{Farmyard.Most} out", Ink, "pieces out in the yard"),
             new("flask", Ranch.Chem.ToString(), Gold, "chem: the shops sell more pieces"),
         }, 16));
-        var help = Ui.Text(Phone.Keys("Click a piece, then a tile    Click one in the yard: pick it up    Esc or right-click: back",
+        var help = Ui.Text(!Hints.Show("build") ? "" : Phone.Keys("Click a piece, then a tile    Click one in the yard: pick it up    Esc or right-click: back",
             "D-pad: move    A: put down or pick up (on an empty tile: the shed)    B: back"), 14, Dim, 4);
         help.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         help.HorizontalAlignment = HorizontalAlignment.Right;
@@ -921,7 +921,7 @@ public partial class BaseScreen : Control
         _prompt.Position = new Vector2(20, vp.Y - 120);
         _prompt.Size = new Vector2(vp.X - 40, 40);
         ui.AddChild(_prompt);
-        _hint = Ui.Text(HintWords, 15, Dim, 4);
+        _hint = Ui.Text(Hints.Show("base") ? HintWords : "", 15, Dim, 4);
         _hint.Position = new Vector2(32, vp.Y - 44);
         ui.AddChild(_hint);
         foreach (var s in HomeBase.Stations)
@@ -989,8 +989,7 @@ public partial class BaseScreen : Control
         return parts.Count == 0 ? "empty" : string.Join(", ", parts);
     }
 
-    static string HintWords => Phone.Keys("Click: walk (or WASD / arrows)    E or click a station: use it    Esc: menu    N: sound",
-        "D-pad or tap: walk    A or tap a station: use it    Start: menu");
+    static string HintWords => Phone.Keys("Click: walk (or WASD / arrows)    E or click a station: use it    ", "D-pad or tap: walk    A or tap a station: use it    ") + Hints.Menu;
 
     void Refresh()
     {
@@ -1059,19 +1058,20 @@ public partial class BaseScreen : Control
 
     PauseMenu _pause;
 
-    /// <summary>Esc at the base (Start on a phone): resume, the settings, save and go back to the title, or quit.</summary>
+    /// <summary>Esc at the base (Start on a phone): resume, the controls, the settings, save and go back to the title, or quit.</summary>
     void Pause()
     {
         if (_pause != null) return;
-        _pause = new PauseMenu { Save = () => { Standing = _you.Tile; Ranch.Save(); }, ToTitle = ToTitle, Closed = () => _pause = null };
+        _pause = new PauseMenu { Save = () => { Standing = _you.Tile; Ranch.Save(); }, ToTitle = ToTitle, Closed = () => _pause = null, Screen = _building ? "build" : "base" };
         AddChild(_pause);
     }
 
     public override void _UnhandledInput(InputEvent e)
     {
         if (Ranch.Pending != null && !AutoFight) return; // the choice after a main mission stands over everything until it's made
-        // Esc opens the menu on a desktop; on a phone Start does (B is cancel, and there's nothing here to cancel).
-        if (_pause == null && e is InputEventKey { Pressed: true, Echo: false } open && (open.Keycode == Phone.Start || open.Keycode == Key.Escape && !Phone.On && !_building))
+        // Esc opens the menu on a desktop (once there's no workbench or machine panel for it to close); on a phone Start
+        // does (B is cancel, and there's nothing here to cancel).
+        if (_pause == null && e is InputEventKey { Pressed: true, Echo: false } open && PauseMenu.Opens(open) && (open.Keycode != Key.Escape || !_building && _machineLayer == null))
         {
             Pause();
             GetViewport().SetInputAsHandled();

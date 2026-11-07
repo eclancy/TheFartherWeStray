@@ -55,7 +55,7 @@ public partial class CountryScreen : Control
         _panelX = Phone.On ? MapAt.X + CountryArt.W * Scale + 24 : vp.X - 750;
         _panelW = Phone.On ? vp.X - _panelX - 16 : 720;
         _overY = Phone.On ? 96 : 262;
-        var back = new Button { Text = Phone.Keys("Home  (Esc)", "Home  (B)"), FocusMode = FocusModeEnum.None, Position = new Vector2(vp.X - 180, 22), CustomMinimumSize = new Vector2(150, 40) };
+        var back = new Button { Text = Phone.Keys("Home", "Home  (B)"), FocusMode = FocusModeEnum.None, Position = new Vector2(vp.X - 180, 22), CustomMinimumSize = new Vector2(150, 40) };
         back.AddThemeFontSizeOverride("font_size", 16);
         back.Pressed += () => Back?.Invoke();
         AddChild(back);
@@ -77,8 +77,10 @@ public partial class CountryScreen : Control
         var first = _board.FirstOrDefault(m => m.Story != null) ?? _board.FirstOrDefault(m => m.Location == Ranch.Location)
             ?? _board.OrderBy(m => Country.Days(Ranch, m.Location)).FirstOrDefault();
         Select(first?.Location ?? Ranch.Location);
-        _status.Text = Phone.Keys("Pick a place, then a mission; Depart (F) travels there and starts it. Esc: back to the ranch.",
-            "D-pad: pick a place.  A: its missions, then Depart.  B: back home.  Start: menu.");
+        // The keys, the first few times (then the Controls page in the menu has them).
+        if (Hints.Show("map"))
+            _status.Text = Phone.Keys("Pick a place, then a mission; Depart (F) travels there and starts it.    ",
+                "D-pad: pick a place.  A: its missions, then Depart.  B: back home.  ") + Hints.Menu;
         if (DemoDispatch && _board.FirstOrDefault(m => m.Dispatch != null) is { } job) { Select(job.Location); Choose(job.Dispatch); }
         if (DemoShop && ShopBook.At(Ranch, Ranch.Location).Count > 0) { Select(Ranch.Location); OpenShop(Ranch.Location); }
     }
@@ -131,7 +133,7 @@ public partial class CountryScreen : Control
         bool hires = Country.Hires(Ranch, l);
         _missions.Visible = l.MapName != null && hires;
         if (l.MapName == null)
-            _place.AddChild(Wrap("Home. Back at the ranch (Esc) your beasts rest, breed and train.", 16, Ink));
+            _place.AddChild(Wrap("Home. Back at the ranch your beasts rest, breed and train.", 16, Ink));
         else if (!hires)
         {
             // The city's board, shut until someone with connections up here brings you in (wording is a placeholder for the story's).
@@ -419,14 +421,20 @@ public partial class CountryScreen : Control
                 GetViewport().SetInputAsHandled();
                 return;
             }
-            if (inPanel && !pad.Echo && pad.Keycode == Key.Escape) { GetViewport().GuiReleaseFocus(); GetViewport().SetInputAsHandled(); return; }
+            if (inPanel && Phone.On && !pad.Echo && pad.Keycode == Key.Escape) { GetViewport().GuiReleaseFocus(); GetViewport().SetInputAsHandled(); return; }
         }
         if (e is not InputEventKey { Pressed: true, Echo: false } k) return;
-        if (k.Keycode == Phone.Start) { AddChild(new PauseMenu { Save = Ranch.Save, ToTitle = ToTitle }); GetViewport().SetInputAsHandled(); return; }
+        // The menu: Start, or Esc on a desktop once there's no chooser or shop for it to close. On a phone B goes home.
+        if (PauseMenu.Opens(k) && (k.Keycode != Key.Escape || _chooser == null && _shop == null))
+        {
+            AddChild(new PauseMenu { Save = Ranch.Save, ToTitle = ToTitle, Screen = "map" });
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         if (k.Keycode == Key.Escape && _chooser != null) { CloseChooser(); GetViewport().SetInputAsHandled(); }
         else if (k.Keycode == Key.Escape && _shop != null) { CloseShop(); GetViewport().SetInputAsHandled(); }
         else if (k.Keycode == Key.S && _shop == null && _selected != null && ShopBook.At(Ranch, _selected).Count > 0) OpenShop(_selected);
-        else if (k.Keycode == Key.Escape) { Back?.Invoke(); GetViewport().SetInputAsHandled(); }
+        else if (PauseMenu.GoesBack(k)) { Back?.Invoke(); GetViewport().SetInputAsHandled(); }
         else if (k.Keycode == Key.F && _missions.Visible && _missions.Missions.Count > 0) Depart(_missions.Missions[_missions.Selected]);
     }
 

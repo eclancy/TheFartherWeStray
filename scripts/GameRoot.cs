@@ -85,6 +85,10 @@ public partial class GameRoot : Node
         // The player's settings (volumes, mute, text speed, turn timer, fullscreen); --mute mutes on top.
         UI.Settings.Load();
         if (args.ContainsKey("mute")) Audio.Sound.Muted = true;
+        // Key hints show the first few times a screen opens. A run with flags (a test, a screenshot) shows them
+        // all and counts none, so the player's own count is never touched; --nohints shows none.
+        UI.Hints.Counting = args.Count == 0;
+        UI.Hints.Off = args.ContainsKey("nohints");
         // Music: rendered on a worker thread once the game starts (not for headless tests); --nomusic turns it off.
         Audio.Music.Off = args.ContainsKey("nomusic");
         if (DisplayServer.GetName() != "headless") AddChild(new Audio.Music());
@@ -131,11 +135,20 @@ public partial class GameRoot : Node
             GD.Print($"delete: slot 3 {(gone ? "gone" : "STILL THERE")}, then made again");
             UI.Settings.Path = "user://settings_test.cfg";
             (UI.Settings.Music, UI.Settings.Effects, UI.Settings.TextSpeed, UI.Settings.TurnTimer, UI.Settings.LastSlot) = (0.35f, 0.6f, 2, 30, 3);
+            UI.Hints.Seen.Clear();
+            UI.Hints.Seen["station_pens"] = 2;
             UI.Settings.Save();
+            UI.Hints.Seen.Clear();
             (UI.Settings.Music, UI.Settings.Effects, UI.Settings.TextSpeed, UI.Settings.TurnTimer, UI.Settings.LastSlot) = (1, 1, 0, 0, 1);
             UI.Settings.Load();
             bool same = Mathf.IsEqualApprox(UI.Settings.Music, 0.35f) && Mathf.IsEqualApprox(UI.Settings.Effects, 0.6f) && UI.Settings.TextSpeed == 2 && UI.Settings.TurnTimer == 30 && UI.Settings.LastSlot == 3;
             GD.Print($"settings: {(same ? "kept" : "DIFFERENT")} after save and load (music {UI.Settings.Music:0.00}, effects {UI.Settings.Effects:0.00}, text {UI.Settings.Speeds[UI.Settings.TextSpeed]}, timer {UI.Settings.TurnTimer}s, last slot {UI.Settings.LastSlot})");
+            // Key hints: counted in the settings, shown Hints.Times times, then not (a run with flags counts none, so count here by hand).
+            bool hintKept = UI.Hints.Seen.GetValueOrDefault("station_pens") == 2;
+            UI.Hints.Counting = true;
+            bool third = UI.Hints.Show("station_pens"), fourth = UI.Hints.Show("station_pens");
+            UI.Hints.Counting = false;
+            GD.Print($"hints: count {(hintKept ? "kept" : "LOST")} after save and load; the third time {(third ? "shows" : "HIDDEN")}, the fourth {(fourth ? "STILL SHOWS" : "hidden")}");
             GetTree().Quit();
             return;
         }
@@ -1841,6 +1854,7 @@ public partial class GameRoot : Node
         }
         if (args.TryGetValue("save", out var saveName) && saveName != "") Ranching.Ranch.SavePath = $"user://{saveName}.json";
         _demoPause = args.ContainsKey("pause");
+        if (args.GetValueOrDefault("pause") == "controls") UI.PauseMenu.DemoPage = "controls"; // --pause=controls: the Controls page
         // --goto=bench --holding=lamp --cursor=6,7: the workbench's build mode with a piece in hand (screenshots).
         _demoHolding = args.GetValueOrDefault("holding");
         _demoMachine = args.GetValueOrDefault("machine"); // --machine=still: walk to the still and open it
@@ -1882,7 +1896,7 @@ public partial class GameRoot : Node
 
     async void PressPad(string[] presses, float after)
     {
-        await ToSignal(GetTree().CreateTimer(after), SceneTreeTimer.SignalName.Timeout);
+        await ToSignal(GetTree().CreateTimer(after, ignoreTimeScale: true), SceneTreeTimer.SignalName.Timeout); // real time: the pause menu stops the game's
         foreach (var p in presses)
         {
             Key? key = p.Trim().ToLowerInvariant() switch
@@ -1896,7 +1910,7 @@ public partial class GameRoot : Node
                 UI.Phone.Frame.View.Key(k, false, false);
                 GD.Print($"pad: {p.Trim()}, focus on {GetViewport().GuiGetFocusOwner()?.GetType().Name ?? "nothing"} {(GetViewport().GuiGetFocusOwner() as Button)?.Text}");
             }
-            await ToSignal(GetTree().CreateTimer(p.Trim() == "wait" ? 1.0 : 0.4), SceneTreeTimer.SignalName.Timeout);
+            await ToSignal(GetTree().CreateTimer(p.Trim() == "wait" ? 1.0 : 0.4, ignoreTimeScale: true), SceneTreeTimer.SignalName.Timeout);
         }
     }
 

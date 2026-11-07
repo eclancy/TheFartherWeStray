@@ -100,7 +100,7 @@ public partial class TitleScreen : Control
         _hint = Ui.Text("", 18, Ui.Gold, 5);
         _hint.Position = new Vector2(Left, vp.Y - 80);
         _ui.AddChild(_hint);
-        if (!Phone.On)
+        if (!Phone.On && Hints.Show("title"))
         {
             var keys = Ui.Text("Arrows and Enter, or click    N: sound", 16, Ui.Dim, 4);
             keys.Position = new Vector2(vp.X - 420, vp.Y - 40);

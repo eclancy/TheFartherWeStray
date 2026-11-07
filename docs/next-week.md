@@ -15,6 +15,7 @@ goes in **Your notes**. The list under it is what this week left open, to pick f
    - **Part B, step 2 (one top bar, a station named once, home's name) built on 2026-11-07.**
    - **Part B, step 3 (one beast in the column, the squad picked at the pens, Build up at every
      station) built on 2026-11-07.**
+   - **Part B, step 4 (the job tree: open classes first, Show locked, a filter) built on 2026-11-07.**
    - **Decided by the user on 2026-11-07: all of Part B goes in.**
      - Key help: hints the first few times, plus a Controls page in the pause menu.
      - Jobs: the open classes first, with "Show locked". The lab: one section at a time as tabs.

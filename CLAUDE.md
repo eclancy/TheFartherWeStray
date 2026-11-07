@@ -121,7 +121,9 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   only at the yard. **The squad is picked only at the pens** (`Ranch.AddToSquad` puts a beast
   under a fielded tamer whose specialty boosts it when one has room); the war table fields
   tamers and shows who leads whom, and with two leading moves a beast across (`MoveLeader`, or
-  pick one and one of the other's: `SwapLeaders`).
+  pick one and one of the other's: `SwapLeaders`). **The job tree** (`JobsPanel`) lists the classes
+  a beast can train first (its main, its secondary, the rest); Show locked adds the others, and
+  the three groups (base; part and form; blood) are a filter.
   **Home's name** (the user's call, 2026-11-07): "Home" until the player renames it (Name your
   home, in home's pause menu). Saved as `Ranch.HomeName` (`Ranch.Home` to show, `NameHome` to
   change); `Country.HomeName` is the save in play's, so home's place on the map, the bar's

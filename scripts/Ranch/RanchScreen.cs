@@ -31,15 +31,14 @@ public partial class RanchScreen : Control
     GridContainer _grid;
     float _right, _top;   // where the right-hand panel starts, and where the screen's body begins
     Button _breedButton;
-    Label _header, _status, _notes;
+    Label _status, _notes;
+    TopBar _bar;   // the station's name, the counts, and the way back home
     VBoxContainer _detail, _training;
-    Control _headerChips;
     VatPanel _vats;
     Button _squadButton, _vatButton, _releaseButton, _yardButton;
     HBoxContainer _buttonsRow;
     Button _nameButton, _gearButton;
     LineEdit _nameBox;
-    Label _help;
     VBoxContainer _column;
     int _naming;
     LabPanel _lab;
@@ -72,8 +71,9 @@ public partial class RanchScreen : Control
         var vp = GetViewportRect().Size;
         _right = vp.X - 720 - (Phone.On ? 16 : 30);
         _top = Phone.On ? 112 : 96;
-        _header = Text(26, Ink, new Vector2(32, 20), new Vector2(vp.X - 60, 40));
-        _status = Text(17, Gold, new Vector2(32, 62), new Vector2(Phone.On ? vp.X - 64 : 1100, 30));
+        _bar = new TopBar { Ranch = Ranch, Title = HomeBase.Get(Station)?.Name.ToUpperInvariant() ?? "", Back = () => Back?.Invoke() };
+        AddChild(_bar);
+        _status = Text(17, Gold, new Vector2(32, TopBar.Bottom), new Vector2(Phone.On ? vp.X - 64 : 1100, 30));
         _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 
         var scroll = new ScrollContainer { Position = new Vector2(24, _top + 4), Size = new Vector2(_right - 50, vp.Y - _top - 64), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
@@ -82,7 +82,6 @@ public partial class RanchScreen : Control
         _grid.AddThemeConstantOverride("h_separation", 8);
         _grid.AddThemeConstantOverride("v_separation", 8);
         scroll.AddChild(_grid);
-        _help = Text(16, Dim, new Vector2(32, vp.Y - 44), new Vector2(_right - 50, 30));
 
         float vatsH = Phone.On ? 190 : 320, notesH = Phone.On ? 44 : 96;
         _vats = new VatPanel { Position = new Vector2(_right, _top), Size = new Vector2(720, vatsH), Screen = this, MouseFilter = MouseFilterEnum.Ignore };
@@ -143,7 +142,7 @@ public partial class RanchScreen : Control
             if (newest != null) ChildShown = Ranch.Get(newest.Id);
         }
         if (JustJoined.Count > 0)
-            Flash($"{string.Join(", ", JustJoined.Select(id => Ranch.Get(id).Name))} joined the ranch.");
+            Flash($"{string.Join(", ", JustJoined.Select(id => Ranch.Get(id).Name))} joined you.");
         if (Ranch.Report.Count > 0) _notes.Text = string.Join("\n", Ranch.Report);
         Select(Ranch.Creatures.FirstOrDefault(r => r.Name == StartOn)?.Id ?? Ranch.Squad.FirstOrDefault(Ranch.Creatures[0].Id));
         Rebuild();
@@ -166,14 +165,11 @@ public partial class RanchScreen : Control
     /// <summary>
     /// At one station of the home base, only that station's part shows (the other systems are walked
     /// to): the pens are the roster and squad, the vats breed, the armory fits gear, the yard trains,
-    /// the war table leads, the lab grafts. Esc goes back out.
+    /// the war table leads, the lab grafts. The top bar names it, once (no intro, no key line: the Controls page in the
+    /// menu has the keys), and its Back button goes home (B on a phone).
     /// </summary>
     void ApplyStation()
     {
-        var back = new Button { Text = Phone.Keys("Back to the base", "Back to the base  (B)"), FocusMode = FocusModeEnum.None, Position = new Vector2(GetViewportRect().Size.X - 280, 22), CustomMinimumSize = new Vector2(250, 40) };
-        back.AddThemeFontSizeOverride("font_size", 16);
-        back.Pressed += () => Back?.Invoke();
-        AddChild(back);
         SetPanel(Station switch { "lab" => Panel.Lab, "yard" => Panel.Jobs, "war" => Panel.Party, _ => Panel.Vats });
         var keep = Station switch
         {
@@ -192,30 +188,6 @@ public partial class RanchScreen : Control
         }
         // A phone's vats leave no room under them for the training too: the creature's detail is enough there.
         else if (Phone.On) _training.Visible = false;
-        // The keys, the first few times each station opens (then the Controls page in the menu has them).
-        _help.Text = !Hints.Show("station_" + Station) ? "" : (Phone.On ? Station switch
-        {
-            "pens" => "A or tap: select    the buttons: squad, the yard, name, release    B: back    ",
-            "vats" => "A or tap: select    Into vat, twice, then Breed    B: back    ",
-            _ => "A or tap: select    B: back to the base    ",
-        } : Station switch
-        {
-            "pens" => "Click: select    S: squad    Y: out in the yard    Delete twice: release    ",
-            "vats" => "Click: select    Right-click: into a vat    Breed or Enter: breed    ",
-            "armory" => "Click: select    Gear: next piece from the bag    ",
-            _ => "Click: select a beast    ",
-        }) + Hints.Menu;
-        Flash(Station switch
-        {
-            "pens" => Phone.Keys($"The pens: pick the squad (S), let up to {Farmyard.OutCap(Ranch)} others out in the yard (Y), name your beasts, or let one go.",
-                $"The pens: pick the squad, let up to {Farmyard.OutCap(Ranch)} others out in the yard, name your beasts, or let one go."),
-            "vats" => Phone.Keys("The vats: put two beasts into the vats (Into vat, or right-click), then Breed (or Enter).", "The vats: put two beasts into the vats (Into vat), then Breed."),
-            "armory" => "The armory: fit gear from the bag (Gear cycles through it).",
-            "yard" => "The training yard: every class this beast could train, and what each still needs.",
-            "war" => "The war table: your tamers lead from off the field, up to two, three beasts each.",
-            "lab" => "The lab (chem): tune stats with infusions, put in new blood, splice in another species' ability, fit augments from the bag, or graft parts.",
-            _ => "",
-        });
     }
 
     Label Text(int size, Color color, Vector2 pos, Vector2 boxSize)
@@ -300,23 +272,6 @@ public partial class RanchScreen : Control
             _grid.AddChild(card);
             if (Phone.On && id == _selected) PadNav.First(card);
         }
-        _header.Text = HomeBase.Get(Station)?.Name.ToUpperInvariant() ?? "";
-        _headerChips?.QueueFree();
-        var chips = new List<Chip>
-        {
-            new Chip("paw", Ranch.Creatures.Count.ToString(), Ink, "your beasts"),
-            new Chip("fist", $"{Ranch.Squad.Count}/{Ranch.SquadSize}", Ranch.Squad.Count == 0 ? Ui.Bad : Ink, "squad: three beasts for each tamer leading (tamers are fielded at the war table)"),
-            new Chip("flask", Ranch.Chem.ToString(), Gold, "chem, for the lab"),
-            new Chip("mountain", "#" + Ranch.Encounter, Ink, "next encounter"),
-            new Chip("sun", Ranch.CityStanding.ToString(), Gold, "standing with the city above"),
-            new Chip("moon", Ranch.UnderStanding.ToString(), Magenta, "standing with the undercity"),
-        };
-        // Titles won from rival tamers.
-        if (Ranch.Titles.Count > 0) chips.Add(new Chip("sparkle", Ranch.Titles.Count.ToString(), Gold, "titles: " + string.Join(", ", Ranch.Titles)));
-        _headerChips = Ui.Chips(chips, 22, 2, 22);
-        _headerChips.Position = new Vector2(270, 20);
-        _headerChips.Size = new Vector2(Math.Min(1100, GetViewportRect().Size.X - 580), 40);
-        AddChild(_headerChips);
         _vats.QueueRedraw();
         RefreshSelected();
     }

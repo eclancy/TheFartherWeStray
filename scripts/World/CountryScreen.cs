@@ -55,10 +55,7 @@ public partial class CountryScreen : Control
         _panelX = Phone.On ? MapAt.X + CountryArt.W * Scale + 24 : vp.X - 750;
         _panelW = Phone.On ? vp.X - _panelX - 16 : 720;
         _overY = Phone.On ? 96 : 262;
-        var back = new Button { Text = Phone.Keys("Home", "Home  (B)"), FocusMode = FocusModeEnum.None, Position = new Vector2(vp.X - 180, 22), CustomMinimumSize = new Vector2(150, 40) };
-        back.AddThemeFontSizeOverride("font_size", 16);
-        back.Pressed += () => Back?.Invoke();
-        AddChild(back);
+        AddChild(new TopBar { Ranch = Ranch, Title = "THE COUNTRY", Back = () => Back?.Invoke() });
 
         _place = new VBoxContainer { Position = new Vector2(_panelX, 96), Size = new Vector2(_panelW, 160) };
         _place.AddThemeConstantOverride("separation", 6);
@@ -119,7 +116,6 @@ public partial class CountryScreen : Control
         _place.AddChild(Ui.Chips(new[]
         {
             new Chip("move", id == Ranch.Location ? "you are here" : $"{days} {(days == 1 ? "day" : "days")} away", id == Ranch.Location ? Green : Ink, "each road takes a day"),
-            new Chip("clock", $"day {Ranch.Day}", Dim, "days travelled so far"),
         }, 16));
         CloseShop();
         if (ShopBook.At(Ranch, id).Count > 0)
@@ -132,8 +128,7 @@ public partial class CountryScreen : Control
         var here = _board.Where(m => m.Location == id).ToList();
         bool hires = Country.Hires(Ranch, l);
         _missions.Visible = l.MapName != null && hires;
-        if (l.MapName == null)
-            _place.AddChild(Wrap("Home. Back at the ranch your beasts rest, breed and train.", 16, Ink));
+        if (l.MapName == null) { } // home: its blurb says what it is
         else if (!hires)
         {
             // The city's board, shut until someone with connections up here brings you in (wording is a placeholder for the story's).
@@ -226,7 +221,6 @@ public partial class CountryScreen : Control
         var head = new HBoxContainer();
         head.AddThemeConstantOverride("separation", 12);
         head.AddChild(Ui.Text($"SHOP  ·  {Country.Get(place).Name}", 18, Gold));
-        head.AddChild(Ui.ChipView(new Chip("flask", $"{Ranch.Chem} chem", Gold, "chem to spend"), 16));
         col.AddChild(head);
         if (!here)
         {
@@ -442,22 +436,8 @@ public partial class CountryScreen : Control
     {
         var font = GetThemeDefaultFont();
         DrawRect(new Rect2(Vector2.Zero, Size), Color.FromHtml("#0b0913"));
-        DrawString(font, new Vector2(40, 52), "THE COUNTRY", HorizontalAlignment.Left, 400, 30, Gold);
-        DrawTexture(Glyphs.Get("flask", 2), new Vector2(290, 30));
-        DrawString(font, new Vector2(318, 50), $"{Ranch.Chem}", HorizontalAlignment.Left, 120, 20, Gold);
-        // Standing with each side: a bar from -100 to 100, and the number.
-        void Bar(float x0, string glyph, string label, int value, Color color)
-        {
-            DrawTexture(Glyphs.Get(glyph, 2), new Vector2(x0, 30));
-            DrawRect(new Rect2(x0 + 30, 38, 120, 10), new Color(0.15f, 0.12f, 0.22f));
-            DrawRect(new Rect2(x0 + 90, 36, 1, 14), Dim);
-            float f = value / 100f;
-            DrawRect(f >= 0 ? new Rect2(x0 + 90, 38, 60 * f, 10) : new Rect2(x0 + 90 + 60 * f, 38, -60 * f, 10), color);
-            DrawString(font, new Vector2(x0 + 158, 50), $"{label} {value}", HorizontalAlignment.Left, 160, 16, color);
-        }
-        Bar(400, "sun", "city", Ranch.CityStanding, Gold);
-        Bar(640, "moon", "undercity", Ranch.UnderStanding, Pink);
-        DrawString(font, new Vector2(40, 84), NextLine(), HorizontalAlignment.Left, 1100, 16, Dim);
+        // The title, chem and standing are the top bar's (the same on every screen); under it, what's next.
+        DrawString(font, new Vector2(MapAt.X, TopBar.Bottom + 22), NextLine(), HorizontalAlignment.Left, 1100, 16, Dim);
         var tex = CountryArt.Texture;
         DrawTextureRect(tex, new Rect2(MapAt, tex.GetSize() * Scale), false);
 

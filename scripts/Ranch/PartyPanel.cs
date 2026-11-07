@@ -83,7 +83,7 @@ public partial class PartyPanel : Control
                     var c = Ranch.Get(cid);
                     var b = Btn(c.Name, () => Remove(cid));
                     b.Icon = Glyphs.Get(w.Boosts(c) ? "up" : "dot", 1);
-                    b.TooltipText = w.Boosts(c) ? $"Boosted: {w.Text}\nClick to send back to the ranch." : $"Not boosted: {w.Name} leads {w.LeadsHint}.\nClick to send back to the ranch.";
+                    b.TooltipText = w.Boosts(c) ? $"Boosted: {w.Text}\nClick to take it out of the squad." : $"Not boosted: {w.Name} leads {w.LeadsHint}.\nClick to take it out of the squad.";
                     slots.AddChild(b);
                 }
                 int room = TamerBook.CreaturesEach - Ranch.Led(w.Id);
@@ -102,13 +102,13 @@ public partial class PartyPanel : Control
     {
         bool was = Ranch.Fielded.Contains(tamer);
         if (!Ranch.ToggleField(tamer)) return;
-        Done(was ? $"{TamerBook.Get(tamer).Name} stands down; their beasts return to the ranch." : $"{TamerBook.Get(tamer).Name} will lead in the next battle.");
+        Done(was ? $"{TamerBook.Get(tamer).Name} stands down; their beasts stay home." : $"{TamerBook.Get(tamer).Name} will lead in the next battle.");
     }
 
     void Remove(int id)
     {
         Ranch.RemoveFromSquad(id);
-        Done($"{Ranch.Get(id).Name} returns to the ranch.");
+        Done($"{Ranch.Get(id).Name} stays home.");
     }
 
     void Add(int id, string tamer)

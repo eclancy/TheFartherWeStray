@@ -112,5 +112,12 @@ Part A first. Then Part B, a screen at a time so each can be checked on a phone:
    Name your home in its pause menu; the name is saved and shows in the bar, on the Back buttons
    ("Back to Thornfield") and on the map. On screen the ranch and the base are now "home".
 3. The pens: one beast in the column, the squad chosen only there, and Build up at each station.
+   **Built 2026-11-07:** the column shows the selected beast only (the pointer lights a card,
+   nothing more); the parts line is gone from it (the lab lists the parts), and the open, locked
+   and never counts moved to the training yard's job tree. The pens pick the squad, putting a
+   beast under a tamer whose specialty boosts it when one has room; the war table fields tamers
+   and shows who leads whom, and with two leading it moves a beast across, or swaps two (pick
+   one, then one of the other's). Every station's top bar has Build up, the gate's on the map,
+   the same panel as the workbench's.
 4. The job tree, with the open classes first.
 5. The lab as tabs.

@@ -104,6 +104,14 @@ public partial class JobsPanel : Control
         var aff = ClassBook.Affinity[c.Species.Plan];
 
         _box.AddChild(Ui.Text($"JOB TREE · {c.Name}", 18, Gold));
+        // How many classes it can train now, could unlock, and never can (only here: the column elsewhere leaves it out).
+        var standings = ClassBook.Classes.Select(k => ClassBook.StandingOf(k, c, t)).ToList();
+        _box.AddChild(Ui.Chips(new[]
+        {
+            new Chip("check", $"{standings.Count(s => s == ClassBook.Standing.Open)} open", Ui.Good, "classes it can train now"),
+            new Chip("lock", $"{standings.Count(s => s == ClassBook.Standing.Locked)} locked", Dim, "classes it could unlock"),
+            new Chip("x", $"{standings.Count(s => s == ClassBook.Standing.Never)} never", Ui.Bad, "classes its body can never take"),
+        }, 14, 2, 12));
         // Which classes this body takes to (+50% JP) and which it never can.
         var leanings = aff.favoured.Select(f => new Chip(SkillIcons.ClassEmblem(f), f, Green, "favoured: +50% JP"))
             .Concat(aff.barred.Select(f => new Chip("x", f, Red, "barred: never, for this body"))).ToList();

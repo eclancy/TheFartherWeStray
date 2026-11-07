@@ -1028,6 +1028,31 @@ public partial class GameRoot : Node
             var townBack = Ranching.Ranch.Load();
             Check(string.Join(",", townBack.Levels.OrderBy(kv => kv.Key)) == string.Join(",", town.Levels.OrderBy(kv => kv.Key)), $"station levels kept after a save and load: {string.Join(", ", townBack.Levels.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key} {kv.Value}"))}");
 
+            // The squad is picked at the pens; the war table moves beasts between tamers (docs/menus-plan.md, part B step 3).
+            var war = Ranching.Ranch.New();
+            for (ulong seed = 61; seed < 69; seed++) war.Add(Creatures.Creature.Specimen(seed));
+            war.Encounter = 12;
+            foreach (var id in war.Squad.ToList()) war.RemoveFromSquad(id);
+            war.Fielded.Clear();
+            war.Fielded.AddRange(new[] { "beastmaster", "chemist" });
+            bool boostedFirst = true;
+            foreach (var rec in war.Creatures.ToList())
+            {
+                var c = war.Get(rec.Id);
+                bool couldBoost = war.Fielded.Any(w => war.Led(w) < Party.TamerBook.CreaturesEach && Party.TamerBook.Get(w).Boosts(c));
+                if (!war.AddToSquad(rec.Id)) break;
+                if (couldBoost && !war.LeaderOf(rec.Id).Boosts(c)) boostedFirst = false;
+            }
+            Check(boostedFirst && war.Squad.Count == 6, $"the pens put each beast under a tamer whose specialty boosts it when one has room ({string.Join(", ", war.Squad.Select(id => $"{war.Get(id).Name}: {war.LeaderOf(id).Id}"))})");
+            int bm = war.Squad.First(id => war.LeaderOf(id).Id == "beastmaster");
+            Check(!war.MoveLeader(bm, "chemist"), "a tamer leading three takes no one more");
+            war.RemoveFromSquad(war.Squad.First(id => war.LeaderOf(id).Id == "chemist"));
+            string order = string.Join(",", war.Squad);
+            Check(war.MoveLeader(bm, "chemist") && war.LeaderOf(bm).Id == "chemist" && string.Join(",", war.Squad) == order, "a beast moves to the other tamer with room, keeping its place in the squad");
+            int fromBm = war.Squad.First(id => war.LeaderOf(id).Id == "beastmaster"), fromCh = war.Squad.First(id => war.LeaderOf(id).Id == "chemist");
+            Check(war.SwapLeaders(fromBm, fromCh) && war.LeaderOf(fromBm).Id == "chemist" && war.LeaderOf(fromCh).Id == "beastmaster", "two beasts under different tamers swap leaders");
+            Check(!war.SwapLeaders(fromBm, war.Squad.First(id => id != fromBm && war.LeaderOf(id).Id == "chemist")), "two beasts under one tamer don't swap");
+
             // A yard to look at: --save=yard_show (screenshots of beasts out and about).
             var show = Ranching.Ranch.New();
             for (ulong seed = 41; seed < 47; seed++) show.Add(Creatures.Creature.Specimen(seed));
@@ -1865,6 +1890,7 @@ public partial class GameRoot : Node
         // --goto=bench --holding=lamp --cursor=6,7: the workbench's build mode with a piece in hand (screenshots).
         _demoHolding = args.GetValueOrDefault("holding");
         _demoMachine = args.GetValueOrDefault("machine"); // --machine=still: walk to the still and open it
+        _demoBuildUp = args.ContainsKey("buildup"); // --station=ID --buildup (or --mapmode --buildup): open its Build up
         if (args.TryGetValue("cursor", out var cursorArg) && cursorArg.Split(',') is [var cx, var cy] && int.TryParse(cx, out int cxi) && int.TryParse(cy, out int cyi))
             _demoCursor = new Vector2I(cxi, cyi);
         _ranch = args.ContainsKey("newranch") ? Ranching.Ranch.New() : Ranching.Ranch.Load();
@@ -1947,9 +1973,9 @@ public partial class GameRoot : Node
     }
 
     Ranching.RanchScreen Station(string id, bool vatDemo = false, string select = null) =>
-        new() { Ranch = _ranch, Station = id, Back = () => Show(_home()), VatDemo = vatDemo, StartOn = select, ToTitle = ShowTitle };
+        new() { Ranch = _ranch, Station = id, Back = () => Show(_home()), VatDemo = vatDemo, StartOn = select, ToTitle = ShowTitle, DemoBuildUp = TakeBuildUp() };
 
-    void ShowMap() => Show(new World.CountryScreen { Ranch = _ranch, Fight = StartRanchBattle, Back = () => Show(_home()), DemoDispatch = _demoDispatch, DemoShop = _demoShop, ToTitle = ShowTitle });
+    void ShowMap() => Show(new World.CountryScreen { Ranch = _ranch, Fight = StartRanchBattle, Back = () => Show(_home()), DemoDispatch = _demoDispatch, DemoShop = _demoShop, ToTitle = ShowTitle, DemoBuildUp = TakeBuildUp() });
     bool _demoDispatch, _demoShop;
 
     System.Func<Node> _lab, _home;
@@ -1964,6 +1990,8 @@ public partial class GameRoot : Node
     string _demoHolding;     // --holding=ID: at the workbench, with that piece in hand
     Vector2I? _demoCursor;   // --cursor=X,Y: and the cursor there
     string _demoMachine;     // --machine=ID: walk to that machine and open it
+    bool _demoBuildUp;       // --buildup: the first station (or the map) opens on its Build up panel
+    bool TakeBuildUp() { bool b = _demoBuildUp; _demoBuildUp = false; return b; }
 
     void Show(Node screen)
     {

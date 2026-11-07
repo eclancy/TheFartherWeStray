@@ -268,12 +268,16 @@ public sealed class Ranch
     public TamerDef LeaderOf(int id) => LedBy.TryGetValue(id, out var w) ? TamerBook.Get(w) : null;
     public int Led(string tamer) => Squad.Count(id => LeaderOf(id)?.Id == tamer);
 
-    /// <summary>Into the squad under the first fielded tamer with room; false if every tamer's hands are full.</summary>
+    /// <summary>
+    /// Into the squad (picked at the pens): under the given tamer, or else the first fielded one with room whose
+    /// specialty boosts it, or the first with room at all. False if every tamer's hands are full.
+    /// </summary>
     public bool AddToSquad(int id, string tamer = null)
     {
         if (Away.ContainsKey(id) || Record(id).Steeping || Record(id).Recovering) return false;
         if (Squad.Contains(id)) RemoveFromSquad(id);
-        tamer ??= Fielded.FirstOrDefault(w => Led(w) < TamerBook.CreaturesEach);
+        var room = Fielded.Where(w => Led(w) < TamerBook.CreaturesEach).ToList();
+        tamer ??= room.FirstOrDefault(w => TamerBook.Get(w).Boosts(Get(id))) ?? room.FirstOrDefault();
         if (tamer == null || !Fielded.Contains(tamer) || Led(tamer) >= TamerBook.CreaturesEach) return false;
         Squad.Add(id);
         LedBy[id] = tamer;
@@ -285,6 +289,22 @@ public sealed class Ranch
     {
         Squad.Remove(id);
         LedBy.Remove(id);
+    }
+
+    /// <summary>The war table: a beast in the squad goes to another fielded tamer with room (its place in the squad kept).</summary>
+    public bool MoveLeader(int id, string tamer)
+    {
+        if (!Squad.Contains(id) || !Fielded.Contains(tamer) || LedBy.GetValueOrDefault(id) == tamer || Led(tamer) >= TamerBook.CreaturesEach) return false;
+        LedBy[id] = tamer;
+        return true;
+    }
+
+    /// <summary>The war table: two beasts led by different tamers trade leaders.</summary>
+    public bool SwapLeaders(int a, int b)
+    {
+        if (!Squad.Contains(a) || !Squad.Contains(b) || !LedBy.TryGetValue(a, out var la) || !LedBy.TryGetValue(b, out var lb) || la == lb) return false;
+        (LedBy[a], LedBy[b]) = (lb, la);
+        return true;
     }
 
     /// <summary>Sends a tamer into the field, or stands them down (their creatures leave the squad with them).</summary>

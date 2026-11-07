@@ -373,8 +373,9 @@ public partial class BattleScreen : Control
         foreach (var child in _skillBar.GetChildren()) child.QueueFree();
         if (_mode is not (Mode.Command or Mode.Skill) || _active == null) return;
 
-        string how = UI.Phone.On ? "put the cursor on a red-marked foe and press A (or tap it twice)" : "click a red-marked foe";
-        var attack = BarSlot(SkillIcons.Attack(_active.Weapon, 3), "", $"Attack: {how}\n{_active.Creature.Loadout().weapon}", !_active.Acted, false, 0, null);
+        string how = UI.Phone.On ? "tap here to aim at a red-marked foe, then here or A again to strike" : "click a red-marked foe, or press here to aim at one, then again to strike";
+        var attack = BarSlot(SkillIcons.Attack(_active.Weapon, 3), "", $"Attack: {how}\n{_active.Creature.Loadout().weapon}",
+            !_active.Acted && _battle.Targets(_active).Count > 0, false, 0, AttackSlot);
         _skillBar.AddChild(attack);
         for (int i = 0; i < _active.Skills.Count; i++)
         {
@@ -393,6 +394,21 @@ public partial class BattleScreen : Control
             _skillBar.AddChild(BarSlot(SkillIcons.Action("undo", 3), "Esc", "Undo the move", true, false, 0, () => PlayerAct(() => _battle.Order(CommandKind.Undo, _active))));
         if (_mode == Mode.Command)
             _skillBar.AddChild(BarSlot(SkillIcons.Action("end", 3), "Spc", "End the turn", true, false, 0, EndPlayerTurn));
+    }
+
+    /// <summary>
+    /// The Attack slot: the first press puts the cursor on the weakest foe in reach; pressed again with
+    /// the cursor on a foe in reach, it strikes (as a click on that foe does).
+    /// </summary>
+    void AttackSlot()
+    {
+        var foes = _battle.Targets(_active);
+        if (foes.Count == 0) return;
+        if (_mode != Mode.Command) EnterCommand(); // aiming a skill or a berry: the Attack slot drops it first
+        else if (_cursor is { } at && UnitOn(at) is { } on && foes.Contains(on)) { Act(at); return; }
+        _keyCursor = true;
+        SetCursor(foes.OrderBy(f => f.Hp).First().Pos);
+        RefreshPanel();
     }
 
     /// <summary>A command bar slot's frame, with just room for its icon: lit gold when it's the skill being aimed.</summary>
@@ -708,7 +724,6 @@ public partial class BattleScreen : Control
                     BerryMode();
                     break;
                 case Key.Space:
-                case Key.E:
                     EndPlayerTurn();
                     break;
             }

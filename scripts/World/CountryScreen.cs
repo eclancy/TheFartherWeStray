@@ -163,7 +163,7 @@ public partial class CountryScreen : Control
     {
         if (_travelling || _chooser != null) return;
         if (m.Dispatch != null) { Choose(m.Dispatch); return; }
-        if (Ranch.Squad.Count == 0) { _status.Text = "Pick at least one beast for the squad at the ranch (S)."; return; }
+        if (Ranch.Squad.Count == 0) { _status.Text = "Pick at least one beast for the squad at the pens first."; return; }
         _travelling = true;
         Audio.Sound.Play("depart");
         if (await WalkTo(m.Location, m.Roamer)) return;
@@ -426,7 +426,7 @@ public partial class CountryScreen : Control
         if (k.Keycode == Key.Escape && _chooser != null) { CloseChooser(); GetViewport().SetInputAsHandled(); }
         else if (k.Keycode == Key.Escape && _shop != null) { CloseShop(); GetViewport().SetInputAsHandled(); }
         else if (k.Keycode == Key.S && _shop == null && _selected != null && ShopBook.At(Ranch, _selected).Count > 0) OpenShop(_selected);
-        else if (k.Keycode is Key.Escape or Key.M) { Back?.Invoke(); GetViewport().SetInputAsHandled(); }
+        else if (k.Keycode == Key.Escape) { Back?.Invoke(); GetViewport().SetInputAsHandled(); }
         else if (k.Keycode == Key.F && _missions.Visible && _missions.Missions.Count > 0) Depart(_missions.Missions[_missions.Selected]);
     }
 

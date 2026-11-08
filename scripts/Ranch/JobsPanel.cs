@@ -9,10 +9,11 @@ using Godot;
 namespace TheFartherWeStray.Ranching;
 
 /// <summary>
-/// The selected creature's job tree (FFTA's job menu, per creature): every class, marked open,
-/// locked (with what it still needs) or never possible for this body, with mastery stars. Click a
-/// class to see it, then train it as the main class or take its skills as the secondary. Below,
-/// the two passive slots: one support and one reaction, each from any class trained.
+/// The selected creature's job tree (FFTA's job menu, per creature). The classes it can train come first
+/// (docs/menus-plan.md, part B); "Show locked" adds the ones it could unlock (with what they still need) and the
+/// ones its body never can, and the three groups (base; part, form and temperament; blood) are a filter. Each
+/// shows its mastery stars. Click a class to see it, then train it as the main class or take its skills as the
+/// secondary. Below, the two passive slots: one support and one reaction, each from any class trained.
 /// </summary>
 public partial class JobsPanel : Control
 {
@@ -22,6 +23,18 @@ public partial class JobsPanel : Control
     int? _id;
     string _shown;
     VBoxContainer _box;
+    string _group = "all";   // the filter: all, base, part or blood (kept from beast to beast)
+    bool _showLocked;        // the locked and never classes too
+    string _keep, _keepNow;  // the pad: the button pressed, to put the focus back on once the panel is rebuilt
+
+    /// <summary>The filter's groups: an id, a label, which classes, and what they take (the tooltip).</summary>
+    static readonly (string Id, string Label, Func<ClassDef, bool> Has, string Tip)[] Groups =
+    {
+        ("all", "All", _ => true, "Every class"),
+        ("base", "Base", k => !k.Advanced, "Base classes: open to any body that allows them"),
+        ("part", "Part & form", k => k.Advanced && k.Requires.Length == 2, "Part, form and temperament classes (and the signature ones): two base classes mastered, and the body, form, aura or nature for it"),
+        ("blood", "Blood", k => k.Advanced && k.Requires.Length == 1, "Blood classes: one base class mastered, and the strain"),
+    };
 
     static readonly Color Ink = Color.FromHtml("#e8e2f4"), Dim = Color.FromHtml("#6f6788"), Gold = Color.FromHtml("#f2c14e"),
         Cyan = Color.FromHtml("#4fe3ff"), Red = Color.FromHtml("#b0546a"), Green = Color.FromHtml("#4ff0a0"), Pink = Color.FromHtml("#ff8ac0");
@@ -45,11 +58,14 @@ public partial class JobsPanel : Control
     /// <summary>Forget the class being looked at (a different creature was selected).</summary>
     public void Reset() => _shown = null;
 
-    Button Btn(string text, Action onPress, bool enabled = true, int width = 0)
+    Button Btn(string text, Action onPress, bool enabled = true, int width = 0, string key = null)
     {
         var b = new Button { Text = text, Disabled = !enabled, FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(width, 32), ClipText = width > 0 };
         b.AddThemeFontSizeOverride("font_size", 14);
-        b.Pressed += onPress;
+        key ??= text;
+        b.Pressed += () => { _keep = key; onPress(); };
+        // On a phone, the button just pressed keeps the pad's focus when the panel is rebuilt round it.
+        if (Phone.On && _keepNow == key) { _keepNow = null; b.CallDeferred(Control.MethodName.GrabFocus); }
         return b;
     }
 
@@ -73,7 +89,7 @@ public partial class JobsPanel : Control
     Button ClassButton(ClassDef k, ClassBook.Standing standing, Creature c, Training t)
     {
         var id = k.Id;
-        var b = Btn(k.Name, () => { _shown = id; Build(); }, true, 168);
+        var b = Btn(k.Name, () => { _shown = id; Build(); }, true, 168, "class:" + id);
         b.Icon = SkillIcons.Class(k.Id, standing, 2);
         b.Alignment = HorizontalAlignment.Left;
         b.CustomMinimumSize = new Vector2(168, 40);
@@ -99,39 +115,53 @@ public partial class JobsPanel : Control
     {
         if (_box == null || _id == null) return;
         foreach (var child in _box.GetChildren()) { _box.RemoveChild(child); child.QueueFree(); }
+        (_keepNow, _keep) = (_keep, null);
         var c = Ranch.Get(_id.Value);
         var t = Ranch.Record(_id.Value).Training;
         var aff = ClassBook.Affinity[c.Species.Plan];
 
         _box.AddChild(Ui.Text($"JOB TREE · {c.Name}", 18, Gold));
-        // How many classes it can train now, could unlock, and never can (only here: the column elsewhere leaves it out).
-        var standings = ClassBook.Classes.Select(k => ClassBook.StandingOf(k, c, t)).ToList();
-        _box.AddChild(Ui.Chips(new[]
-        {
-            new Chip("check", $"{standings.Count(s => s == ClassBook.Standing.Open)} open", Ui.Good, "classes it can train now"),
-            new Chip("lock", $"{standings.Count(s => s == ClassBook.Standing.Locked)} locked", Dim, "classes it could unlock"),
-            new Chip("x", $"{standings.Count(s => s == ClassBook.Standing.Never)} never", Ui.Bad, "classes its body can never take"),
-        }, 14, 2, 12));
         // Which classes this body takes to (+50% JP) and which it never can.
         var leanings = aff.favoured.Select(f => new Chip(SkillIcons.ClassEmblem(f), f, Green, "favoured: +50% JP"))
             .Concat(aff.barred.Select(f => new Chip("x", f, Red, "barred: never, for this body"))).ToList();
         if (leanings.Count > 0) _box.AddChild(Ui.Chips(leanings, 14, 2, 12));
 
-        void Section(string title, IEnumerable<ClassDef> classes, string tip)
+        // The filter: the three groups, or all of them.
+        var filter = new HBoxContainer();
+        filter.AddThemeConstantOverride("separation", 6);
+        foreach (var g in Groups)
         {
-            var head = Ui.Text(title, 13, Dim, 4);
-            head.TooltipText = tip;
-            head.MouseFilter = MouseFilterEnum.Stop;
-            _box.AddChild(head);
-            var grid = new GridContainer { Columns = 4 };
-            grid.AddThemeConstantOverride("h_separation", 5);
-            grid.AddThemeConstantOverride("v_separation", 5);
-            foreach (var k in classes) grid.AddChild(ClassButton(k, ClassBook.StandingOf(k, c, t), c, t));
-            _box.AddChild(grid);
+            var id = g.Id;
+            var fb = Btn(g.Label, () => { _group = id; Build(); }, true, 0, "group:" + id);
+            fb.TooltipText = g.Tip;
+            if (g.Id == _group) // the group showing is lit
+                foreach (var state in new[] { "normal", "hover", "pressed" }) fb.AddThemeStyleboxOverride(state, UiSkin.Lit(UiPart.Small, Cyan, state != "normal"));
+            filter.AddChild(fb);
         }
-        Section("BASE", ClassBook.Classes.Where(k => !k.Advanced), "Open to any body that allows them.");
-        Section("PART, FORM & TEMPERAMENT", ClassBook.Classes.Where(k => k.Advanced && k.Requires.Length == 2), "Two base classes mastered, and the body, form, aura or nature for it.");
-        Section("BLOOD", ClassBook.Classes.Where(k => k.Advanced && k.Requires.Length == 1), "One base class mastered, and the strain.");
+        _box.AddChild(filter);
+
+        // What it can train now first (its main class, then its secondary, then the rest by the book's order); the
+        // locked and never ones only when asked for, after them.
+        var group = Groups.First(g => g.Id == _group);
+        var classes = ClassBook.Classes.Where(group.Has).Select(k => (k, st: ClassBook.StandingOf(k, c, t))).ToList();
+        var open = classes.Where(x => x.st == ClassBook.Standing.Open).OrderBy(x => x.k.Id == t.Class ? 0 : x.k.Id == t.Secondary ? 1 : 2).ToList();
+        var shut = classes.Where(x => x.st != ClassBook.Standing.Open).OrderBy(x => x.st == ClassBook.Standing.Never ? 1 : 0).ToList();
+        var grid = new GridContainer { Columns = 4 };
+        grid.AddThemeConstantOverride("h_separation", 5);
+        grid.AddThemeConstantOverride("v_separation", 5);
+        foreach (var (k, standing) in open.Concat(_showLocked ? shut : Enumerable.Empty<(ClassDef, ClassBook.Standing)>()))
+            grid.AddChild(ClassButton(k, standing, c, t));
+        if (open.Count == 0 && !_showLocked) _box.AddChild(Ui.Text("None it can train here yet.", 14, Dim, 4));
+        else _box.AddChild(grid);
+        if (shut.Count > 0)
+        {
+            int locked = shut.Count(x => x.st == ClassBook.Standing.Locked), never = shut.Count - locked;
+            var more = Btn(_showLocked ? "Hide locked" : $"Show locked ({shut.Count})", () => { _showLocked = !_showLocked; Build(); }, true, 0, "locked");
+            more.Icon = Glyphs.Get("lock", 1);
+            more.TooltipText = string.Join(", ", new[] { locked > 0 ? $"{locked} it could unlock" : null, never > 0 ? $"{never} its body never can" : null }.Where(s => s != null));
+            more.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+            _box.AddChild(more);
+        }
 
         // The class being looked at: its emblem, stars, JP and mastery bonus, then each lesson in order.
         var shown = ClassBook.Class(_shown ?? t.Class);

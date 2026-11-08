@@ -119,5 +119,8 @@ Part A first. Then Part B, a screen at a time so each can be checked on a phone:
    and shows who leads whom, and with two leading it moves a beast across, or swaps two (pick
    one, then one of the other's). Every station's top bar has Build up, the gate's on the map,
    the same panel as the workbench's.
-4. The job tree, with the open classes first.
+4. The job tree, with the open classes first. **Built 2026-11-07:** the classes a beast can train
+   show first (its main class, then its secondary, then the rest); "Show locked (N)" adds the ones
+   it could unlock and the ones its body never can (the tooltip says how many of each), and All,
+   Base, Part & form and Blood filter them. On a phone the pad keeps its place as the list changes.
 5. The lab as tabs.

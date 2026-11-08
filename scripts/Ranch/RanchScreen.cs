@@ -596,6 +596,16 @@ public partial class RanchCard : Control
         else if (e.IsActionPressed("ui_accept")) { Clicked?.Invoke(false); AcceptEvent(); }
     }
 
+    /// <summary>A size cut short for a narrow card; the short words stay whole.</summary>
+    static string Short(SizeClass s) => s switch
+    {
+        SizeClass.Small => "Sm.",
+        SizeClass.Medium => "Med.",
+        SizeClass.Large => "Lg.",
+        SizeClass.Enormous => "Enorm.",
+        _ => s.ToString(),
+    };
+
     public override void _Draw()
     {
         var c = Screen.Ranch.Get(Id);
@@ -625,7 +635,7 @@ public partial class RanchCard : Control
         Ui.Draw(this, new Vector2(0, ground + 24), c.Name, HorizontalAlignment.Center, Size.X, 17, Ui.Ink);
         // Its size and body; the size cut short ("Med.") when the two don't fit the card.
         string what = $"{c.Size} {c.Species.Plan}";
-        if (font.GetStringSize(what, HorizontalAlignment.Left, -1, Ui.Fit(13)).X > Size.X - 2 * UiSkin.Px * 4) what = $"{c.Size.ToString()[..3]}. {c.Species.Plan}";
+        if (font.GetStringSize(what, HorizontalAlignment.Left, -1, Ui.Fit(13)).X > Size.X - 2 * UiSkin.Px * 4) what = $"{Short(c.Size)} {c.Species.Plan}";
         Ui.Draw(this, new Vector2(0, ground + 44), what, HorizontalAlignment.Center, Size.X, Ui.Fit(13), Ui.Dim);
 
         // Marks in the top corners.

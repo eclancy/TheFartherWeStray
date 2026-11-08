@@ -59,12 +59,16 @@ public partial class UpdateBanner : CanvasLayer
         return null;
     }
 
-    /// <summary>On a worker thread. Null for nothing to offer, whatever the reason, a release without an APK included.</summary>
+    /// <summary>
+    /// On a worker thread. Null for nothing to offer, whatever the reason, a release without an APK
+    /// included. It holds nothing up, so it can wait far longer than Windows' check: the title's
+    /// creatures render their frames on the same thread pool, and version.json is three redirects away.
+    /// </summary>
     static async Task<Offer> Fetch()
     {
         try
         {
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
             http.DefaultRequestHeaders.UserAgent.ParseAdd(UpdateScreen.UserAgent);
             string url = OS.GetEnvironment(UpdateScreen.UrlOverrideVariable);
             if (string.IsNullOrEmpty(url)) url = UpdateScreen.VersionUrl;

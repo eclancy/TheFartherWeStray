@@ -13,7 +13,11 @@
 # ecec.dev/the-farther-we-stray/version.json redirects to the newest release's version.json, so
 # nothing on ecec.dev needs deploying for a release. See docs/releasing.md.
 #
-# --dry-run builds every file into build/release/ and checks the APK's signature, then puts
+# Before anything is committed it plays the update players will get (tools/release/update-test.sh):
+# the newest published release, opened against this build, must download it, restart and come back
+# as this version. After publishing it checks the live address every copy reads says this version.
+#
+# --dry-run builds every file into build/release/, checks the APK and plays the update, then puts
 # project.godot and export_presets.cfg back: no commit, tag, push or release.
 set -euo pipefail
 
@@ -140,6 +144,11 @@ MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' "$ISCC" /Q "/DAppVersion=$VERSION" to
 	|| { echo "the installer didn't compile" >&2; exit 1; }
 [ -f build/release/TheFartherWeStray-Setup.exe ] || { echo "ISCC wrote no TheFartherWeStray-Setup.exe" >&2; exit 1; }
 
+# --- The update players will get ------------------------------------------------------------
+# Before the slow Android export: the newest published release, opened after this one is out, must
+# find it, download it, restart and come back as this version (from a local server; nothing public).
+bash tools/release/update-test.sh
+
 # --- The Android APK ------------------------------------------------------------------------
 with_signing() {
 	(
@@ -179,6 +188,10 @@ BADGING=$("$AAPT" dump badging "$APK" 2>/dev/null | sed -n 1p || true)
 echo "$BADGING" | grep -q "versionCode='$VERSION_CODE' versionName='$VERSION'" || { echo "$APK has the wrong version: $BADGING" >&2; exit 1; }
 # The app's identity: an APK with any other package id is a second app that can't update the first.
 echo "$BADGING" | grep -q "^package: name='com.ecec.thefartherwestray' " || { echo "$APK isn't com.ecec.thefartherwestray: $BADGING" >&2; exit 1; }
+# Its update check needs the internet: without the permission no phone ever hears of a release
+# (0.4.0 and before shipped without it).
+"$AAPT" dump badging "$APK" 2>/dev/null | grep -q "^uses-permission: name='android.permission.INTERNET'" \
+	|| { echo "$APK can't use the internet, so its update check can't run: permissions/internet in export_presets.cfg" >&2; exit 1; }
 cp "$APK" build/release/TheFartherWeStray-android.apk
 printf '%-34s %6.1f MB  (versionCode %s)\n' TheFartherWeStray-android.apk "$(awk "BEGIN { print $(stat -c %s "$APK") / 1048576 }")" "$VERSION_CODE"
 printf '%-34s %6.1f MB\n' TheFartherWeStray-Setup.exe "$(awk "BEGIN { print $(stat -c %s build/release/TheFartherWeStray-Setup.exe) / 1048576 }")"
@@ -205,4 +218,6 @@ gh release create "v$VERSION" --repo eclancy/TheFartherWeStray \
 
 }$HOW_TO"
 
-echo "Released v$VERSION: every Windows copy updates the next time it starts, and every Android copy offers it on its title."
+echo "Released v$VERSION. Checking what every copy will be told ..."
+bash tools/release/update-test.sh --live="$VERSION"
+echo "Every Windows copy updates the next time it starts, and every Android copy offers it on its title."

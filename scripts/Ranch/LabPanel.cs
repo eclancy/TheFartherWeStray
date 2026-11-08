@@ -8,32 +8,60 @@ using Godot;
 namespace TheFartherWeStray.Ranching;
 
 /// <summary>
-/// The lab at the ranch: a graft chamber showing the selected creature as it would look with the
-/// parts you're considering, and the work it can do, least change first (the tiers): infusions that
-/// tune its stats, new blood for natural creatures, another species' ability spliced in, augments
-/// from the bag (bought at undercity shops), and a row per part slot (cycle through your codex, then graft).
+/// The lab at home: a graft chamber showing the selected beast, and the work it can do as tabs, least change first
+/// (the tiers): Infuse (tune its stats), Blood (a strain for a natural creature), Splice (another species' ability),
+/// Augment (fit one from the bag, bought at undercity shops) and Graft (a part slot swapped for one in your codex;
+/// the chamber shows it before you pay). Each tab has a plain one-line header; what the work makes the beast, and
+/// whether its line carries it, is in the tab's tooltip (docs/menus-plan.md, part B step 5).
 /// </summary>
 public partial class LabPanel : Control
 {
     public Ranch Ranch;
     public Action<string> Done; // after an operation: the message to show
+    public static string StartTab; // --labtab=ID, for screenshots: the tab to open on
 
-    const float ChamberHeight = 290;
+    static float ChamberHeight => Phone.On ? 230 : 290;
+    static readonly Color Ink = Ui.Ink, Dim = Ui.Dim, Cyan = Color.FromHtml("#4fe3ff");
+
+    /// <summary>The tabs, least change first as the tiers go; the jargon (what it makes the beast) lives in the tooltip.</summary>
+    static readonly (string Id, string Label, string Tip)[] Tabs =
+    {
+        ("infuse", "Infuse", "Infusions tune its stats: an upside and a trade-off each, two at a time (a third washes out the oldest).\nMakes it infused · not inherited"),
+        ("blood", "Blood", "New blood gives a natural creature a strain of its own.\nMakes it infused · its line carries it"),
+        ("splice", "Splice", "A splice adds the ability of another kind of creature you've met in battle, two at most (a third replaces the oldest).\nMakes it a chimera · its line carries it"),
+        ("augment", "Augment", "Augments come from undercity shops and are fitted here, two to a beast: abilities no natural creature has.\nRigs it: chem upkeep after each battle, and it learns slower · not inherited"),
+        ("graft", "Graft", "A graft swaps one of its parts for one in your codex (the parts you've met in battle); the chamber shows it before you pay.\nMakes it a chimera · not inherited"),
+    };
+
     int? _id;
     readonly Dictionary<string, int> _candidate = new();
     Texture2D _preview;
+    HBoxContainer _tabBar;
+    Label _header;
     VBoxContainer _rows;
+    string _tab = "infuse";
+    string _keep, _keepNow; // the pad: the button pressed, to put the focus back on once the panel is rebuilt
 
     public override void _Ready()
     {
-        // Everything the lab does, in a list that scrolls under the chamber.
+        if (Tabs.Any(t => t.Id == StartTab)) _tab = StartTab;
+        StartTab = null;
+        // Under the chamber: the tabs, the tab's one line, then its work in a list that scrolls.
+        float y = ChamberHeight + 6;
+        _tabBar = new HBoxContainer { Position = new Vector2(0, y), Size = new Vector2(Size.X, 34) };
+        _tabBar.AddThemeConstantOverride("separation", 6);
+        AddChild(_tabBar);
+        _header = new Label { Position = new Vector2(0, y + 42), Size = new Vector2(Size.X, 24), ClipText = true, MouseFilter = MouseFilterEnum.Pass };
+        _header.AddThemeFontSizeOverride("font_size", 16);
+        AddChild(_header);
+        y += 72;
         var scroll = new ScrollContainer
         {
-            Position = new Vector2(0, ChamberHeight + 10), Size = new Vector2(Size.X, Size.Y - ChamberHeight - 10),
+            Position = new Vector2(0, y), Size = new Vector2(Size.X, Size.Y - y),
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
         };
         _rows = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _rows.AddThemeConstantOverride("separation", 4);
+        _rows.AddThemeConstantOverride("separation", 6);
         scroll.AddChild(_rows);
         AddChild(scroll);
     }
@@ -47,146 +75,205 @@ public partial class LabPanel : Control
         Build();
     }
 
+    static Label Text(string text, int width, Color color)
+    {
+        var l = new Label { Text = text, CustomMinimumSize = new Vector2(width, 0), VerticalAlignment = VerticalAlignment.Center, ClipText = true };
+        l.AddThemeFontSizeOverride("font_size", 15);
+        l.AddThemeColorOverride("font_color", color);
+        return l;
+    }
+
+    Button Btn(string text, bool enabled, Action onPress, int width, string key)
+    {
+        var b = new Button { Text = text, Disabled = !enabled, FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(width, 34) };
+        b.AddThemeFontSizeOverride("font_size", 14);
+        b.Pressed += () => { _keep = key; onPress(); };
+        // On a phone, the button just pressed keeps the pad's focus when the panel is rebuilt round it.
+        if (Phone.On && _keepNow == key) { _keepNow = null; b.CallDeferred(Control.MethodName.GrabFocus); }
+        return b;
+    }
+
+    static HFlowContainer Flow()
+    {
+        var flow = new HFlowContainer();
+        flow.AddThemeConstantOverride("h_separation", 6);
+        flow.AddThemeConstantOverride("v_separation", 6);
+        return flow;
+    }
+
+    static Color TierColour(Classes.Tier t) => Color.FromHtml(Classes.TierBook.Hex(t));
+
+    void Header(string text, Color color)
+    {
+        _header.Text = text;
+        _header.AddThemeColorOverride("font_color", color);
+        _header.TooltipText = Tabs.First(t => t.Id == _tab).Tip;
+    }
+
     void Build()
     {
         if (_rows == null || _id == null) return;
-        foreach (var child in _rows.GetChildren()) child.QueueFree();
+        (_keepNow, _keep) = (_keep, null);
+        foreach (var child in _tabBar.GetChildren()) { _tabBar.RemoveChild(child); child.QueueFree(); }
+        foreach (var child in _rows.GetChildren()) { _rows.RemoveChild(child); child.QueueFree(); }
         var rec = Ranch.Record(_id.Value);
-        var plan = rec.Species.Plan;
 
-        Label Text(string text, int width, Color color)
+        // The tabs: the one showing is lit.
+        foreach (var (tid, label, tip) in Tabs)
         {
-            var l = new Label { Text = text, CustomMinimumSize = new Vector2(width, 0), VerticalAlignment = VerticalAlignment.Center, ClipText = true };
-            l.AddThemeFontSizeOverride("font_size", 15);
-            l.AddThemeColorOverride("font_color", color);
-            return l;
+            string t = tid;
+            var b = Btn(label, true, () => { _tab = t; Build(); }, 0, "tab:" + t);
+            b.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            b.TooltipText = tip;
+            if (t == _tab)
+                foreach (var state in new[] { "normal", "hover", "pressed" }) b.AddThemeStyleboxOverride(state, UiSkin.Lit(UiPart.Small, Cyan, state != "normal"));
+            _tabBar.AddChild(b);
         }
-        Button Btn(string text, bool enabled, Action onPress, int width = 0)
+
+        switch (_tab)
         {
-            var b = new Button { Text = text, Disabled = !enabled, FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(width, 34) };
-            b.AddThemeFontSizeOverride("font_size", 14);
-            b.Pressed += onPress;
-            return b;
+            case "blood": Blood(rec); break;
+            case "splice": Splice(rec); break;
+            case "augment": Augment(rec); break;
+            case "graft": Graft(rec); break;
+            default: Infuse(rec); break;
         }
-        var ink = Color.FromHtml("#e8e2f4");
-        var dim = Color.FromHtml("#9a91b4");
-        var gold = Color.FromHtml("#f2c14e");
 
-        // Every cost is the flask glyph and a number; the buttons say what they fit. The sections run
-        // from the least change to the most, as the tiers do: infusions, new blood, splices, augments,
-        // then the part grafts.
-        var flask = Glyphs.Get("flask", 1);
-        Color TierColour(Classes.Tier t) => Color.FromHtml(Classes.TierBook.Hex(t));
+        // The chamber shows the beast, with the parts you're considering on the Graft tab.
+        var preview = rec.ToCreature();
+        if (_tab == "graft") foreach (var s in Lab.Slots) preview.Parts = Lab.Set(preview.Parts, s.Name, _candidate[s.Name]);
+        _preview = ImageTexture.CreateFromImage(CreaturePainter.Paint(preview, false));
+        QueueRedraw();
+    }
 
-        // Infusions: tune its stats, an upside and a trade-off each, two at a time.
+    // Every cost is the flask glyph and a number; the buttons say what they fit.
+    static Texture2D Flask => Glyphs.Get("flask", 1);
+
+    /// <summary>Infusions: tune its stats, an upside and a trade-off each, two at a time.</summary>
+    void Infuse(CreatureRecord rec)
+    {
         string tuned = rec.Infusions.Count == 0 ? "none" : string.Join(", ", rec.Infusions.Select(i => Classes.InfusionBook.Get(i)?.Name));
-        _rows.AddChild(Text($"INFUSIONS · tune its stats · {rec.Infusions.Count}/{Classes.InfusionBook.Slots}: {tuned} · makes it infused · not inherited", 700, TierColour(Classes.Tier.Infused)));
-        var draughts = new HFlowContainer();
-        draughts.AddThemeConstantOverride("h_separation", 6);
+        Header($"Tune its stats, two infusions at a time · {rec.Infusions.Count}/{Classes.InfusionBook.Slots}: {tuned}", TierColour(Classes.Tier.Infused));
+        var draughts = Flow();
+        int id = _id.Value;
         foreach (var p in Classes.InfusionBook.All)
         {
-            int id = _id.Value;
             string pid = p.Id;
             bool has = rec.Infusions.Contains(p.Id), full = rec.Infusions.Count >= Classes.InfusionBook.Slots;
             int brew = Farmyard.LabPrice(Ranch, Classes.InfusionBook.Cost);
-            var b = Btn($"{p.Name}  {brew}", !has && Ranch.Chem >= brew, () => Finish(Lab.Brew(Ranch, id, pid)));
-            b.Icon = flask;
+            var b = Btn($"{p.Name}  {brew}", !has && Ranch.Chem >= brew, () => Finish(Lab.Brew(Ranch, id, pid)), 0, "brew:" + pid);
+            b.Icon = Flask;
             b.TooltipText = p.Text + (has ? "\nIt has this one." : full ? $"\nThe {Classes.InfusionBook.Get(rec.Infusions[0])?.Name} washes out." : "");
             draughts.AddChild(b);
         }
         _rows.AddChild(draughts);
+    }
 
-        // New blood: a strain of its own for a natural creature; its line carries it.
-        if (rec.Species.Strain == Strain.Natural)
+    /// <summary>New blood: a strain of its own for a natural creature; its line carries it.</summary>
+    void Blood(CreatureRecord rec)
+    {
+        if (rec.Species.Strain != Strain.Natural)
         {
-            _rows.AddChild(Text("NEW BLOOD · a strain of its own · makes it infused · its line carries it", 700, gold));
-            var bloods = new HBoxContainer();
-            bloods.AddThemeConstantOverride("separation", 6);
-            foreach (var (strain, _, cost) in Lab.Infusions)
-            {
-                int id = _id.Value;
-                int price = Farmyard.LabPrice(Ranch, cost);
-                var b = Btn($"{strain.Label()}  {price}", Ranch.Chem >= price, () => Finish(Lab.Infuse(Ranch, id, strain)));
-                b.Icon = flask;
-                bloods.AddChild(b);
-            }
-            _rows.AddChild(bloods);
+            Header($"It's {rec.Species.Strain.Label().ToLowerInvariant()} already: only natural creatures take new blood", Dim);
+            return;
         }
-        else _rows.AddChild(Text($"NEW BLOOD · it's {rec.Species.Strain.Label().ToLowerInvariant()} already: only natural creatures take new blood", 700, dim));
+        Header("Give it a strain of its own", TierColour(Classes.Tier.Infused));
+        var bloods = Flow();
+        int id = _id.Value;
+        foreach (var (strain, _, cost) in Lab.Infusions)
+        {
+            var s = strain;
+            int price = Farmyard.LabPrice(Ranch, cost);
+            var b = Btn($"{strain.Label()}  {price}", Ranch.Chem >= price, () => Finish(Lab.Infuse(Ranch, id, s)), 0, "blood:" + strain);
+            b.Icon = Flask;
+            bloods.AddChild(b);
+        }
+        _rows.AddChild(bloods);
+    }
 
-        // Splices: another species' ability, from a kind of creature you've met; its line carries it.
+    /// <summary>Splices: another species' ability, from a kind of creature you've met; its line carries it.</summary>
+    void Splice(CreatureRecord rec)
+    {
         var own = Species.FormOf(rec.Species);
         var carried = rec.Species.Spliced ?? Array.Empty<Form>();
         string abilities = carried.Length == 0 ? "none" : string.Join(", ", carried.Select(Classes.TierBook.Ability));
-        _rows.AddChild(Text($"SPLICES · another species' ability · {carried.Length}/{Classes.TierBook.MaxSpliced}: {abilities} · makes a chimera · its line carries it", 700, TierColour(Classes.Tier.Chimera)));
+        Header($"Splice in another kind's ability · {carried.Length}/{Classes.TierBook.MaxSpliced}: {abilities}", TierColour(Classes.Tier.Chimera));
         var kinds = Ranch.Forms.Where(f => f != own && !carried.Contains(f)).OrderBy(f => f.ToString()).ToList();
-        var spliceRow = new HBoxContainer();
-        spliceRow.AddThemeConstantOverride("separation", 6);
-        if (kinds.Count == 0) spliceRow.AddChild(Text("Meet other kinds of creature in battle to splice in their abilities.", 700, dim));
-        else
+        if (kinds.Count == 0)
         {
-            var pick = new OptionButton { FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(260, 34) };
-            pick.AddThemeFontSizeOverride("font_size", 14);
-            foreach (var f in kinds) pick.AddItem($"{Classes.TierBook.Ability(f)} ({f.ToString().ToLowerInvariant()})", (int)f);
-            var what = Text(Classes.TierBook.AbilityText(kinds[0]), 300, dim);
-            pick.ItemSelected += i => what.Text = Classes.TierBook.AbilityText((Form)pick.GetItemId((int)i));
-            int id = _id.Value;
-            var splice = Btn($"Splice  {Farmyard.LabPrice(Ranch, Classes.TierBook.SpliceCost)}", Ranch.Chem >= Farmyard.LabPrice(Ranch, Classes.TierBook.SpliceCost),
-                () => Finish(Lab.Splice(Ranch, id, (Form)pick.GetItemId(pick.Selected))), 120);
-            splice.Icon = flask;
-            if (carried.Length >= Classes.TierBook.MaxSpliced) splice.TooltipText = $"It loses {Classes.TierBook.Ability(carried[0])}.";
-            spliceRow.AddChild(pick);
-            spliceRow.AddChild(splice);
-            spliceRow.AddChild(what);
+            _rows.AddChild(Text("Meet other kinds of creature in battle to splice in their abilities.", 700, Dim));
+            return;
         }
-        _rows.AddChild(spliceRow);
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 6);
+        var pick = new OptionButton { FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(Phone.On ? 300 : 340, 34) };
+        pick.AddThemeFontSizeOverride("font_size", 14);
+        foreach (var f in kinds) pick.AddItem($"{Classes.TierBook.Ability(f)} ({f.ToString().ToLowerInvariant()})", (int)f);
+        int id = _id.Value, cost = Farmyard.LabPrice(Ranch, Classes.TierBook.SpliceCost);
+        var splice = Btn($"Splice  {cost}", Ranch.Chem >= cost, () => Finish(Lab.Splice(Ranch, id, (Form)pick.GetItemId(pick.Selected))), 130, "splice");
+        splice.Icon = Flask;
+        if (carried.Length >= Classes.TierBook.MaxSpliced) splice.TooltipText = $"It loses {Classes.TierBook.Ability(carried[0])}.";
+        row.AddChild(pick);
+        row.AddChild(splice);
+        _rows.AddChild(row);
+        // What the picked ability does, in full under the row.
+        var what = new Label { Text = Classes.TierBook.AbilityText(kinds[0]), AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(Size.X - 16, 0) };
+        what.AddThemeFontSizeOverride("font_size", 15);
+        what.AddThemeColorOverride("font_color", Ink);
+        pick.ItemSelected += i => what.Text = Classes.TierBook.AbilityText((Form)pick.GetItemId((int)i));
+        _rows.AddChild(what);
+    }
 
-        // Augments: bought at undercity shops, bolted on here, two to a creature, never inherited.
+    /// <summary>Augments: bought at undercity shops, fitted here, two to a beast, never inherited.</summary>
+    void Augment(CreatureRecord rec)
+    {
         string fitted = rec.Augments.Count == 0 ? "none fitted" : string.Join(", ", rec.Augments.Select(a => Classes.AugmentBook.Get(a)?.Name));
-        _rows.AddChild(Text($"AUGMENTS · {rec.Augments.Count}/{Classes.AugmentBook.Slots}: {fitted} · abilities no natural creature has: rigs it · not inherited", 700, TierColour(Classes.Tier.Rigged)));
-        var augments = new HFlowContainer();
-        augments.AddThemeConstantOverride("h_separation", 6);
+        Header($"Fit an augment from the bag · {rec.Augments.Count}/{Classes.AugmentBook.Slots}: {fitted}", TierColour(Classes.Tier.Rigged));
         var inBag = Ranch.Items.Where(kv => Classes.AugmentBook.IsAugment(kv.Key) && kv.Value > 0).ToList();
+        if (inBag.Count == 0)
+        {
+            _rows.AddChild(Text("None in the bag: the Foundry, Lantern Row and the Glowmire sell them.", 700, Dim));
+            return;
+        }
+        var augments = Flow();
+        int id = _id.Value;
+        bool full = rec.Augments.Count >= Classes.AugmentBook.Slots;
         foreach (var (augId, count) in inBag)
         {
             var aug = Classes.AugmentBook.Get(augId);
-            int id = _id.Value;
-            bool full = rec.Augments.Count >= Classes.AugmentBook.Slots;
-            var b = Btn($"Fit {aug.Name}{(count > 1 ? $" ({count})" : "")}", !rec.Augments.Contains(augId), () => Finish(Ranch.Install(id, augId)));
+            string a = augId;
+            var b = Btn($"Fit {aug.Name}{(count > 1 ? $" ({count})" : "")}", !rec.Augments.Contains(augId), () => Finish(Ranch.Install(id, a)), 0, "aug:" + augId);
             b.Icon = SkillIcons.Skill(Classes.ClassBook.Skill(aug.Skill), 1);
             b.TooltipText = Classes.AugmentBook.Text(aug) + (full ? $"\nReplaces the {Classes.AugmentBook.Get(rec.Augments[0])?.Name} (scrapped)." : "");
             augments.AddChild(b);
         }
-        if (inBag.Count == 0) augments.AddChild(Text("None in the bag: the Foundry, Lantern Row and the Glowmire sell them.", 700, dim));
         _rows.AddChild(augments);
+    }
 
-        // Part grafts: a slot swapped for a part in your codex.
-        _rows.AddChild(Text($"PART GRAFTS · {Ranch.Codex.Count} parts in your codex · a grafted part makes a chimera · not inherited", 700, gold));
-        foreach (var slot in Lab.SlotsFor(plan))
+    /// <summary>Part grafts: a slot swapped for a part in your codex; the chamber shows the parts being considered.</summary>
+    void Graft(CreatureRecord rec)
+    {
+        Header($"Swap a part for one in your codex · {Ranch.Codex.Count} parts known", TierColour(Classes.Tier.Chimera));
+        int id = _id.Value;
+        foreach (var slot in Lab.SlotsFor(rec.Species.Plan))
         {
             int current = Lab.Get(rec.Parts, slot.Name), pick = _candidate[slot.Name];
             var options = Lab.Options(Ranch, slot.Name);
             if (!options.Contains(current)) options.Add(current);
             options.Sort();
+            string name = slot.Name;
             var row = new HBoxContainer();
             row.AddThemeConstantOverride("separation", 6);
-            row.AddChild(Text(slot.Name, 70, dim));
-            row.AddChild(Btn("<", options.Count > 1, () => Cycle(slot.Name, options, -1), 34));
-            row.AddChild(Text(pick == current ? Lab.Words(slot.Name, current) : $"{Lab.Words(slot.Name, current)} -> {Lab.Words(slot.Name, pick)}", 300, pick == current ? ink : gold));
-            row.AddChild(Btn(">", options.Count > 1, () => Cycle(slot.Name, options, 1), 34));
-            int id = _id.Value;
-            string name = slot.Name;
-            var graftButton = Btn($"Graft  {Farmyard.LabPrice(Ranch, slot.Cost)}", pick != current && Ranch.Chem >= Farmyard.LabPrice(Ranch, slot.Cost), () => Finish(Lab.GraftPart(Ranch, id, name, _candidate[name])), 120);
-            graftButton.Icon = flask;
-            row.AddChild(graftButton);
+            row.AddChild(Text(slot.Name, 70, Dim));
+            row.AddChild(Btn("<", options.Count > 1, () => Cycle(name, options, -1), 34, "<:" + name));
+            row.AddChild(Text(pick == current ? Lab.Words(slot.Name, current) : $"{Lab.Words(slot.Name, current)} -> {Lab.Words(slot.Name, pick)}", 300, pick == current ? Ink : Ui.Gold));
+            row.AddChild(Btn(">", options.Count > 1, () => Cycle(name, options, 1), 34, ">:" + name));
+            int price = Farmyard.LabPrice(Ranch, slot.Cost);
+            var graft = Btn($"Graft  {price}", pick != current && Ranch.Chem >= price, () => Finish(Lab.GraftPart(Ranch, id, name, _candidate[name])), 120, "graft:" + name);
+            graft.Icon = Flask;
+            row.AddChild(graft);
             _rows.AddChild(row);
         }
-
-        // The chamber shows the creature with every part you're considering.
-        var preview = rec.ToCreature();
-        foreach (var s in Lab.Slots) preview.Parts = Lab.Set(preview.Parts, s.Name, _candidate[s.Name]);
-        _preview = ImageTexture.CreateFromImage(CreaturePainter.Paint(preview, false));
-        QueueRedraw();
     }
 
     void Cycle(string slot, List<int> options, int step)
@@ -210,16 +297,17 @@ public partial class LabPanel : Control
         var font = GetThemeDefaultFont();
         var glow = Color.FromHtml("#4ff0a0");
         var brass = Color.FromHtml("#b2873a");
-        // Its tier, in its colour: what the work here would change.
+        float h = ChamberHeight;
+        // Its name, and its tier in its colour: what the work here would change.
         var tier = Classes.TierBook.Of(Ranch.Get(_id.Value));
-        string title = $"GRAFT CHAMBER - {rec.Name}", tierText = $"  ·  {tier}";
+        string title = rec.Name, tierText = $"  ·  {tier}";
         float titleW = font.GetStringSize(title, HorizontalAlignment.Left, -1, 17).X, tierW = font.GetStringSize(tierText, HorizontalAlignment.Left, -1, 17).X;
         float x0 = (Size.X - titleW - tierW) / 2;
         DrawString(font, new Vector2(x0, 18), title, HorizontalAlignment.Left, -1, 17, glow);
         DrawString(font, new Vector2(x0 + titleW, 18), tierText, HorizontalAlignment.Left, -1, 17, Color.FromHtml(Classes.TierBook.Hex(tier)));
 
-        // A wide tank of chem with brass bands, the creature suspended inside.
-        var glass = new Rect2(40, 34, Size.X - 80, ChamberHeight - 54);
+        // A wide tank of chem with brass bands, the beast suspended inside.
+        var glass = new Rect2(40, 34, Size.X - 80, h - 54);
         DrawRect(glass, new Color(0.06f, 0.1f, 0.1f, 0.9f));
         var chem = new Rect2(glass.Position.X, glass.Position.Y + glass.Size.Y * 0.35f, glass.Size.X, glass.Size.Y * 0.65f);
         DrawRect(chem, new Color(glow, 0.16f));

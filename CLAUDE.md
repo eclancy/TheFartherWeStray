@@ -231,7 +231,9 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
 - The lab (`scripts/Ranch/Lab.cs`, `LabPanel.cs`): chem from battles pays for flesh grafts
   (swap a part for one in the codex, the parts met in battle), augments from the bag (below) and
   infusions (blood strains for natural creatures). Flesh grafts and augments are **not inherited**:
-  breeding reads `BirthParts`. Infusions are.
+  breeding reads `BirthParts`. Infusions are. The lab shows its work as tabs, least change first
+  (Infuse, Blood, Splice, Augment, Graft), each with a plain one-line header; what the work makes
+  the beast (its tier) and whether it passes down are in the tab's tooltip. `--labtab=ID` opens one.
 - **Story (content not started; the cutscene player is built):** the user wants FFTA-depth story,
   cutscenes and sprite animation. The user set the themes on 2026-11-02 (lighthearted to start; a
   glorious city and a nefarious undercity that hate each other; branching by alignment, solutions

@@ -1891,6 +1891,7 @@ public partial class GameRoot : Node
         _demoHolding = args.GetValueOrDefault("holding");
         _demoMachine = args.GetValueOrDefault("machine"); // --machine=still: walk to the still and open it
         _demoBuildUp = args.ContainsKey("buildup"); // --station=ID --buildup (or --mapmode --buildup): open its Build up
+        Ranching.LabPanel.StartTab = args.GetValueOrDefault("labtab"); // --station=lab --labtab=graft: the lab on a tab
         if (args.TryGetValue("cursor", out var cursorArg) && cursorArg.Split(',') is [var cx, var cy] && int.TryParse(cx, out int cxi) && int.TryParse(cy, out int cyi))
             _demoCursor = new Vector2I(cxi, cyi);
         _ranch = args.ContainsKey("newranch") ? Ranching.Ranch.New() : Ranching.Ranch.Load();

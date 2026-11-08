@@ -123,4 +123,10 @@ Part A first. Then Part B, a screen at a time so each can be checked on a phone:
    show first (its main class, then its secondary, then the rest); "Show locked (N)" adds the ones
    it could unlock and the ones its body never can (the tooltip says how many of each), and All,
    Base, Part & form and Blood filter them. On a phone the pad keeps its place as the list changes.
-5. The lab as tabs.
+5. The lab as tabs. **Built 2026-11-07:** under the graft chamber, five tabs (Infuse, Blood, Splice,
+   Augment, Graft), least change first as the tiers go, the one showing lit; each has a plain
+   one-line header ("Tune its stats, two infusions at a time · 0/2: none"), and what the work
+   makes the beast (infused, a chimera, rigged) and whether its line carries it moved into the
+   tab's tooltip. The chamber shows the parts being considered only on the Graft tab, and its title
+   is the beast's name and tier. On a phone the chamber is shorter and the pad keeps its place as
+   the tab changes. `--station=lab --labtab=ID` opens a tab for screenshots. Part B is done.

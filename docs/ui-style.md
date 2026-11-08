@@ -4,6 +4,12 @@
 every button, panel, tooltip, slider, card and the phone pad. The other three stay as `--ui=NAME`
 to compare against. What follows is the research and the comparison the pick was made from.
 
+**Picked again 2026-11-07: E, Dusk**, with the game's own pixel font everywhere (the user, after "we
+need a more signature text style, and the menu contrast is too drastic... take inspiration from ffta
+in terms of using color, menus, and text style"). Lamplight, Verdigris and Gilt and neon stay as the
+player's options in Settings (Menu look). The FFTA notes, the font and the candidates are in
+[Softer gilt and the game's own type](#softer-gilt-and-the-games-own-type) at the end.
+
 The menus and buttons didn't look like this game. They used Godot's default grey buttons, flat
 dark boxes with round corners and thin cyan or gold borders, and the default sans font. Next to the
 pixel-art board they could have belonged to any game. This doc collects the research, sets the
@@ -85,7 +91,8 @@ Segmented bars read faster than smooth ones ([Wayline](https://www.wayline.io/le
 2. **Focus changes light or shape, not only colour.** The pad has to be findable at a glance, so a
    tube lights, a lamp comes on, or a bar of gold appears.
 3. **Words stay in the plain sans.** Numbers, rules and tooltips keep today's font. Only headings
-   might get a display face (open question 2).
+   might get a display face (open question 2). *(Replaced 2026-11-07: every word is in the game's
+   own pixel font, below.)*
 4. **States differ in brightness too**, so they still read without colour.
 5. **It sits over every board:** the farmyard, the gilded streets and the undercity.
 6. **No screen look:** no thin sci-fi lines, hex grids, scanlines or terminal type.
@@ -171,6 +178,90 @@ industrial feel.
 ## Open questions
 
 1. ~~Which style?~~ D, Gilt and neon.
-2. Headings: keep the plain sans in capitals, or draw a display face in code (pixel Art Deco
-   capitals, made like the glyphs)?
+2. ~~Headings: keep the plain sans in capitals, or draw a display face in code?~~ Every word is in
+   the game's pixel font now (2026-11-07); headings are set apart by colour, as in FFTA.
 3. A soft click or hum as the pad's focus moves?
+
+## Softer gilt and the game's own type
+
+The user's note on 2026-11-07: the menus need a signature text style, their contrast is too
+drastic, and FFTA is the model for colour, menus and text. The current look is near-black glass
+(`#120e22`) inside a bright gold line and a lit cyan tube, with white words in the default sans and
+a heavy black outline round them. Each step jumps from near black to near full brightness.
+
+### What FFTA does (principles, not its assets)
+
+Final Fantasy Tactics Advance (2003) was made for the Game Boy Advance, a small screen with no
+backlight, and for a younger audience ([Wikipedia](https://en.wikipedia.org/wiki/Final_Fantasy_Tactics_Advance)).
+Its colour is lifted to suit that. What we take from it, from playing it and from screenshots (no
+FFTA fonts, art or layouts are used):
+
+1. **Windows aren't black.** A window is a mid tone of one hue: light enough that its frame and its
+   words sit a step or two away from it, not at opposite ends of the scale.
+2. **Short ramps.** On the GBA a window, its frame and its text come from a handful of neighbouring
+   tones, so the frame reads as a lit edge of the window rather than a line drawn round it.
+3. **The frame is the window's edge.** A soft lighter rim, not a hard line in another colour, so a
+   window reads as one object over the board. Ours go a step further and light the gold from the
+   top left, like a raised plate.
+4. **One small pixel type, two tones.** Every word is in one small proportional pixel font, nearly
+   all of it at one size. Each letter is drawn in its colour with a one-pixel shadow down and
+   right in a dark of the window's own hue (a GBA font is main colour, shadow and background). No
+   outlines.
+5. **Colour points, it doesn't shout.** Most words are one warm light colour; names, numbers and
+   the cursor carry the few accents, and the accents are muted enough to sit on the window.
+6. **Hierarchy by place and colour, not size.** Headings are the same size as body words, set
+   apart by colour, by a band or by their position in the window.
+7. **The cursor is a thing, not a glow.** Focus is a pointer and a lit edge, easy to find on a
+   phone.
+
+### The game's own type
+
+`UI/PixelFont.cs` draws a pixel font in code, as the glyphs and sprites are, so it's the game's and
+nobody else's. Capitals and figures are 7 pixels tall and lower case 5, with 2 below the line; most
+capitals are 5 wide and lower case 4, a pixel apart.
+Godot scales it by whole pixels only, so its pixels stay square like the board's: 14-22
+point words draw at 2x, 23-31 at 3x and so on, which puts nearly every word at one size, as FFTA
+does. Words in a battle are drawn at 1x on the board, a font pixel per board pixel. A character it
+lacks comes from the plain sans.
+
+Outlines don't draw on a bitmap font, so the words take FFTA's treatment: a shadow one font pixel
+down and right in the window's own dark (`Ui.Dress`). Words smaller than 14 points come up to 14
+(`Ui.Fit`), since 1x is too small to read.
+
+### Three softer versions of the gilt frame
+
+All three keep gilt and neon's frame (the stepped Art Deco corners, the gold line, the tube inside
+it, the panel's corner pips) and its rules: focus still lights the tube, pressed still turns it
+pink. What changes is the steps between glass, frame and words (`UI/Looks.cs`):
+
+- the glass is lifted off black to a dusky mid tone, nearly opaque;
+- the outer edge is the glass's own dark, not black;
+- the gold is a step quieter and lit from the top left;
+- the lights are softened: a screen's cyan, gold, pink and green become the look's own
+  (`Look.Soften`), so the pens' cards still say chosen, squad, vat and yard, more quietly;
+- the words are ivory or cream in the pixel font with the shadow above.
+
+**E, Dusk** keeps gilt and neon's violet: plum glass, antique gold, sea-glass and rose lights, ivory
+words. The closest to what the user picked on 2026-11-03.
+
+**F, Lamplight** is the city's gilt by gaslight: umber glass like an old ledger, a brass frame,
+verdigris and coral lights, cream words. The warmest, and the nearest FFTA's own warm windows.
+
+**G, Verdigris** is the undercity's: smoked teal glass, brass gone green on its shaded side,
+chem-green and rose lights, mint words.
+
+|                              | D Gilt and neon | E Dusk          | F Lamplight     | G Verdigris     |
+| ---------------------------- | --------------- | --------------- | --------------- | --------------- |
+| Glass                        | near black      | dusky plum      | umber           | smoked teal     |
+| Frame                        | bright gold     | antique gold    | brass           | brass, patina   |
+| Focus                        | cyan            | sea glass       | verdigris       | chem green      |
+| Words                        | sans, outlined  | pixel, shadowed | pixel, shadowed | pixel, shadowed |
+| Leans                        | both cities     | both cities     | the city above  | the undercity   |
+
+To look at them: `--ui=dusk|lamplight|verdigris` on any screen (`--phone` too), `--uiboard=NAME
+--shot=30` for the parts side by side, `--font=pixel|sans` to swap the words alone, and
+`--typesheet --shot=10` for the type at every size.
+
+**Picked:** E, Dusk, as the default (the user, 2026-11-07), with the pixel font everywhere. The
+others are the player's to pick in Settings (Menu look: Dusk, Lamplight, Verdigris, Gilt and neon),
+and switch at once: the theme changes, and the screen in view is made again as the settings close.

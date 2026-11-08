@@ -41,8 +41,11 @@ public partial class BattleScreen : Control
     Vector2 _look, _lookShown;     // the board point the camera aims at, and where it's got to
     Rect2 _bounds;                 // where the camera may aim: over the battlefield
     UnitView _follow;              // who the camera is following, if anyone
-    static readonly Color Cyan = Color.FromHtml("#4fe3ff"), Magenta = Color.FromHtml("#ff4f9a"), Gold = Color.FromHtml("#f2c14e");
-    static readonly Color Ink = Color.FromHtml("#e8e2f4"), Dim = Color.FromHtml("#9a91b4");
+    static Color Cyan => Ui.Cyan;
+    static Color Magenta => Ui.Magenta;
+    static Color Gold => Ui.Gold;
+    static Color Ink => Ui.Ink;
+    static Color Dim => Ui.Dim;
 
     Battle _battle;
     TextureRect _backdrop;
@@ -147,11 +150,12 @@ public partial class BattleScreen : Control
     static Label MakeLabel(int size, Color color)
     {
         var l = new Label { MouseFilter = MouseFilterEnum.Ignore };
-        l.AddThemeFontSizeOverride("font_size", size);
+        l.AddThemeFontSizeOverride("font_size", Ui.Fit(size));
         l.AddThemeColorOverride("font_color", color);
         l.AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0.8f));
         l.AddThemeConstantOverride("shadow_offset_x", 2);
         l.AddThemeConstantOverride("shadow_offset_y", 2);
+        if (UiSkin.PixelText) Ui.Dress(l, size);
         return l;
     }
 
@@ -915,7 +919,7 @@ public partial class BattleScreen : Control
         if (u.DoomTurns > 0) status.Add(new("skull", u.DoomTurns.ToString(), UI.Ui.Bad, $"doomed: it falls in {u.DoomTurns} of its turns unless cleansed"));
         if (u.SleepTurns > 0) status.Add(new("moon", u.SleepTurns.ToString(), null, $"asleep: skips up to {u.SleepTurns} more turns; any hit wakes it"));
         if (u.StopTurns > 0) status.Add(new("clock", u.StopTurns.ToString(), null, $"stopped: frozen in time for {u.StopTurns} more turns"));
-        if (u.Borrowed != null) status.Add(new("swirl", u.BorrowedTurns.ToString(), Color.FromHtml("#c08cff"), $"{u.Borrowed.Name}: {u.Borrowed.Text} ({u.BorrowedTurns} turns)"));
+        if (u.Borrowed != null) status.Add(new("swirl", u.BorrowedTurns.ToString(), Ui.Tone("#c08cff"), $"{u.Borrowed.Name}: {u.Borrowed.Text} ({u.BorrowedTurns} turns)"));
         if (u.Rooted) status.Add(new("root", "", null, "rooted: can't move"));
         if (u.TauntedBy != null) status.Add(new("taunt", u.TauntedBy.Name, UI.Ui.Bad, "taunted: must go after this creature"));
         foreach (var (stat, amount, turns) in u.Buffs)
@@ -926,7 +930,7 @@ public partial class BattleScreen : Control
         var (weapon, armor, move) = c.Loadout();
         var kit = new List<UI.Chip>
         {
-            new(Classes.TierBook.Glyph(u.Tier), u.Tier.ToString(), Color.FromHtml(Classes.TierBook.Hex(u.Tier)), Classes.TierBook.Describe(c, u.Tier)),
+            new(Classes.TierBook.Glyph(u.Tier), u.Tier.ToString(), Ui.Tone(Classes.TierBook.Hex(u.Tier)), Classes.TierBook.Describe(c, u.Tier)),
         };
         if (u.Tamer is { } w) kit.Add(new(w.Glyph, w.Name, u.Boost != null ? Cyan : Dim, u.Boost != null ? $"Led by {w.Name}: {w.Text}" : $"Led by {w.Name}, whose boost reaches only {w.LeadsHint}."));
         if (u.ClassName != null) kit.Add(new(SkillIcons.ClassEmblem(u.ClassName), u.ClassName, Gold, "class"));
@@ -1128,7 +1132,7 @@ public partial class BattleScreen : Control
                     _follow = null;
                     _look = Clamped((Body(view) + TileMid(sk.Center)) / 2);
                     Popup(view, sk.Skill.Name, Gold, -10, SkillIcons.Skill(sk.Skill, 1));
-                    var color = sk.Skill.Target is Classes.TargetKind.Ally or Classes.TargetKind.Self ? Cyan : Color.FromHtml("#ff8a3d");
+                    var color = sk.Skill.Target is Classes.TargetKind.Ally or Classes.TargetKind.Self ? Cyan : Ui.Tone("#ff8a3d");
                     _flashes.Add((sk.Area, color, Time.GetTicksMsec() / 1000.0 + 0.45));
                     _overlay.QueueRedraw();
                     var target = sk.Center != sk.U.Pos ? _views.Values.FirstOrDefault(x => x.Unit.Tiles.Contains(sk.Center) && x != view) : null;
@@ -1144,7 +1148,7 @@ public partial class BattleScreen : Control
                     var victim = _views[tr.Victim];
                     _follow = null;
                     _look = Clamped(Body(victim));
-                    Popup(victim, tr.Skill.Name + "!", Color.FromHtml("#ff6fa8"), -10, SkillIcons.Skill(tr.Skill, 1));
+                    Popup(victim, tr.Skill.Name + "!", Ui.Tone("#ff6fa8"), -10, SkillIcons.Skill(tr.Skill, 1));
                     _flashes.Add((tr.Area, Color.FromHtml("#ff6fa8"), Time.GetTicksMsec() / 1000.0 + 0.5));
                     var theme = SkillFx.ThemeOf(tr.Skill, tr.Victim);
                     Audio.Sound.Fx(theme);
@@ -1157,7 +1161,7 @@ public partial class BattleScreen : Control
                 case StatusEvent st:
                     Audio.Sound.Play(StatusSound(st.Text));
                     _fx.Status(Body(_views[st.U], 0.9f), _views[st.U].Position, st.Text);
-                    Popup(_views[st.U], st.Text, Color.FromHtml("#c79bff"), 8);
+                    Popup(_views[st.U], st.Text, Ui.Tone("#c79bff"), 8);
                     _views[st.U].QueueRedraw();
                     await Wait(0.15f);
                     break;
@@ -1321,6 +1325,13 @@ public partial class BattleScreen : Control
     void Popup(UnitView v, string text, Color color, float dy = 0, Texture2D icon = null)
     {
         var l = Ui.Text(text, 9, color, 3);
+        // In the pixel font, at 1x: a font pixel is a board pixel, as FFTA draws the numbers over its units.
+        if (UiSkin.PixelText)
+        {
+            l.AddThemeFontSizeOverride("font_size", PixelFont.Native);
+            l.AddThemeConstantOverride("shadow_offset_x", 1);
+            l.AddThemeConstantOverride("shadow_offset_y", 1);
+        }
         l.ZIndex = 400;
         l.Position = v.Position + new Vector2(-40, -v.SpriteHeight - 14 + dy);
         l.Size = new Vector2(80, 12);

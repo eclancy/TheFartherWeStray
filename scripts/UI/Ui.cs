@@ -9,23 +9,86 @@ namespace TheFartherWeStray.UI;
 public readonly record struct Chip(string Glyph, string Text = "", Color? Tint = null, string Tip = null);
 
 /// <summary>
-/// Shared readable widgets: outlined labels, glyph chips and the shorthand for skills and stats.
-/// The rules (from WizardSurvivors and DrawFight): a glyph before every stat, text outlined so it
+/// Shared readable widgets: labels in the look's type, glyph chips and the shorthand for skills and stats.
+/// The rules (from WizardSurvivors and DrawFight): a glyph before every stat, text shadowed (once outlined) so it
 /// reads over any background, colour only as a second cue, and full sentences only in tooltips.
 /// </summary>
 public static class Ui
 {
-    public static readonly Color Ink = Color.FromHtml("#ece7f6"), Dim = Color.FromHtml("#a49cbc"), Gold = Color.FromHtml("#f2c14e"),
-        Cyan = Color.FromHtml("#4fe3ff"), Good = Color.FromHtml("#6ff0a0"), Bad = Color.FromHtml("#ff7f8f"), Pink = Color.FromHtml("#ff8ac0");
+    /// <summary>The words' colours, from the menu style in use (UiSkin.Words): set before any screen is made.</summary>
+    public static Color Ink => UiSkin.Words.Ink;
+    public static Color Dim => UiSkin.Words.Dim;
+    public static Color Faint => UiSkin.Words.Faint;
+    public static Color Gold => UiSkin.Words.Heading;
+    public static Color Cyan => UiSkin.Words.Cyan;
+    public static Color Good => UiSkin.Words.Good;
+    public static Color Bad => UiSkin.Words.Bad;
+    public static Color Pink => UiSkin.Words.Pink;
+    /// <summary>The wild side's and the vats' strong pink.</summary>
+    public static Color Magenta => UiSkin.Words.Magenta;
+
+    /// <summary>A screen's own bright colour (a tier's, a rumour's violet) as the style in use softens it.</summary>
+    public static Color Tone(Color c) => UiSkin.Words.Soften(c);
+    public static Color Tone(string hex) => UiSkin.Words.Soften(Color.FromHtml(hex));
+
+    /// <summary>
+    /// A font size small words can be read at: the pixel font draws 14 point and up at 2x, smaller at 1x
+    /// (too small to read), so small words come up to 14 in it. The sans keeps the size asked for.
+    /// </summary>
+    public static int Fit(int size) => UiSkin.PixelText ? System.Math.Max(14, size) : size;
 
     public static Label Text(string text, int size, Color color, int outline = 5)
     {
         var l = new Label { Text = text, MouseFilter = Control.MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center };
-        l.AddThemeFontSizeOverride("font_size", size);
+        l.AddThemeFontSizeOverride("font_size", Fit(size));
         l.AddThemeColorOverride("font_color", color);
-        l.AddThemeColorOverride("font_outline_color", new Color(0.04f, 0.03f, 0.07f));
-        l.AddThemeConstantOverride("outline_size", outline);
+        Dress(l, size, outline);
         return l;
+    }
+
+    /// <summary>
+    /// The style's treatment for a label's words: in the pixel font, a shadow one font pixel down and right in
+    /// the glass's own dark (after FFTA's two-tone type); in the sans, the dark outline it always had.
+    /// </summary>
+    public static Label Dress(Label l, int size, int outline = 5)
+    {
+        if (UiSkin.PixelText)
+        {
+            int px = PixelFont.Scale(Fit(size));
+            l.AddThemeConstantOverride("outline_size", 0);
+            l.AddThemeColorOverride("font_shadow_color", UiSkin.Words.Shadow);
+            l.AddThemeConstantOverride("shadow_offset_x", px);
+            l.AddThemeConstantOverride("shadow_offset_y", px);
+        }
+        else
+        {
+            l.AddThemeColorOverride("font_outline_color", UiSkin.Words == Look.GiltNeon ? new Color(0.04f, 0.03f, 0.07f) : UiSkin.Words.Shadow);
+            l.AddThemeConstantOverride("outline_size", outline);
+        }
+        return l;
+    }
+
+    /// <summary>
+    /// Words a screen draws itself (a card's name, a mission's lines), in the theme's font with the same
+    /// treatment as a label's: in the pixel font, the shadow under them first. Given a width, words too long
+    /// for it end in an ellipsis rather than run past it.
+    /// </summary>
+    public static void Draw(Control on, Vector2 at, string text, HorizontalAlignment align, float width, int size, Color color)
+    {
+        var font = on.GetThemeDefaultFont();
+        size = Fit(size);
+        if (width > 0 && font.GetStringSize(text, HorizontalAlignment.Left, -1, size).X > width)
+        {
+            string cut = text;
+            while (cut.Length > 1 && font.GetStringSize(cut.TrimEnd() + "…", HorizontalAlignment.Left, -1, size).X > width) cut = cut[..^1];
+            text = cut.TrimEnd() + "…";
+        }
+        if (UiSkin.PixelText)
+        {
+            float px = PixelFont.Scale(size);
+            on.DrawString(font, at + new Vector2(px, px), text, align, width, size, new Color(UiSkin.Words.Shadow, UiSkin.Words.Shadow.A * color.A));
+        }
+        on.DrawString(font, at, text, align, width, size, color);
     }
 
     public static TextureRect Picture(Texture2D tex, string tip = null) => new()

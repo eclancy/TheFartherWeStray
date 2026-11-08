@@ -88,7 +88,8 @@ public partial class TitleScreen : Control
         AddChild(_ui);
         // Laid out for a desktop's 1080 rows; a phone's 720 pulls everything up.
         _short = vp.Y < 900;
-        var logo = Ui.Text(GameRoot.Title.ToUpperInvariant(), 80, Ui.Gold, 14);
+        // In the pixel font the name is a size that fits a phone's row (8x, 7x on a phone).
+        var logo = Ui.Text(GameRoot.Title.ToUpperInvariant(), UiSkin.PixelText ? (_short ? 63 : 72) : 80, Ui.Gold, 14);
         logo.Position = new Vector2(Left - 10, _short ? 40 : 150);
         _ui.AddChild(logo);
         var tag = Ui.Text("breed  ·  train  ·  lead", 24, Ui.Dim, 6);

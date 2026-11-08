@@ -23,10 +23,11 @@ namespace TheFartherWeStray;
 ///   --battle=N        a one-off battle with the default squad; --autoplay lets the AI play your side,
 ///                     --aim aims the first skill at the busiest tile (for screenshots of the skill panel)
 ///   --autobattle=N    run a battle AI-vs-AI headless and print the log
-///   --shot=N          save frame N to .shots/shot.png and quit
+///   --shot=N          save frame N to .shots/shot.png and quit (--shotfile=NAME: to .shots/NAME.png)
 ///   --webkit[=DIR]    write the strays, menu frames and glyphs the game's ecec.dev page shows (headless)
-///   --ui=NAME         another menu style on every button and panel: plain, gilded, neon, iron (giltneon is
-///                     the game's; UI/UiSkin.cs, docs/ui-style.md); --uiboard=NAME shows a style's parts side by side
+///   --ui=NAME         another menu look on every button and panel: lamplight, verdigris, giltneon (dusk is
+///                     the game's; and plain, gilded, neon, iron; UI/UiSkin.cs, docs/ui-style.md); --uiboard=NAME shows
+///                     a look's parts side by side; --font=sans the old words; --typesheet the type at every size
 ///   --export=FILE     write the sheet (or species) as a PNG and quit; works with --headless
 ///   --scale=N         export pixel scale (default 3)
 ///   --columns=N --from=N --count=N   export layout: columns, first slot (1-based) and how many (8, 1, 24)
@@ -83,6 +84,8 @@ public partial class GameRoot : Node
         // Sound: every button clicks; N mutes, --mute starts muted.
         AddChild(new Audio.Sound());
         // The player's settings (volumes, mute, text speed, turn timer, fullscreen); --mute mutes on top.
+        // --settings=NAME: settings kept in user://NAME.cfg, so a test that changes them leaves the player's alone.
+        if (args.TryGetValue("settings", out var settingsName) && settingsName != "") UI.Settings.Path = $"user://{settingsName}.cfg";
         UI.Settings.Load();
         if (args.ContainsKey("mute")) Audio.Sound.Muted = true;
         // Key hints show the first few times a screen opens. A run with flags (a test, a screenshot) shows them
@@ -102,9 +105,14 @@ public partial class GameRoot : Node
             // --pad=down,down,a,...: presses the pad's buttons one by one, after the screen settles (checking it with --shot).
             if (args.TryGetValue("pad", out var presses)) PressPad(presses.Split(','), args.TryGetValue("padwait", out var pw) && float.TryParse(pw, CultureInfo.InvariantCulture, out var w) ? w : 1.5f);
         }
-        // The menus' look (UI/UiSkin.cs, docs/ui-style.md): gilt and neon, or --ui=NAME for one of the styles it was
-        // picked from. After the phone's focus frame, so the style's own wins.
-        UI.UiSkin.Use(args.TryGetValue("ui", out var uiName) && UI.UiSkin.TryParse(uiName, out var uiSkin) ? uiSkin : UI.Skin.GiltNeon);
+        // The menus' look (UI/UiSkin.cs, docs/ui-style.md): the player's pick in Settings (Dusk unless they chose
+        // another), or --ui=NAME. A run with flags shows Dusk unless --ui or --settings says otherwise, so a screenshot doesn't hang on
+        // the player's setting. After the phone's focus frame, so the look's own wins.
+        // --font=pixel|sans: the words in that font whatever the look. --uiboard=NAME shows that look, so it goes on everything.
+        if (args.TryGetValue("font", out var fontName)) UI.UiSkin.FontChoice = fontName == "pixel";
+        string uiName = args.GetValueOrDefault("uiboard") ?? args.GetValueOrDefault("ui");
+        UI.UiSkin.Use(uiName != null && UI.UiSkin.TryParse(uiName, out var uiSkin) ? uiSkin : args.Count == 0 || args.ContainsKey("settings") ? UI.Settings.Look : UI.Skin.Dusk);
+        UI.UiSkin.Restyle = Restyle;
         GetTree().NodeAdded += UI.UiSkin.Adapt;
 
         if (args.ContainsKey("slotstest"))
@@ -134,15 +142,15 @@ public partial class GameRoot : Node
             MakeSlot(3, 94, 2029, "foundry", "main_foundry", "main_bridges", "main_coast");
             GD.Print($"delete: slot 3 {(gone ? "gone" : "STILL THERE")}, then made again");
             UI.Settings.Path = "user://settings_test.cfg";
-            (UI.Settings.Music, UI.Settings.Effects, UI.Settings.TextSpeed, UI.Settings.TurnTimer, UI.Settings.LastSlot) = (0.35f, 0.6f, 2, 30, 3);
+            (UI.Settings.Music, UI.Settings.Effects, UI.Settings.TextSpeed, UI.Settings.TurnTimer, UI.Settings.LastSlot, UI.Settings.Look) = (0.35f, 0.6f, 2, 30, 3, UI.Skin.Verdigris);
             UI.Hints.Seen.Clear();
             UI.Hints.Seen["station_pens"] = 2;
             UI.Settings.Save();
             UI.Hints.Seen.Clear();
-            (UI.Settings.Music, UI.Settings.Effects, UI.Settings.TextSpeed, UI.Settings.TurnTimer, UI.Settings.LastSlot) = (1, 1, 0, 0, 1);
+            (UI.Settings.Music, UI.Settings.Effects, UI.Settings.TextSpeed, UI.Settings.TurnTimer, UI.Settings.LastSlot, UI.Settings.Look) = (1, 1, 0, 0, 1, UI.Skin.Dusk);
             UI.Settings.Load();
-            bool same = Mathf.IsEqualApprox(UI.Settings.Music, 0.35f) && Mathf.IsEqualApprox(UI.Settings.Effects, 0.6f) && UI.Settings.TextSpeed == 2 && UI.Settings.TurnTimer == 30 && UI.Settings.LastSlot == 3;
-            GD.Print($"settings: {(same ? "kept" : "DIFFERENT")} after save and load (music {UI.Settings.Music:0.00}, effects {UI.Settings.Effects:0.00}, text {UI.Settings.Speeds[UI.Settings.TextSpeed]}, timer {UI.Settings.TurnTimer}s, last slot {UI.Settings.LastSlot})");
+            bool same = Mathf.IsEqualApprox(UI.Settings.Music, 0.35f) && Mathf.IsEqualApprox(UI.Settings.Effects, 0.6f) && UI.Settings.TextSpeed == 2 && UI.Settings.TurnTimer == 30 && UI.Settings.LastSlot == 3 && UI.Settings.Look == UI.Skin.Verdigris;
+            GD.Print($"settings: {(same ? "kept" : "DIFFERENT")} after save and load (music {UI.Settings.Music:0.00}, effects {UI.Settings.Effects:0.00}, text {UI.Settings.Speeds[UI.Settings.TextSpeed]}, timer {UI.Settings.TurnTimer}s, last slot {UI.Settings.LastSlot}, look {UI.Settings.LookName(UI.Settings.Look)})");
             // Key hints: counted in the settings, shown Hints.Times times, then not (a run with flags counts none, so count here by hand).
             bool hintKept = UI.Hints.Seen.GetValueOrDefault("station_pens") == 2;
             UI.Hints.Counting = true;
@@ -1977,10 +1985,13 @@ public partial class GameRoot : Node
         _autoPlay = args.ContainsKey("autoplay");
         _goTo = args.GetValueOrDefault("goto");
         _shotFrames = args.TryGetValue("shot", out var shot) && int.TryParse(shot, out var f) ? f : -1;
+        if (args.TryGetValue("shotfile", out var shotFile) && shotFile != "") _shotFile = shotFile;
         _recordFrames = args.TryGetValue("record", out var recordArg) && int.TryParse(recordArg, out var recordCount) ? recordCount : 0;
         _recordWhole = args.ContainsKey("recordwhole");
 
         if (args.ContainsKey("lab") || drawPets || species != null) { _home = _lab; Show(_lab()); return; }
+        // --typesheet: the type at every size, on a window and over a backdrop (with --shot).
+        if (args.ContainsKey("typesheet")) { Show(new UI.TypeSheet()); return; }
         // --uiboard=NAME: one menu style's parts side by side over a board, to compare the styles (with --shot).
         if (args.TryGetValue("uiboard", out var boardSkin))
         {
@@ -2117,6 +2128,21 @@ public partial class GameRoot : Node
     Ranching.RanchScreen Station(string id, bool vatDemo = false, string select = null) =>
         new() { Ranch = _ranch, Station = id, Back = () => Show(_home()), VatDemo = vatDemo, StartOn = select, ToTitle = ShowTitle, DemoBuildUp = TakeBuildUp() };
 
+    /// <summary>
+    /// The screen in view made again in a new menu look (Settings, as its panel closes): the title, home, a station
+    /// or the map. A battle or a scene keeps its own panels (the theme's buttons change at once) until it ends.
+    /// </summary>
+    void Restyle()
+    {
+        switch (_screen)
+        {
+            case UI.TitleScreen: ShowTitle(); break;
+            case Ranching.BaseScreen home: home.Remember(); Show(_home()); break;
+            case Ranching.RanchScreen { Station: { } id }: Show(Station(id)); break;
+            case World.CountryScreen: ShowMap(); break;
+        }
+    }
+
     void ShowMap() => Show(new World.CountryScreen { Ranch = _ranch, Fight = StartRanchBattle, Back = () => Show(_home()), DemoDispatch = _demoDispatch, DemoShop = _demoShop, ToTitle = ShowTitle, DemoBuildUp = TakeBuildUp() });
     bool _demoDispatch, _demoShop;
 
@@ -2125,6 +2151,7 @@ public partial class GameRoot : Node
     bool _autoPlay;
     Node _screen;
     int _shotFrames = -1, _recordFrames, _recorded;
+    string _shotFile = "shot"; // --shotfile=NAME: write .shots/NAME.png instead, so shots can run side by side
     bool _recordWhole;
     string _goTo; // --goto=ID: at the base, walk to that station and use it
     string _titlePanel; // --title=new|load|settings: open the title on that panel
@@ -2209,7 +2236,7 @@ public partial class GameRoot : Node
             _shotFrames = 1;
             return;
         }
-        frame.SavePng($"{dir}/shot.png");
+        frame.SavePng($"{dir}/{_shotFile}.png");
         GetTree().Quit();
     }
 

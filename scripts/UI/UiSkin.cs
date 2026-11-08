@@ -5,10 +5,12 @@ using Godot;
 namespace TheFartherWeStray.UI;
 
 /// <summary>
-/// The menu styles (docs/ui-style.md). Gilt and neon is the game's (the user's pick, 2026-11-03); the
-/// others are kept to compare against (--ui=NAME), and Plain is Godot's own look, as the game had it.
+/// The menu styles (docs/ui-style.md). Dusk is the game's (the user's pick, 2026-11-07), with Lamplight,
+/// Verdigris and Gilt and neon (the default from 2026-11-03) as the player's options in Settings; Gilded,
+/// Neon and Iron are kept to compare against (--ui=NAME), and Plain is Godot's own look, as the game had it.
+/// Every look writes in the pixel font (<see cref="PixelFont"/>, colours in <see cref="Look"/>).
 /// </summary>
-public enum Skin { Plain, Gilded, Neon, Iron, GiltNeon }
+public enum Skin { Plain, Gilded, Neon, Iron, GiltNeon, Dusk, Lamplight, Verdigris }
 
 /// <summary>What a frame is for: a button, a small one (14-16 point words), a panel or window, a tooltip.</summary>
 public enum UiPart { Button, Small, Panel, Tip }
@@ -29,7 +31,10 @@ public static class UiSkin
     /// <summary>A frame pixel is this many screen pixels: the board's 3x (small buttons' frames are 2x).</summary>
     public const int Px = 3;
 
-    public static Skin Current = Skin.GiltNeon;
+    public static Skin Current = Skin.Dusk;
+
+    /// <summary>Makes the screen in view again in a new look (GameRoot sets it): Settings calls it as its panel closes.</summary>
+    public static Action Restyle;
 
     public static bool TryParse(string name, out Skin skin) => Enum.TryParse(name.Replace("-", "").Replace("_", ""), true, out skin);
 
@@ -39,15 +44,53 @@ public static class UiSkin
         Skin.Neon => "B  Neon sign",
         Skin.Iron => "C  Foundry iron",
         Skin.GiltNeon => "D  Gilt and neon",
+        Skin.Dusk => "E  Dusk",
+        Skin.Lamplight => "F  Lamplight",
+        Skin.Verdigris => "G  Verdigris",
         _ => "Plain (as it was)",
     };
+
+    /// <summary>A skin's colours. The older skins share gilt and neon's words.</summary>
+    public static Look LookOf(Skin s) => s switch
+    {
+        Skin.Dusk => Look.Dusk,
+        Skin.Lamplight => Look.Lamplight,
+        Skin.Verdigris => Look.Verdigris,
+        _ => Look.GiltNeon,
+    };
+
+    /// <summary>The skin in use's colours.</summary>
+    public static Look Words => LookOf(Current);
+
+    /// <summary>--font=pixel|sans: the words in that font whatever the skin.</summary>
+    public static bool? FontChoice;
+
+    /// <summary>Whether words are in the game's pixel font: the skin's choice unless --font says otherwise.</summary>
+    public static bool PixelText => FontChoice ?? Words.Pixel;
+
+    static Font _sans;
 
     /// <summary>Puts a skin on the default theme. Plain leaves Godot's own look (and the phone's gold focus frame) alone.</summary>
     public static void Use(Skin skin)
     {
         Current = skin;
-        if (skin == Skin.Plain) return;
         var theme = ThemeDB.GetDefaultTheme();
+        _sans ??= ThemeDB.FallbackFont;
+        var look = Words;
+        // The words: the pixel font with a shadow in the glass's own dark (outlines don't draw on a bitmap font), or the sans.
+        if (PixelText)
+        {
+            theme.DefaultFont = PixelFont.Font;
+            theme.SetColor("font_shadow_color", "Label", look.Shadow);
+            theme.SetConstant("shadow_offset_x", "Label", 2);
+            theme.SetConstant("shadow_offset_y", "Label", 2);
+            theme.SetColor("font_color", "TooltipLabel", look.Ink);
+            theme.SetColor("font_shadow_color", "TooltipLabel", look.Shadow);
+            theme.SetConstant("shadow_offset_x", "TooltipLabel", 2);
+            theme.SetConstant("shadow_offset_y", "TooltipLabel", 2);
+        }
+        else theme.DefaultFont = _sans;
+        if (skin == Skin.Plain) return;
         theme.SetTypeVariation("SmallButton", "Button");
         foreach (var (type, part) in new[] { ("Button", UiPart.Button), ("OptionButton", UiPart.Button), ("MenuButton", UiPart.Button), ("CheckButton", UiPart.Button), ("CheckBox", UiPart.Button), ("SmallButton", UiPart.Small) })
         {
@@ -64,7 +107,7 @@ public static class UiSkin
             theme.SetColor("font_hover_pressed_color", type, TextColor(UiState.Pressed, skin));
             theme.SetColor("font_disabled_color", type, TextColor(UiState.Disabled, skin));
             theme.SetColor("font_outline_color", type, Outline(skin));
-            theme.SetConstant("outline_size", type, 4);
+            theme.SetConstant("outline_size", type, PixelText ? 0 : 4);
         }
         theme.SetStylebox("normal", "LineEdit", Box(UiPart.Button, UiState.Normal, skin));
         theme.SetStylebox("focus", "LineEdit", Box(UiPart.Button, UiState.Focus, skin));
@@ -73,30 +116,32 @@ public static class UiSkin
         theme.SetStylebox("panel", "TooltipPanel", Box(UiPart.Tip, UiState.Normal, skin));
 
         // Sliders: a dark groove, a tube lit cyan as far as the value goes, and a gold diamond to drag.
-        StyleBoxFlat Groove(string fill, string edge)
+        StyleBoxFlat Groove(Color fill, Color edge)
         {
-            var g = new StyleBoxFlat { BgColor = C(fill), BorderColor = C(edge) };
+            var g = new StyleBoxFlat { BgColor = fill, BorderColor = edge };
             g.SetBorderWidthAll(Px);
             g.ContentMarginTop = g.ContentMarginBottom = Px;
             return g;
         }
-        theme.SetStylebox("slider", "HSlider", Groove("#1c1826", "#05040a"));
-        theme.SetStylebox("grabber_area", "HSlider", Groove("#4fe3ff", "#05040a"));
-        theme.SetStylebox("grabber_area_highlight", "HSlider", Groove("#d8fdff", "#05040a"));
-        theme.SetIcon("grabber", "HSlider", Diamond("#f2c14e", "#ffe7a3"));
-        theme.SetIcon("grabber_highlight", "HSlider", Diamond("#ffd77a", "#ffffff"));
-        theme.SetIcon("grabber_disabled", "HSlider", Diamond("#3a3644", "#5f5870"));
+        var groove = look == Look.GiltNeon ? C("#1c1826") : look.Inner;
+        var rim = new Color(look.Edge, 1);
+        theme.SetStylebox("slider", "HSlider", Groove(groove, rim));
+        theme.SetStylebox("grabber_area", "HSlider", Groove(look.Focus, rim));
+        theme.SetStylebox("grabber_area_highlight", "HSlider", Groove(look.FocusCore, rim));
+        theme.SetIcon("grabber", "HSlider", Diamond(look == Look.GiltNeon ? C("#f2c14e") : look.Gold, look == Look.GiltNeon ? C("#ffe7a3") : look.GoldLit, rim));
+        theme.SetIcon("grabber_highlight", "HSlider", Diamond(look.GoldLit, look == Look.GiltNeon ? Colors.White : look.InkLit, rim));
+        theme.SetIcon("grabber_disabled", "HSlider", Diamond(look.GoldOff, look.InkOff, rim));
     }
 
     /// <summary>A slider's handle: a small diamond, dark-edged, its middle lighter.</summary>
-    static Texture2D Diamond(string gold, string core)
+    static Texture2D Diamond(Color gold, Color core, Color edge)
     {
         var img = Image.CreateEmpty(7, 7, false, Image.Format.Rgba8);
         for (int y = 0; y < 7; y++)
         for (int x = 0; x < 7; x++)
         {
             int r = 3 - (Math.Abs(x - 3) + Math.Abs(y - 3));
-            if (r >= 0) img.SetPixel(x, y, r == 0 ? C("#05040a") : r == 1 ? C(gold) : C(core));
+            if (r >= 0) img.SetPixel(x, y, r == 0 ? edge : r == 1 ? gold : core);
         }
         img.Resize(7 * Px, 7 * Px, Image.Interpolation.Nearest);
         return ImageTexture.CreateFromImage(img);
@@ -113,7 +158,15 @@ public static class UiSkin
     }
 
     /// <summary>The colour of a control's words in each state.</summary>
-    public static Color TextColor(UiState state, Skin? skin = null) => Color.FromHtml((skin ?? Current) switch
+    public static Color TextColor(UiState state, Skin? skin = null)
+    {
+        var s = skin ?? Current;
+        if (s is not (Skin.Dusk or Skin.Lamplight or Skin.Verdigris)) return OldTextColor(state, s);
+        var look = LookOf(s);
+        return state switch { UiState.Hover or UiState.Focus => look.InkLit, UiState.Pressed => look.InkPressed, UiState.Disabled => look.InkOff, _ => look.Ink };
+    }
+
+    static Color OldTextColor(UiState state, Skin skin) => Color.FromHtml(skin switch
     {
         Skin.Gilded => state switch { UiState.Hover or UiState.Focus => "#ffe7a3", UiState.Pressed => "#ffffff", UiState.Disabled => "#5d5868", _ => "#e8dcbc" },
         Skin.Neon => state switch { UiState.Hover => "#d8fbff", UiState.Focus => "#ffffff", UiState.Pressed => "#ffe0f0", UiState.Disabled => "#4a4458", _ => "#8fb0ba" },
@@ -122,22 +175,23 @@ public static class UiSkin
         _ => state == UiState.Disabled ? "#6a6478" : "#ece7f6",
     });
 
-    /// <summary>The dark edge round a skin's words.</summary>
+    /// <summary>The dark edge round a skin's words (or under them, as a shadow, in the pixel font).</summary>
     public static Color Outline(Skin? skin = null) => Color.FromHtml((skin ?? Current) switch
     {
         Skin.Gilded => "#05060c",
         Skin.Neon => "#04222b",
         Skin.Iron => "#08070a",
+        Skin.Dusk or Skin.Lamplight or Skin.Verdigris => LookOf(skin ?? Current).Shadow.ToHtml(),
         _ => "#0b0914",
     });
 
     /// <summary>The skin's headings: its gold, or its light.</summary>
-    public static Color Heading(Skin? skin = null) => Color.FromHtml((skin ?? Current) switch
+    public static Color Heading(Skin? skin = null) => (skin ?? Current) switch
     {
-        Skin.Neon => "#ff8ac8",
-        Skin.Iron => "#e8a25c",
-        _ => "#f2c14e",
-    });
+        Skin.Neon => Color.FromHtml("#ff8ac8"),
+        Skin.Iron => Color.FromHtml("#e8a25c"),
+        var s => LookOf(s).Heading,
+    };
 
     static readonly Dictionary<(Skin, UiPart, UiState, Color?), StyleBox> _boxes = new();
 
@@ -190,7 +244,7 @@ public static class UiSkin
     }
 
     /// <summary>Corner size in frame pixels: room for the corner's art, and what the nine-slice keeps unstretched.</summary>
-    static int Corner(Skin skin, UiPart part) => part == UiPart.Panel || skin is Skin.Gilded or Skin.GiltNeon ? 6 : skin == Skin.Neon ? 5 : 4;
+    static int Corner(Skin skin, UiPart part) => part == UiPart.Panel || skin is not (Skin.Neon or Skin.Iron) ? 6 : skin == Skin.Neon ? 5 : 4;
 
     /// <summary>
     /// A whole frame at its own size in frame pixels (unscaled), for art that isn't a nine-slice, such as
@@ -220,7 +274,7 @@ public static class UiSkin
             Skin.Gilded => Gilded(part, st, f),
             Skin.Neon => Neon(part, st, f),
             Skin.Iron => Iron(part, st, f),
-            _ => GiltNeon(part, state, f, light),
+            _ => GiltNeon(part, state, f, light, LookOf(skin)),
         };
     }
 
@@ -398,14 +452,18 @@ public static class UiSkin
     /// when you're on it (its outer edge turning pale gold too, to stand out from a frame lit for a reason)
     /// and pink as it's pressed. A frame given a light keeps its tube lit in that colour.
     /// Panels keep their tube dimly lit violet; a cyan pip sits in each panel corner.
+    /// The softer looks (Dusk, Lamplight, Verdigris) are the same frame in their own colours (<see cref="Look"/>),
+    /// their gold lit along the top and left and shaded along the bottom and right, like FFTA's windows.
     /// </summary>
-    static Color GiltNeon(UiPart part, UiState st, Frag f, Color? tint)
+    static Color GiltNeon(UiPart part, UiState st, Frag f, Color? tint, Look look)
     {
         int a = part == UiPart.Tip ? 1 : 2;
         int r = Deco(f, a);
         if (r < 0) return None;
-        if (st != UiState.Focus && part == UiPart.Panel && f.Dx == 4 && f.Dy == 4) return tint ?? C("#4fe3ff");
-        return GiltNeonRing(part, st, r, tint);
+        if (st != UiState.Focus && part == UiPart.Panel && f.Dx == 4 && f.Dy == 4) return tint is { } t ? look.Soften(t) : look.Pip;
+        // Lit from the top left: the top edge and the left are in the light, the bottom and the right in shade.
+        bool lit = f.Top ? f.Left || f.Dx >= f.Dy : f.Left && f.Dx < f.Dy;
+        return GiltNeonRing(part, st, r, tint, lit, look);
     }
 
     /// <summary>
@@ -420,7 +478,7 @@ public static class UiSkin
         for (int x = 0; x < w; x++)
         {
             int r = ring(x, y);
-            if (r >= 0 && GiltNeonRing(UiPart.Button, state, r, light) is { A: > 0 } c) img.SetPixel(x, y, c);
+            if (r >= 0 && GiltNeonRing(UiPart.Button, state, r, light, true, Words) is { A: > 0 } c) img.SetPixel(x, y, c);
         }
         return img;
     }
@@ -428,23 +486,30 @@ public static class UiSkin
     /// <summary>How far a pixel of a w by h box is in from its edge, its corners stepped a pixels: for building shapes from boxes.</summary>
     public static int Inset(int x, int y, int w, int h, int a) => x < 0 || y < 0 || x >= w || y >= h ? -1 : Deco(new Frag(x, y, w, h), a);
 
-    /// <summary>A gilt-and-neon frame's colour on its ring r (0 the dark edge, 1 the gold, 3 the tube, more the glass).</summary>
-    static Color GiltNeonRing(UiPart part, UiState st, int r, Color? tint)
+    /// <summary>
+    /// A gilt-and-neon frame's colour on its ring r (0 the dark edge, 1 the gold, 3 the tube, more the glass),
+    /// in a look; lit says whether the pixel is on the frame's lit side (top and left).
+    /// </summary>
+    static Color GiltNeonRing(UiPart part, UiState st, int r, Color? tint, bool lit, Look look)
     {
         bool off = st == UiState.Disabled;
         bool on = st is UiState.Focus or UiState.Pressed || tint != null, half = st == UiState.Hover && tint == null;
-        string gold = off ? "#3a3644" : st is UiState.Hover or UiState.Focus or UiState.Pressed ? "#ffd77a" : part == UiPart.Tip ? "#9a7a3a" : "#c99a40";
-        Color light = tint ?? C(st == UiState.Pressed ? "#ff5fae" : "#4fe3ff");
-        Color core = tint is { } t ? t.Lerp(Colors.White, 0.55f) : C(st == UiState.Pressed ? "#ffd6ec" : "#d8fdff");
-        var fill = off ? C("#100c1a", 0.75f) : st switch { UiState.Hover => C("#1a1430", 0.95f), UiState.Pressed => C("#0c0916", 0.96f), _ => C("#120e22", 0.94f) };
+        Color gold = off ? look.GoldOff
+            : st is UiState.Hover or UiState.Focus or UiState.Pressed ? (lit ? look.GoldLit : look.GoldLitShade)
+            : part == UiPart.Tip ? (lit ? look.TipGold : look.TipGoldShade)
+            : lit ? look.Gold : look.GoldShade;
+        Color light = tint is { } given ? look.Soften(given) : st == UiState.Pressed ? look.Press : look.Focus;
+        Color core = tint != null ? light.Lerp(Colors.White, look.CoreLift) : st == UiState.Pressed ? look.PressCore : look.FocusCore;
+        var fill = off ? look.GlassOff : st switch { UiState.Hover => look.GlassHover, UiState.Pressed => look.GlassPressed, _ => look.Glass };
         if (st == UiState.Focus)
-            return r switch { 0 => C("#fff0c0"), 1 => C(gold), 2 => new Color(light, 0.5f), 3 => core, 4 => new Color(light, 0.35f), 5 => new Color(light, 0.12f), _ => None };
+            return r switch { 0 => look.FocusEdge, 1 => gold, 2 => new Color(light, 0.5f), 3 => core, 4 => new Color(light, 0.35f), 5 => new Color(light, 0.12f), _ => None };
+        var inner = fill.Lerp(new Color(look.Inner, fill.A), look.InnerMix);
         return r switch
         {
-            0 => C("#05040a", 0.9f),
-            1 => C(gold),
-            2 => on ? fill.Lerp(light, 0.35f) : half ? fill.Lerp(light, 0.12f) : fill,
-            3 => off ? C("#1c1826") : on ? light : half ? light.Darkened(0.35f) : part == UiPart.Panel ? C("#3a2a5a") : C("#24384a"),
+            0 => look.Edge,
+            1 => gold,
+            2 => on ? fill.Lerp(light, 0.35f) : half ? fill.Lerp(light, 0.12f) : inner,
+            3 => off ? look.TubeOff : on ? light : half ? light.Darkened(0.35f) : part == UiPart.Panel ? look.TubePanel : look.Tube,
             4 => on ? fill.Lerp(light, 0.18f) : fill,
             _ => fill,
         };

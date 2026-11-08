@@ -16,7 +16,9 @@ public partial class BuildUpPanel : CanvasLayer
     public Action<string> Built;   // after building: what changed, for the screen to say and show
     public Action Closed;          // the screen forgets it
 
-    static readonly Color Gold = Ui.Gold, Ink = Ui.Ink, Dim = Ui.Dim;
+    static Color Gold => Ui.Gold;
+    static Color Ink => Ui.Ink;
+    static Color Dim => Ui.Dim;
     PanelContainer _panel;
 
     public override void _Ready()

@@ -19,7 +19,7 @@ public partial class TopBar : HBoxContainer
     public string Station;         // the station this screen is, if it has levels to build: Build up shows
     public Action<string> Built;   // after building a level: what changed, for the screen to say
 
-    static readonly Color Moon = Color.FromHtml("#ff4f9a");
+    static Color Moon => Ui.Magenta;
     Label _title;
     Control _chips;
     Button _back, _build;

@@ -100,7 +100,7 @@ public static class DispatchBook
             Success = "Spotted every crack. The miners carved it a statue.", Failure = "Tapped one to check. It was cracked." },
         new() { Id = "stones", Title = "Rock Bottom Prices", Days = 1, Reward = 15,
             Ask = "Haul stones for a market stall's grand opening.",
-            Suits = new[] { Has("huge", c => c.Size == SizeClass.Huge), Class("Brawler"), Has("a shell or a club", c => c.Parts.Back == Back.Shell || c.Parts.Tail == Tail.Club) },
+            Suits = new[] { Has("huge", c => c.Size >= SizeClass.Huge), Class("Brawler"), Has("a shell or a club", c => c.Parts.Back == Back.Shell || c.Parts.Tail == Tail.Club) },
             Success = "Hauled the lot, and the stall, by mistake.", Failure = "Sat on the stones. They're pebbles now." },
         new() { Id = "vents", Title = "Hot Under the Collar", Location = "cinder", Days = 3, Reward = 34,
             Ask = "Prospectors need an escort past the lava vents.",

@@ -132,7 +132,8 @@ public static class TierBook
     // What has been done to it. Infused: its stats tuned (InfusionBook) or new blood (Lab.Infusions).
     // Chimera: other species' DNA (crossed strains, spliced abilities, a grafted part). Rigged: augments,
     // which give it abilities no natural creature has (and a rival's machine grafts).
-    public static bool Infused(Creature c) => c.Species.Infused || c.Infusions.Any(i => InfusionBook.Get(i) != null);
+    // A lab draught that changed its size infuses it too.
+    public static bool Infused(Creature c) => c.Species.Infused || c.Infusions.Any(i => InfusionBook.Get(i) != null) || c.BirthSize is { } born && born != c.Size;
     public static bool Chimera(Creature c) => c.Species.Chimera || c.Species.Spliced is { Length: > 0 } || c.BirthParts is { } born && !born.Equals(c.Parts);
     public static bool Rigged(Creature c) => c.Species.Rigged || c.Augments.Any(a => AugmentBook.Get(a) != null);
 
@@ -217,7 +218,7 @@ public static class TierBook
         {
             Tier.Stray => "A stray: nobody has caught it.",
             Tier.Thoroughbred => ThoroughbredOf(c.Species).Text,
-            Tier.Infused => "Infused: its natural stats tuned at the lab, or new blood put in. No thoroughbred bonus.",
+            Tier.Infused => "Infused: its natural stats or its size tuned at the lab, or new blood put in. No thoroughbred bonus.",
             Tier.Chimera => $"A chimera. {ChimeraOf(c.Species).Text} No thoroughbred bonus.",
             Tier.Rigged => $"Rigged: augments bolted on, with abilities no natural creature has. Upkeep {UpkeepPerRig} chem a rig after each battle; learns at 3/4 pace. No thoroughbred bonus.",
             _ => $"An abomination: infused, a chimera and rigged, as far from natural as a creature goes. {AbominationOf(c.Species).Text}",
@@ -251,4 +252,24 @@ public static class InfusionBook
     };
 
     public static PassiveDef Get(string id) => All.FirstOrDefault(p => p.Id == id);
+
+    /// <summary>
+    /// Size draughts (the user's ask, 2026-11-07: "the ability for chems to affect size"): a size bigger or
+    /// smaller, using no infusion slot. They reach one size either way from the size it was born with and
+    /// never make a runt or an enormous beast (only breeding does). They infuse it; its line breeds from the
+    /// size it was born (<see cref="Creatures.Creature.BirthSize"/>). Data: new ones are entries.
+    /// </summary>
+    public static readonly SizeDraught[] Sizes =
+    {
+        new("growth_draught", "Growth Draught", 1, 40),
+        new("shrinking_draught", "Shrinking Draught", -1, 40),
+    };
+
+    /// <summary>How many sizes either way of the one it was born with draughts can take a beast.</summary>
+    public const int SizeReach = 1;
+
+    public static SizeDraught Size(string id) => Sizes.FirstOrDefault(d => d.Id == id);
 }
+
+/// <summary>A lab draught that makes a creature <paramref name="Step"/> sizes bigger (or smaller).</summary>
+public sealed record SizeDraught(string Id, string Name, int Step, int Cost);

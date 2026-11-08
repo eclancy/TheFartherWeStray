@@ -82,7 +82,9 @@ public sealed class Unit
     public PassiveDef Reaction => ClassBook.Passive(Training?.Reaction);
     public bool AdrenalineUsed;
 
-    public int Mod(StatKind s) => Buffs.Where(b => b.stat == s).Sum(b => b.amount) + (s == StatKind.Evade ? (Passive?.Evade ?? 0) + (Boost?.Evade ?? 0) : 0);
+    /// <summary>A stat's change from buffs; evasion also counts its passives and its size (small creatures are harder to hit).</summary>
+    public int Mod(StatKind s) => Buffs.Where(b => b.stat == s).Sum(b => b.amount)
+        + (s == StatKind.Evade ? (Passive?.Evade ?? 0) + (Boost?.Evade ?? 0) + SizeInfo.Stats(Creature.Size).Evade : 0);
     public int AtkNow => System.Math.Max(1, Atk + Mod(StatKind.Atk));
     public int DefNow => System.Math.Max(0, Def + Mod(StatKind.Def));
     public int SpdNow => System.Math.Max(1, Spd + Mod(StatKind.Spd));
@@ -118,13 +120,9 @@ public sealed class Unit
             BodyPlan.Aquatic => (28f, 8f, 5f, 6f, 4),
             _ => (36f, 7f, 8f, 4f, 3),
         };
-        switch (c.Size)
-        {
-            case SizeClass.Tiny: hp *= 0.6f; atk -= 2; spd += 2; break;
-            case SizeClass.Small: hp *= 0.8f; atk -= 1; spd += 1; break;
-            case SizeClass.Large: hp *= 1.25f; atk += 1; spd -= 1; break;
-            case SizeClass.Huge: hp *= 1.6f; atk += 2; spd -= 2; move -= 1; break;
-        }
+        // Its size (SizeInfo.Stats); its evasion counts in Mod.
+        var size = SizeInfo.Stats(c.Size);
+        hp *= size.Hp; atk += size.Atk; spd += size.Spd; move += size.Move;
         int hit = 0;
         switch (c.Weapon)
         {
@@ -193,7 +191,7 @@ public sealed class Unit
         int Roll(float v) => Mathf.Max(1, Mathf.RoundToInt(v * rng.Range(0.9f, 1.1f)));
         var u = new Unit
         {
-            Creature = c, Side = side, Size = c.Size == SizeClass.Huge ? 2 : 1,
+            Creature = c, Side = side, Size = SizeInfo.Tiles(c.Size),
             MaxHp = Roll(hp), Atk = Roll(atk), Def = Roll(def), Spd = Roll(spd), Move = Mathf.Max(2, move),
             HitBonus = hit, MoveType = c.MoveType, Weapon = c.Weapon, Armor = c.Armor,
         };

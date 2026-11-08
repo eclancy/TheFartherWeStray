@@ -61,6 +61,17 @@ public sealed partial class CreatureSculptor
 
     static readonly Vector3 X = new(1, 0, 0), Y = new(0, 1, 0), Z = new(0, 0, 1);
 
+    /// <summary>
+    /// The zoom to show a sprite at in a box (a card, the lab's chamber): <paramref name="most"/>, or as near
+    /// as fits in quarter steps, never under 1. An enormous beast that won't fit fills the box rather than
+    /// dropping a whole step and looking smaller than a huge one.
+    /// </summary>
+    public static float FitZoom(Vector2 sprite, Vector2 box, float most)
+    {
+        float fit = Mathf.Min(box.X / Mathf.Max(1, sprite.X), box.Y / Mathf.Max(1, sprite.Y));
+        return Mathf.Clamp(Mathf.Floor(fit * 4) / 4, 1, most);
+    }
+
     /// <summary>The sprite for one view, and where the creature's ground point (its feet) lands in it.</summary>
     public static (Image img, Vector2I anchor) Render(Creature creature, bool fourColor, View view, float phase = -1, bool blink = false, Pose pose = Pose.Idle)
     {

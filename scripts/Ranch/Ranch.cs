@@ -25,6 +25,7 @@ public sealed class CreatureRecord
     public Species Species;
     public ulong Seed;
     public SizeClass Size;
+    public SizeClass? BirthSize; // set once a lab draught changes its size: what breeding passes on
     public Attitude Attitude;
     public PartSet Parts;
     public PartSet? BirthParts; // set once the lab grafts a part: what breeding passes on
@@ -45,7 +46,7 @@ public sealed class CreatureRecord
 
     public static CreatureRecord From(Creature c, int id) => new()
     {
-        Id = id, Species = c.Species, Seed = c.Seed, Size = c.Size, Attitude = c.Attitude, Parts = c.Parts, Spec = c.Spec, BirthParts = c.BirthParts,
+        Id = id, Species = c.Species, Seed = c.Seed, Size = c.Size, BirthSize = c.BirthSize, Attitude = c.Attitude, Parts = c.Parts, Spec = c.Spec, BirthParts = c.BirthParts,
         Shiny = c.Shiny, Mutation = c.Mutation, BodyJitter = c.BodyJitter, LegJitter = c.LegJitter, HeadJitter = c.HeadJitter,
         Generation = c.Generation, ParentA = c.ParentA, ParentB = c.ParentB, Nickname = c.Nickname,
         Traits = new List<string>(c.Traits), Augments = new List<string>(c.Augments), Infusions = new List<string>(c.Infusions),
@@ -70,7 +71,7 @@ public sealed class CreatureRecord
         }
         return new Creature
         {
-            Species = species, Seed = Seed, Size = Size, Attitude = Attitude, Parts = parts, Spec = spec, BirthParts = BirthParts,
+            Species = species, Seed = Seed, Size = Size, BirthSize = BirthSize, Attitude = Attitude, Parts = parts, Spec = spec, BirthParts = BirthParts,
             Palette = Creature.BuildPalette(spec, species), Shiny = Shiny, Mutation = Mutation, Nickname = Nickname,
             BodyJitter = BodyJitter, LegJitter = LegJitter, HeadJitter = HeadJitter,
             Generation = Generation, ParentA = ParentA, ParentB = ParentB,

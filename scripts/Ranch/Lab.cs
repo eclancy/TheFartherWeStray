@@ -137,6 +137,44 @@ public static class Lab
         return $"{rec.Name} takes {p.Name} (-{brew} chem): {p.Text}{(washed != null ? $" The {washed} washes out." : "")} It steeps, sitting out the next battle.{ranch.TierNote(id, before)} ({moved})";
     }
 
+    /// <summary>The size a draught would make it, or why it can't (<see cref="Classes.InfusionBook.Sizes"/>).</summary>
+    public static (SizeClass? to, string why) Resized(CreatureRecord rec, Classes.SizeDraught d)
+    {
+        var born = rec.BirthSize ?? rec.Size;
+        var to = rec.Size + d.Step;
+        if (to > SizeClass.Enormous) return (null, "Nothing grows a beast past enormous.");
+        if (to < SizeClass.Runt) return (null, "Nothing shrinks a beast past a runt.");
+        if (to != born && SizeInfo.BredOnly(to))
+            return (null, to == SizeClass.Enormous ? "Only breeding makes a beast enormous." : "Only breeding makes a runt.");
+        if (Math.Abs(SizeInfo.Step(to) - SizeInfo.Step(born)) > Classes.InfusionBook.SizeReach)
+            return (null, $"It was born {SizeInfo.Word(born)}: draughts take it one size either way at most.");
+        return (to, null);
+    }
+
+    /// <summary>Brews a size draught into a creature: a size bigger or smaller, one either way from the size it was born with. It's infused, and it breeds as it was born.</summary>
+    public static string Resize(Ranch ranch, int id, string draught)
+    {
+        var rec = ranch.Record(id);
+        var d = Classes.InfusionBook.Size(draught);
+        if (d == null) return "There's no such draught.";
+        var (to, why) = Resized(rec, d);
+        if (to == null) return why;
+        int cost = Farmyard.LabPrice(ranch, d.Cost);
+        if (ranch.Chem < cost) return $"Not enough chem: the {d.Name} costs {cost}.";
+        var before = Classes.TierBook.Of(ranch.Get(id));
+        var was = rec.Size;
+        ranch.Chem -= cost;
+        rec.BirthSize ??= rec.Size;
+        rec.Size = to.Value;
+        if (rec.BirthSize == rec.Size) rec.BirthSize = null; // back to the size it was born
+        Steep(ranch, id);
+        ranch.Refresh(id);
+        string moved = World.Standing.Shift(ranch, 0, World.Standing.Infusion);
+        int tiles = SizeInfo.Tiles(rec.Size);
+        string footprint = tiles != SizeInfo.Tiles(was) ? $" It takes {SizeInfo.Footprint(rec.Size)} now." : "";
+        return $"{rec.Name} takes the {d.Name} (-{cost} chem): {SizeInfo.Word(was)} to {SizeInfo.Word(rec.Size)}.{footprint}{(rec.BirthSize != null ? " Its line breeds from the size it was born." : "")} It steeps, sitting out the next battle.{ranch.TierNote(id, before)} ({moved})";
+    }
+
     /// <summary>A new infusion takes a battle to settle: out of the squad until the next one is over.</summary>
     static void Steep(Ranch ranch, int id)
     {

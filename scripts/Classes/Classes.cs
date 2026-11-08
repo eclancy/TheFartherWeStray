@@ -494,13 +494,13 @@ public static class ClassBook
         {
             Id = "Titan", Name = "Titan", Blurb = "A living siege engine.", Hp = 12, Atk = 2, Def = 2, Spd = -2,
             Skills = new[] { "stomp", "shrug_off", "toss" }, Requires = new[] { ("Brawler", 2), ("Guardian", 2) },
-            NeedsPart = c => c.Size == SizeClass.Huge, PartHint = "huge size",
+            NeedsPart = c => c.Size >= SizeClass.Huge, PartHint = "huge size or bigger",
         },
         new()
         {
             Id = "Trickster", Name = "Trickster", Blurb = "Too small to catch, too strange to trust.", Spd = 3, Move = 1,
             Skills = new[] { "blink", "vanish", "hex_prank" }, Requires = new[] { ("Skirmisher", 2), ("Mystic", 2) },
-            NeedsPart = c => c.Size == SizeClass.Tiny, PartHint = "tiny size",
+            NeedsPart = c => c.Size <= SizeClass.Tiny, PartHint = "tiny size or smaller",
         },
         new()
         {

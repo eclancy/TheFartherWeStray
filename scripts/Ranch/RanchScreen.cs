@@ -483,10 +483,14 @@ public partial class RanchScreen : Control
         var rec = Ranch.Record(id);
         var u = Unit.From(c, Tactics.Side.Player, rec.Training);
         var s = c.Species;
-        string what = (c.Nickname != null ? $"{s.Name} · " : "") + $"{c.Size.ToString().ToLowerInvariant()} {s.Plan.ToString().ToLowerInvariant()}"
+        string what = (c.Nickname != null ? $"{s.Name} · " : "") + $"{SizeInfo.Word(c.Size)} {s.Plan.ToString().ToLowerInvariant()}"
             + (s.Strain != Strain.Natural ? $" · {s.Strain.Label().ToLowerInvariant()}" : "")
             + (s.Origin != null ? $" · from {s.Origin}" : "");
-        var head = Row(Ui.Text(c.Name, 22, Ink), Ui.Text(what, 15, Dim, 4));
+        // Its size's tooltip: what the size does in battle, and the size it was born if a draught changed it.
+        var whatLabel = Ui.Text(what, 15, Dim, 4);
+        whatLabel.MouseFilter = MouseFilterEnum.Stop;
+        whatLabel.TooltipText = SizeInfo.Describe(c.Size) + (c.BirthSize is { } bornSize && bornSize != c.Size ? $"\nBorn {SizeInfo.Word(bornSize)}: its line breeds from that." : "");
+        var head = Row(Ui.Text(c.Name, 22, Ink), whatLabel);
         var tier = TierBook.Of(c);
         head.AddChild(Ui.ChipView(new Chip(TierBook.Glyph(tier), tier.ToString(), Color.FromHtml(TierBook.Hex(tier)), TierBook.Describe(c, tier)), 15));
         if (c.Shiny) head.AddChild(Ui.ChipView(new Chip("sparkle", "shiny", Gold), 15));
@@ -600,7 +604,7 @@ public partial class RanchCard : Control
         DrawStyleBox(box, new Rect2(Vector2.Zero, Size));
         if (HasFocus()) DrawStyleBox(UiSkin.Box(UiPart.Button, UiState.Focus), new Rect2(Vector2.Zero, Size)); // where the pad is
 
-        int z = _tex.GetWidth() * 2 <= Size.X - 8 && _tex.GetHeight() * 2 <= 128 ? 2 : 1;
+        float z = CreatureSculptor.FitZoom(_tex.GetSize(), new Vector2(Size.X - 8, 128), 2);
         var ts = _tex.GetSize() * z;
         float ground = 136;
         DrawSetTransform(new Vector2(Size.X / 2, ground - 2), 0, new Vector2(1, 0.22f));

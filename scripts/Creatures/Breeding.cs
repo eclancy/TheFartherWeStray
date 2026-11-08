@@ -115,7 +115,7 @@ public static class Breeding
             Seed = seed,
             Plan = plan,
             Element = main == ca.Main ? A.Element : B.Element,
-            BaseSize = (SizeClass)Math.Clamp((int)Math.Round(((int)a.Size + (int)b.Size) / 2f + (rng.Chance(0.25f) ? rng.Pick(new[] { -1, 1 }) : 0)), 0, 4),
+            BaseSize = ChildSize(a, b, rng, seed, r),
             Parts = parts,
             Palette = palette,
             CommonAttitude = rng.Chance(0.5f) ? a.Attitude : b.Attitude,
@@ -142,6 +142,36 @@ public static class Breeding
             id => r.Notes.Add($"a new trait: {Classes.ClassBook.Passive(id).Name}"));
         r.Child = c;
         return r;
+    }
+
+    /// <summary>The chance of a runt or an enormous child, by how many parents are already one (the user's call, 2026-11-07: only breeding makes them).</summary>
+    public static readonly float[] PastTheEnd = { 0.10f, 0.30f, 0.50f };
+
+    /// <summary>
+    /// A child's size: between its parents' (the sizes they were born with: a lab draught isn't blood), now
+    /// and then a step off, tiny to huge. Two particularly small parents (tiny or runts) can make a runt, and
+    /// two particularly large ones (huge or enormous) an enormous child, more often the more of them already are.
+    /// </summary>
+    static SizeClass ChildSize(Creature a, Creature b, SeededRng rng, ulong seed, Result r)
+    {
+        SizeClass sa = a.BirthSize ?? a.Size, sb = b.BirthSize ?? b.Size;
+        int step = (int)Math.Round((SizeInfo.Step(sa) + SizeInfo.Step(sb)) / 2f + (rng.Chance(0.25f) ? rng.Pick(new[] { -1, 1 }) : 0));
+        var size = SizeInfo.FromStep(Math.Clamp(step, SizeInfo.Step(SizeClass.Tiny), SizeInfo.Step(SizeClass.Huge)));
+        // From a stream of its own, so every other roll of a pairing stays as it was.
+        var end = new SeededRng(SeededRng.Derive(seed, 0x512E));
+        if (size == SizeClass.Huge && sa >= SizeClass.Huge && sb >= SizeClass.Huge
+            && end.Chance(PastTheEnd[(sa == SizeClass.Enormous ? 1 : 0) + (sb == SizeClass.Enormous ? 1 : 0)]))
+        {
+            size = SizeClass.Enormous;
+            r.Notes.Add("enormous: two big parents");
+        }
+        else if (size == SizeClass.Tiny && sa <= SizeClass.Tiny && sb <= SizeClass.Tiny
+            && end.Chance(PastTheEnd[(sa == SizeClass.Runt ? 1 : 0) + (sb == SizeClass.Runt ? 1 : 0)]))
+        {
+            size = SizeClass.Runt;
+            r.Notes.Add("a runt: two small parents");
+        }
+        return size;
     }
 
     static Hsv Blend(Hsv x, Hsv y, float t)

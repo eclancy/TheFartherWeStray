@@ -1582,8 +1582,9 @@ public partial class GameRoot : Node
             ranch.Items["rivet_gun"] = 1;
             GD.Print("  " + ranch.Install(tank, "rivet_gun"));
             GD.Print("  " + Ranching.Lab.Infuse(ranch, tank, Strain.Chemtech));
+            GD.Print("  " + Ranching.Lab.Resize(ranch, tank, "growth_draught"));
             var tankAfter = ranch.Get(tank);
-            GD.Print($"  Tank moves: {tankBefore.MoveType} -> {tankAfter.MoveType}; strain {tankAfter.Species.Strain}; chem left {ranch.Chem}");
+            GD.Print($"  Tank moves: {tankBefore.MoveType} -> {tankAfter.MoveType}; strain {tankAfter.Species.Strain}; size {tankBefore.Size} -> {tankAfter.Size}; chem left {ranch.Chem}");
             foreach (var r in ranch.Creatures) r.Rested = true;
             int mate = ranch.Creatures.First(r => r.Id != tank && r.Species.Name == "Sprocket").Id;
             var (pup, _) = ranch.Breed(tank, mate);
@@ -1672,6 +1673,141 @@ public partial class GameRoot : Node
             System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(bpath)!);
             CreatureSheet.Compose(rows, false, 3, 6).SavePng(bpath);
             GD.Print($"wrote {bpath}");
+            GetTree().Quit();
+            return;
+        }
+
+        if (args.TryGetValue("sizes", out var sizesArg))
+        {
+            // One creature of a few forms at every size, runt to enormous, standing on board tiles: .shots/sizes.png.
+            ulong start = ulong.TryParse(sizesArg, out var ss) ? ss : 1;
+            var list = new List<Creature>();
+            foreach (var form in new[] { Form.Hound, Form.Raptor, Form.Wyrm, Form.Hawk, Form.Mantis, Form.Jelly })
+            {
+                var plan = Enum.GetValues<BodyPlan>().First(p => Species.AllFormsFor(p).Contains(form));
+                for (ulong seed = start; ; seed++)
+                {
+                    var ssp = Species.Generate(seed);
+                    if (ssp.Plan != plan) continue;
+                    ssp.Form = form;
+                    foreach (var size in Enum.GetValues<SizeClass>()) { var c = Creature.Specimen(ssp, 0); c.Size = size; list.Add(c); }
+                    break;
+                }
+            }
+            string spath = ProjectSettings.GlobalizePath("res://.shots/sizes.png");
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(spath)!);
+            CreatureSheet.ComposeViews(list, four, args.TryGetValue("scale", out var ssc) && int.TryParse(ssc, out var ssv) ? ssv : 2, 7).SavePng(spath);
+            GD.Print($"wrote {spath}: rows of {string.Join(", ", Enum.GetValues<SizeClass>())}");
+            GetTree().Quit();
+            return;
+        }
+
+        if (args.ContainsKey("sizetest"))
+        {
+            // Sizes without a screen (the user's calls, 2026-11-07): the stats of each, that strays are only ever
+            // tiny to huge, breeding's odds of a runt or an enormous child, the lab's size draughts and their
+            // limits, the 2x2 footprint, and that sizes and birth sizes survive a save (and an old save without them).
+            var fails = new List<string>();
+            void Check(bool ok, string what) { if (!ok) fails.Add(what); GD.Print($"  {(ok ? "ok  " : "FAIL")} {what}"); }
+            GD.Print("sizes:");
+            var specimen = Species.Generate(3);
+            foreach (var size in Enum.GetValues<SizeClass>())
+            {
+                var c = Creature.Specimen(specimen, 0);
+                c.Size = size;
+                var u = Tactics.Unit.From(c, Tactics.Side.Wild);
+                GD.Print($"  {size,-9} HP {u.MaxHp,3} ATK {u.Atk,2} SPD {u.Spd,2} MOVE {u.Move} evade {u.Mod(Classes.StatKind.Evade),2}% tiles {u.Size}x{u.Size} sprite {SizeInfo.Pixels(size)}px  {SizeInfo.Describe(size)}");
+            }
+            Check(SizeInfo.Stats(SizeClass.Tiny).Evade > 0 && SizeInfo.Stats(SizeClass.Runt).Evade == SizeInfo.Stats(SizeClass.Tiny).Evade, "tiny and runts are harder to hit, alike");
+            Check(SizeInfo.Stats(SizeClass.Enormous).Move == SizeInfo.Stats(SizeClass.Huge).Move && SizeInfo.Stats(SizeClass.Huge).Move < 0, "huge and enormous are slow alike");
+            Check(Enum.GetValues<SizeClass>().Zip(Enum.GetValues<SizeClass>().Skip(1)).All(p => SizeInfo.Stats(p.First).Hp < SizeInfo.Stats(p.Second).Hp && SizeInfo.Stats(p.First).Atk < SizeInfo.Stats(p.Second).Atk && SizeInfo.Stats(p.First).Spd > SizeInfo.Stats(p.Second).Spd), "HP and ATK climb with size, SPD falls");
+
+            // Strays: tiny to huge only.
+            var wild = new Dictionary<SizeClass, int>();
+            for (ulong k = 1; k <= 3000; k++)
+            {
+                var wsp = Species.Generate(SeededRng.Derive(0x512E, k));
+                for (int sib = 0; sib < 3; sib++) { var c = Creature.Specimen(wsp, sib); wild[c.Size] = wild.GetValueOrDefault(c.Size) + 1; }
+            }
+            GD.Print("  strays: " + string.Join(", ", Enum.GetValues<SizeClass>().Select(s => $"{s} {100f * wild.GetValueOrDefault(s) / 9000:0.0}%")));
+            Check(!wild.ContainsKey(SizeClass.Runt) && !wild.ContainsKey(SizeClass.Enormous), "no stray is a runt or enormous");
+
+            // Breeding: past the ends only from two parents at that end.
+            Creature At(SizeClass size, int sib) { var c = Creature.Specimen(specimen, sib); c.Size = size; return c; }
+            (float runt, float enormous) Odds(SizeClass a, SizeClass b, SizeClass? bornA = null)
+            {
+                int runts = 0, big = 0;
+                for (ulong k = 1; k <= 4000; k++)
+                {
+                    var pa = At(a, 1); pa.BirthSize = bornA;
+                    var child = Breeding.Breed(pa, At(b, 2), SeededRng.Derive(0xB12E, k)).Child;
+                    if (child.Size == SizeClass.Runt) runts++;
+                    if (child.Size == SizeClass.Enormous) big++;
+                }
+                return (runts / 40f, big / 40f);
+            }
+            foreach (var (a, b, runt, enormous) in new[]
+            {
+                (SizeClass.Huge, SizeClass.Huge, 0f, 8.75f), (SizeClass.Huge, SizeClass.Enormous, 0f, 30f), (SizeClass.Enormous, SizeClass.Enormous, 0f, 50f),
+                (SizeClass.Tiny, SizeClass.Tiny, 8.75f, 0f), (SizeClass.Runt, SizeClass.Tiny, 30f, 0f), (SizeClass.Runt, SizeClass.Runt, 50f, 0f),
+                (SizeClass.Large, SizeClass.Huge, 0f, 0f), (SizeClass.Small, SizeClass.Tiny, 0f, 0f), (SizeClass.Medium, SizeClass.Medium, 0f, 0f),
+            })
+            {
+                var (r, e) = Odds(a, b);
+                Check(Math.Abs(r - runt) < 2.5f && Math.Abs(e - enormous) < 2.5f, $"bred {a} x {b}: runt {r:0.0}% (about {runt}), enormous {e:0.0}% (about {enormous})");
+            }
+            var (_, grown) = Odds(SizeClass.Huge, SizeClass.Huge, bornA: SizeClass.Large);
+            Check(grown == 0, $"a beast a draught made huge breeds as the size it was born: enormous {grown:0.0}%");
+
+            // The lab's draughts.
+            Ranching.Ranch.SavePath = "user://size_test.json";
+            var ranch = Ranching.Ranch.New();
+            ranch.Chem = 5000;
+            Creature Natural(SizeClass size, ulong from)
+            {
+                for (ulong k = from; ; k++)
+                    if (Species.Generate(SeededRng.Derive(0x5122, k)) is { Strain: Strain.Natural } sp) { var c = Creature.Specimen(sp, 0); c.Size = size; c.Augments.Clear(); return c; }
+            }
+            const string grow = "growth_draught", shrink = "shrinking_draught";
+            int mid = ranch.Add(Natural(SizeClass.Medium, 0));
+            var tierBefore = Classes.TierBook.Of(ranch.Get(mid));
+            GD.Print("  " + Ranching.Lab.Resize(ranch, mid, grow));
+            var rec = ranch.Record(mid);
+            Check(rec.Size == SizeClass.Large && rec.BirthSize == SizeClass.Medium && rec.Steeping, "a growth draught: medium to large, born medium, steeping");
+            Check(Classes.TierBook.Of(ranch.Get(mid)) == Classes.Tier.Infused, $"it's infused after ({tierBefore} before)");
+            GD.Print("  " + Ranching.Lab.Resize(ranch, mid, grow));
+            Check(rec.Size == SizeClass.Large, "a second growth draught is refused: one size either way of its birth");
+            GD.Print("  " + Ranching.Lab.Resize(ranch, mid, shrink));
+            Check(rec.Size == SizeClass.Medium && rec.BirthSize == null && Classes.TierBook.Of(ranch.Get(mid)) == tierBefore, "shrunk back: medium again, its tier as it was");
+            Ranching.Lab.Resize(ranch, mid, shrink);
+            Check(rec.Size == SizeClass.Small, "a shrinking draught: medium to small");
+            int tiny = ranch.Add(Natural(SizeClass.Tiny, 50)), huge = ranch.Add(Natural(SizeClass.Huge, 100)), large = ranch.Add(Natural(SizeClass.Large, 150));
+            GD.Print("  " + Ranching.Lab.Resize(ranch, tiny, shrink));
+            Check(ranch.Record(tiny).Size == SizeClass.Tiny, "no draught makes a runt");
+            GD.Print("  " + Ranching.Lab.Resize(ranch, huge, grow));
+            Check(ranch.Record(huge).Size == SizeClass.Huge, "no draught makes a beast enormous");
+            Check(Tactics.Unit.From(ranch.Get(large), Tactics.Side.Player).Size == 1, "a large beast takes one tile");
+            GD.Print("  " + Ranching.Lab.Resize(ranch, large, grow));
+            Check(Tactics.Unit.From(ranch.Get(large), Tactics.Side.Player).Size == 2, "grown huge, it takes 2x2 tiles");
+            int big = ranch.Add(At(SizeClass.Enormous, 3));
+            Ranching.Lab.Resize(ranch, big, shrink);
+            Check(ranch.Record(big).Size == SizeClass.Huge, "an enormous beast can be shrunk to huge");
+            Ranching.Lab.Resize(ranch, big, grow);
+            Check(ranch.Record(big).Size == SizeClass.Enormous && ranch.Record(big).BirthSize == null, "and grown back to the size it was born");
+            Ranching.Lab.Resize(ranch, big, shrink);
+            var breedsAs = ranch.Record(big).ToCreature(augmented: false);
+            Check(breedsAs.Size == SizeClass.Huge && breedsAs.BirthSize == SizeClass.Enormous, "breeding reads its birth size");
+
+            // The save: sizes and birth sizes come back; a save from before birth sizes loads with none.
+            ranch.Save();
+            var back = Ranching.Ranch.Load();
+            Check(ranch.Creatures.All(r => back.Record(r.Id).Size == r.Size && back.Record(r.Id).BirthSize == r.BirthSize), "sizes and birth sizes survive a save");
+            string path = ProjectSettings.GlobalizePath(Ranching.Ranch.SavePath);
+            string old = System.Text.RegularExpressions.Regex.Replace(System.IO.File.ReadAllText(path), "\\s*\"BirthSize\": [^,\\n]+,", "");
+            System.IO.File.WriteAllText(path, old);
+            var oldSave = Ranching.Ranch.Load();
+            Check(!old.Contains("BirthSize") && oldSave.Creatures.Count == ranch.Creatures.Count && oldSave.Creatures.All(r => r.BirthSize == null && r.Size == ranch.Record(r.Id).Size), "a save without birth sizes loads, sizes kept");
+            GD.Print(fails.Count == 0 ? "sizetest: all checks passed" : $"sizetest: {fails.Count} FAILED: {string.Join("; ", fails)}");
             GetTree().Quit();
             return;
         }
@@ -1868,7 +2004,9 @@ public partial class GameRoot : Node
             }
             // --bag: a few shop items in the bag, to see them in the command bar.
             System.Action<Tactics.Battle> bag = args.ContainsKey("bag") ? b => b.Pack(new Dictionary<string, int> { ["snare_net"] = 3, ["soothing_chime"] = 1, ["tonic"] = 2, ["smelling_salts"] = 1 }) : null;
-            _home = () => new Tactics.BattleScreen { Seed = seed, Mission = duel, Prepare = bag, AutoPlay = _autoPlay, DemoAim = args.ContainsKey("aim"), DemoFx = args.ContainsKey("fxdemo"), DemoSignatures = args.TryGetValue("fxdemo", out var fxWhich) && fxWhich == "signature", DemoShiny = args.ContainsKey("shiny"), TurnSeconds = args.TryGetValue("timer", out var timerArg) && float.TryParse(timerArg, out var timerSeconds) ? timerSeconds : 0, MapName = args.TryGetValue("map", out var mapName) ? mapName : "Undercity Foundry" };
+            // --sizedemo: your squad is one species at every size, runt to enormous.
+            var sizeSquad = args.ContainsKey("sizedemo") ? SizeDemo().Select(c => (c, Classes.Training.Starter("Brawler"))).ToList() : null;
+            _home = () => new Tactics.BattleScreen { Seed = seed, Mission = duel, Squad = sizeSquad, Prepare = bag, AutoPlay = _autoPlay, DemoAim = args.ContainsKey("aim"), DemoFx = args.ContainsKey("fxdemo"), DemoSignatures = args.TryGetValue("fxdemo", out var fxWhich) && fxWhich == "signature", DemoShiny = args.ContainsKey("shiny"), TurnSeconds = args.TryGetValue("timer", out var timerArg) && float.TryParse(timerArg, out var timerSeconds) ? timerSeconds : 0, MapName = args.TryGetValue("map", out var mapName) ? mapName : "Undercity Foundry" };
             Show(_home());
             return;
         }
@@ -1877,7 +2015,7 @@ public partial class GameRoot : Node
         // --slots=NAME keeps the slots in other files.
         _home = () => Base(new List<int>());
         if (args.TryGetValue("slots", out var slotName) && slotName != "") Ranching.Ranch.SlotPrefix = $"user://{slotName}";
-        string[] direct = { "save", "newranch", "autoplay", "station", "labmode", "jobsmode", "partymode", "vatdemo", "scene", "mapmode", "boardmode", "dispatchdemo", "shopdemo", "goto", "choicedemo", "encounter", "losses", "select", "pause" };
+        string[] direct = { "save", "newranch", "sizedemo", "autoplay", "station", "labmode", "jobsmode", "partymode", "vatdemo", "scene", "mapmode", "boardmode", "dispatchdemo", "shopdemo", "goto", "choicedemo", "encounter", "losses", "select", "pause" };
         if (args.ContainsKey("title") || !direct.Any(args.ContainsKey))
         {
             _titlePanel = args.GetValueOrDefault("title");
@@ -1895,6 +2033,9 @@ public partial class GameRoot : Node
         if (args.TryGetValue("cursor", out var cursorArg) && cursorArg.Split(',') is [var cx, var cy] && int.TryParse(cx, out int cxi) && int.TryParse(cy, out int cyi))
             _demoCursor = new Vector2I(cxi, cyi);
         _ranch = args.ContainsKey("newranch") ? Ranching.Ranch.New() : Ranching.Ranch.Load();
+        // --sizedemo: one species at every size, runt to enormous, in the pens and named for their sizes (screenshots; use it with --save=NAME).
+        if (args.ContainsKey("sizedemo"))
+            foreach (var c in SizeDemo()) { c.Nickname = SizeInfo.Word(c.Size); _ranch.Add(c); }
         // --choicedemo: a main mission's choice waiting (screenshots; use it with --save=NAME).
         if (args.ContainsKey("choicedemo")) _ranch.Pending ??= "main_foundry";
         // --encounter=E jumps the ranch ahead (for looking at later boards; use it with --save=NAME).
@@ -2083,6 +2224,18 @@ public partial class GameRoot : Node
         if (open.Count == 0) return;
         t.Class = open.FirstOrDefault(k => Classes.ClassBook.Favoured(c, k)) ?? open[0];
         t.Secondary = t.Jp.Keys.Where(k => k != t.Class && t.LearnedIn(k) > 0).OrderByDescending(t.LearnedIn).ThenByDescending(t.JpIn).FirstOrDefault();
+    }
+
+    /// <summary>One natural hound at every size, runt to enormous (--sizedemo).</summary>
+    static List<Creature> SizeDemo()
+    {
+        for (ulong seed = 1; ; seed++)
+        {
+            var sp = Species.Generate(seed);
+            if (sp.Plan != BodyPlan.Quadruped || sp.Strain != Strain.Natural) continue;
+            sp.Form = Form.Hound;
+            return Enum.GetValues<SizeClass>().Select(size => { var c = Creature.Specimen(sp, 0); c.Size = size; return c; }).ToList();
+        }
     }
 
     static void Export(string file, List<Creature> creatures, int from, bool four, int scale, int columns)

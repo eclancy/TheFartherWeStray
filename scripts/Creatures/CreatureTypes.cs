@@ -6,7 +6,12 @@ namespace TheFartherWeStray.Creatures;
 
 public enum BodyPlan { Quadruped, Biped, Serpent, Avian, Insectoid, Aquatic, Blob }
 
-public enum SizeClass { Tiny, Small, Medium, Large, Huge }
+/// <summary>
+/// How big a creature is. Wild ones are tiny to huge; a runt or an enormous one only comes from
+/// breeding two particularly small or large parents (the user's call, 2026-11-07). Saves store the
+/// name, so the order can grow at either end.
+/// </summary>
+public enum SizeClass { Runt, Tiny, Small, Medium, Large, Huge, Enormous }
 
 /// <summary>
 /// The kind of beast within a body plan: its silhouette and proportions (a lean hound, a long-legged
@@ -91,34 +96,65 @@ public record struct PartSet(
     HeadShape Head, Ears Ears, EyeKind Eyes, Horns Horns, Back Back,
     Limbs Limbs, Tail Tail, Wings Wings, Pattern Pattern);
 
+/// <summary>What a size does: its stats in battle and how big it's drawn.</summary>
+/// <param name="Hp">Max HP multiplier.</param>
+/// <param name="Evade">How much harder it is to hit, in percent.</param>
+/// <param name="Pixels">Nominal sprite size; a medium creature fills a Gen 3 sized (64 px) sprite.</param>
+/// <param name="Head">Head size, kept close to 1: big heads read as cute, and these should read as dangerous.</param>
+/// <param name="Tiles">Its footprint's side in tiles.</param>
+public readonly record struct SizeStats(float Hp, int Atk, int Spd, int Move, int Evade, int Pixels, float Head, int Tiles);
+
 public static class SizeInfo
 {
-    /// <summary>Nominal sprite size in pixels; a medium creature fills a Gen 3 sized (64 px) sprite.</summary>
-    public static int Pixels(SizeClass s) => s switch
+    /// <summary>
+    /// Each size's stats. The user's calls (2026-11-07): a smaller HP swing than before (tiny was x0.6,
+    /// huge x1.6), tiny harder to hit, and the breed-only sizes past each end carry HP, ATK and SPD on
+    /// while keeping the end's own extra: a runt evades like a tiny one, an enormous one is slow like a
+    /// huge one. Huge and enormous creatures take 2x2 tiles.
+    /// </summary>
+    public static SizeStats Stats(SizeClass s) => s switch
     {
-        SizeClass.Tiny => 36,
-        SizeClass.Small => 46,
-        SizeClass.Medium => 56,
-        SizeClass.Large => 68,
-        _ => 86,
+        SizeClass.Runt => new(0.7f, -3, 3, 0, 10, 30, 1.08f, 1),
+        SizeClass.Tiny => new(0.8f, -2, 2, 0, 10, 36, 1.05f, 1),
+        SizeClass.Small => new(0.9f, -1, 1, 0, 0, 46, 1.0f, 1),
+        SizeClass.Medium => new(1f, 0, 0, 0, 0, 56, 0.94f, 1),
+        SizeClass.Large => new(1.12f, 1, -1, 0, 0, 68, 0.88f, 1),
+        SizeClass.Huge => new(1.25f, 2, -2, -1, 0, 86, 0.82f, 2),
+        _ => new(1.4f, 3, -3, -1, 0, 102, 0.78f, 2),
     };
 
-    /// <summary>Head size by size class. Kept close to 1: big heads read as cute, and these should read as dangerous.</summary>
-    public static float HeadScale(SizeClass s) => s switch
-    {
-        SizeClass.Tiny => 1.05f,
-        SizeClass.Small => 1.0f,
-        SizeClass.Medium => 0.94f,
-        SizeClass.Large => 0.88f,
-        _ => 0.82f,
-    };
+    public static int Pixels(SizeClass s) => Stats(s).Pixels;
+    public static float HeadScale(SizeClass s) => Stats(s).Head;
+    /// <summary>How many tiles a side its footprint is: 2 for huge and enormous creatures.</summary>
+    public static int Tiles(SizeClass s) => Stats(s).Tiles;
 
-    public static string Footprint(SizeClass s) => s switch
+    /// <summary>The sizes past each end, which only breeding makes.</summary>
+    public static bool BredOnly(SizeClass s) => s is SizeClass.Runt or SizeClass.Enormous;
+
+    /// <summary>Its size as a word on screen.</summary>
+    public static string Word(SizeClass s) => s.ToString().ToLowerInvariant();
+
+    /// <summary>Steps from tiny (0) to huge (4), as breeding has always counted them; a runt is -1, an enormous one 5.</summary>
+    public static int Step(SizeClass s) => (int)s - (int)SizeClass.Tiny;
+    public static SizeClass FromStep(int step) => (SizeClass)System.Math.Clamp(step + (int)SizeClass.Tiny, (int)SizeClass.Runt, (int)SizeClass.Enormous);
+
+    public static string Footprint(SizeClass s) => Tiles(s) > 1 ? $"{Tiles(s)}x{Tiles(s)} tiles" : "1 tile";
+
+    /// <summary>What it does in battle, in short: for tooltips.</summary>
+    public static string Describe(SizeClass s)
     {
-        SizeClass.Tiny => "shares a tile",
-        SizeClass.Huge => "2x2 tiles",
-        _ => "1 tile",
-    };
+        var st = Stats(s);
+        var bits = new System.Collections.Generic.List<string>();
+        if (st.Hp != 1) bits.Add($"max HP x{st.Hp:0.##}");
+        if (st.Atk != 0) bits.Add($"ATK {st.Atk:+0;-0}");
+        if (st.Spd != 0) bits.Add($"SPD {st.Spd:+0;-0}");
+        if (st.Move != 0) bits.Add($"MOVE {st.Move:+0;-0}");
+        if (st.Evade != 0) bits.Add($"{st.Evade}% harder to hit");
+        if (st.Tiles > 1) bits.Add($"takes {Footprint(s)}");
+        string word = Word(s);
+        return $"{char.ToUpperInvariant(word[0])}{word[1..]}: {(bits.Count == 0 ? "no change to its stats" : string.Join(", ", bits))}."
+            + (BredOnly(s) ? " Only breeding makes one." : "");
+    }
 }
 
 public static class AttitudeInfo

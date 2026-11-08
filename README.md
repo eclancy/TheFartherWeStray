@@ -212,6 +212,9 @@ Press **L** at the ranch (or the Lab button). The lab changes parts without bree
 in **chem**. You earn chem each battle: 8 for a win, 2 for a loss, 2 for every wild creature driven
 off, and 5 for each creature you release.
 - **Infusions:** tune its stats, an upside and a trade-off each, two at a time (30 chem each).
+- **Size draughts:** a Growth or Shrinking Draught makes it a size bigger or smaller (40 chem, no
+  infusion slot), at most one size either way of the size it was born. Breeding still reads the
+  size it was born.
 - **Splices:** give it another species' ability, from any kind of creature you've met (50 chem, up
   to two); it becomes a chimera and its line carries the ability.
 - **Part grafts:** swap a part slot (horns, wings, shell...) for any variant in your **codex**,
@@ -232,6 +235,16 @@ The graft chamber previews the creature with the parts you're considering. Flesh
 grafts belong to that one creature: breeding passes on the parts it was born with. Infusions are
 blood, so the line carries them.
 
+### Sizes
+
+Every creature is runt, tiny, small, medium, large, huge or enormous.
+- **Stats:** the bigger it is, the more HP and ATK it has and the less SPD.
+- **Small ones:** tiny ones and runts are 10% harder to hit.
+- **Big ones:** huge and enormous ones move a tile less and take 2x2 tiles.
+- **Strays** are tiny to huge, near their kind's natural size.
+- **Runts and enormous beasts come only from breeding** two parents that are both tiny or smaller,
+  or both huge or bigger. The more of the parents already are one, the better the odds.
+
 ### Creature tiers
 
 On screen, the creatures you've tamed are **your beasts**, and ones nobody has caught are
@@ -241,7 +254,7 @@ A creature goes by the most extreme thing done to it, shown as a chip on the pen
 - **Stray:** wild, nobody has caught it.
 - **Thoroughbred:** caught and left natural. It gets a bonus from its species: its kind's ability
   (a hound's Pack Blood, a drake's Dragon Hide, a wraith's Unseen...) and a touch of its element.
-- **Infused:** its stats tuned at the lab with infusions (Rage Serum: ATK +2, DEF -1; Bulk Tonic:
+- **Infused:** its stats or its size tuned at the lab (Rage Serum: ATK +2, DEF -1; Bulk Tonic:
   max HP +20%, SPD -1...; two at a time), or new blood put in.
 - **Chimera:** it carries the abilities of other species: bred from two different bloods (it takes
   the other parent's kind), or an ability spliced in at the lab from a kind you've met, or a part
@@ -349,8 +362,8 @@ sea, crystal caverns, the fields round your base. The surroundings are scenery, 
 than the battlefield; only the battlefield can be walked.
 
 Parts become stats: whip tails reach 2 tiles, horns and hooves knock back, spines hurt melee
-attackers, shells add defence but cost movement, high ground hits harder, and huge creatures
-take 2x2 tiles.
+attackers, shells add defence but cost movement, high ground hits harder, huge and enormous
+creatures take 2x2 tiles, and tiny ones and runts are harder to hit.
 
 Attitude is a reaction: aggressive creatures counterattack, skittish ones retreat a tile when
 hit, and a loyal one shields an adjacent ally once a round. Curious creatures grab items in

@@ -261,6 +261,7 @@ public sealed class Creature
     public Species Species;
     public ulong Seed;
     public SizeClass Size;
+    public SizeClass? BirthSize;      // the size it was born with, if a lab draught has changed it (breeding uses this)
     public Attitude Attitude;
     public PartSet Parts;
     public PartSet? BirthParts;       // the parts it was born with, if the lab has grafted any (breeding uses these)
@@ -285,8 +286,10 @@ public sealed class Creature
         var rng = new SeededRng(seed);
         var c = new Creature { Species = species, Seed = seed, Parts = species.Parts };
 
+        // A step either side of its kind's size now and then, never out past tiny or huge: runts and
+        // enormous ones come only from breeding (a kind bred that way keeps its own size in reach).
         int size = (int)species.BaseSize + rng.Weighted((0, 7f), (-1, 1.5f), (1, 1.5f));
-        c.Size = (SizeClass)Math.Clamp(size, 0, (int)SizeClass.Huge);
+        c.Size = (SizeClass)Math.Clamp(size, Math.Min((int)SizeClass.Tiny, (int)species.BaseSize), Math.Max((int)SizeClass.Huge, (int)species.BaseSize));
         c.Attitude = rng.Chance(0.55f) ? species.CommonAttitude : (Attitude)rng.Int(Enum.GetValues<Attitude>().Length);
         c.BodyJitter = rng.Range(0.95f, 1.05f);
         c.LegJitter = rng.Range(0.94f, 1.06f);

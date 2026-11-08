@@ -863,7 +863,6 @@ public partial class BattleScreen : Control
         }
     }
 
-    static readonly string[] SizeWords = { "tiny", "small", "medium", "large", "huge" };
 
     void UnitRows(Unit u)
     {
@@ -883,8 +882,11 @@ public partial class BattleScreen : Control
         var names = new VBoxContainer { SizeFlagsVertical = SizeFlags.ShrinkCenter };
         names.AddThemeConstantOverride("separation", 0);
         names.AddChild(UI.Ui.Text(u.Name, 22, u.Side == Side.Player ? Cyan : Magenta));
-        string what = $"{SizeWords[(int)c.Size]} {c.Species.Plan.ToString().ToLowerInvariant()}" + (c.Species.Strain != Strain.Natural ? $" · {c.Species.Strain.Label().ToLowerInvariant()}" : "");
-        names.AddChild(UI.Ui.Text(what, 15, Dim, 4));
+        string what = $"{SizeInfo.Word(c.Size)} {c.Species.Plan.ToString().ToLowerInvariant()}" + (c.Species.Strain != Strain.Natural ? $" · {c.Species.Strain.Label().ToLowerInvariant()}" : "");
+        var whatLabel = UI.Ui.Text(what, 15, Dim, 4);
+        whatLabel.MouseFilter = MouseFilterEnum.Stop;
+        whatLabel.TooltipText = SizeInfo.Describe(c.Size); // what its size does
+        names.AddChild(whatLabel);
         head.AddChild(names);
         _info.AddChild(head);
 
@@ -1476,7 +1478,7 @@ public partial class UnitView : Actor
     /// <summary>A sound's pitch for a creature's size: big ones lower and heavier.</summary>
     public static float Heft(Unit u) => u.Creature.Size switch
     {
-        SizeClass.Tiny => 1.35f, SizeClass.Small => 1.15f, SizeClass.Large => 0.85f, SizeClass.Huge => 0.7f, _ => 1f,
+        SizeClass.Runt => 1.5f, SizeClass.Tiny => 1.35f, SizeClass.Small => 1.15f, SizeClass.Large => 0.85f, SizeClass.Huge => 0.7f, SizeClass.Enormous => 0.6f, _ => 1f,
     };
 
     public void Hurt(int amount, bool miss)

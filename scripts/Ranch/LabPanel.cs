@@ -26,7 +26,7 @@ public partial class LabPanel : Control
     /// <summary>The tabs, least change first as the tiers go; the jargon (what it makes the beast) lives in the tooltip.</summary>
     static readonly (string Id, string Label, string Tip)[] Tabs =
     {
-        ("infuse", "Infuse", "Infusions tune its stats: an upside and a trade-off each, two at a time (a third washes out the oldest).\nMakes it infused · not inherited"),
+        ("infuse", "Infuse", "Infusions tune its stats: an upside and a trade-off each, two at a time (a third washes out the oldest). Size draughts make it a size bigger or smaller, one either way of the size it was born.\nMakes it infused · not inherited"),
         ("blood", "Blood", "New blood gives a natural creature a strain of its own.\nMakes it infused · its line carries it"),
         ("splice", "Splice", "A splice adds the ability of another kind of creature you've met in battle, two at most (a third replaces the oldest).\nMakes it a chimera · its line carries it"),
         ("augment", "Augment", "Augments come from undercity shops and are fitted here, two to a beast: abilities no natural creature has.\nRigs it: chem upkeep after each battle, and it learns slower · not inherited"),
@@ -167,6 +167,26 @@ public partial class LabPanel : Control
             draughts.AddChild(b);
         }
         _rows.AddChild(draughts);
+
+        // Size draughts: a size bigger or smaller, one either way of the size it was born; no slot.
+        var sizes = Flow();
+        var born = rec.BirthSize ?? rec.Size;
+        var now = Text(SizeInfo.Word(rec.Size) + (born != rec.Size ? $" · born {SizeInfo.Word(born)}" : ""), 0, Ink);
+        now.ClipText = false;
+        now.MouseFilter = MouseFilterEnum.Pass;
+        now.TooltipText = SizeInfo.Describe(rec.Size);
+        sizes.AddChild(now);
+        foreach (var d in Classes.InfusionBook.Sizes)
+        {
+            string did = d.Id;
+            var (to, why) = Lab.Resized(rec, d);
+            int brew = Farmyard.LabPrice(Ranch, d.Cost);
+            var b = Btn($"{d.Name}  {brew}", to != null && Ranch.Chem >= brew, () => Finish(Lab.Resize(Ranch, id, did)), 0, "size:" + did);
+            b.Icon = Flask;
+            b.TooltipText = to is { } size ? $"{SizeInfo.Word(rec.Size)} to {SizeInfo.Word(size)}. {SizeInfo.Describe(size)}\nUses no infusion slot; its line breeds from the size it was born." : why;
+            sizes.AddChild(b);
+        }
+        _rows.AddChild(sizes);
     }
 
     /// <summary>New blood: a strain of its own for a natural creature; its line carries it.</summary>
@@ -321,7 +341,7 @@ public partial class LabPanel : Control
         DrawRect(new Rect2(28, 24, Size.X - 56, 14), brass);
         DrawRect(new Rect2(28, glass.End.Y - 4, Size.X - 56, 14), brass);
 
-        int z = _preview.GetWidth() * 3 <= glass.Size.X - 20 && _preview.GetHeight() * 3 <= glass.Size.Y - 16 ? 3 : 2;
+        float z = Mathf.Max(2, CreatureSculptor.FitZoom(_preview.GetSize(), glass.Size - new Vector2(20, 16), 3));
         var ts = _preview.GetSize() * z;
         DrawTextureRect(_preview, new Rect2(new Vector2(Mathf.Round(Size.X / 2 - ts.X / 2), glass.End.Y - 10 - ts.Y), ts), false);
     }

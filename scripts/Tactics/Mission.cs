@@ -174,7 +174,7 @@ public sealed class Mission
         {
             // The alpha: the biggest of the pack, grown a size bigger still.
             target = pack.OrderByDescending(c => c.Size).First();
-            target.Size = (SizeClass)Math.Min((int)SizeClass.Huge, (int)target.Size + 1);
+            target.Size = (SizeClass)Math.Max((int)target.Size, Math.Min((int)SizeClass.Huge, (int)target.Size + 1));
         }
         return (pack, target);
     }

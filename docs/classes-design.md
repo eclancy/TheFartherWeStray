@@ -61,7 +61,8 @@ a lever). A hoofed quadruped can't tinker until claws are bred or grafted in.
 | **Titan** | Brawler + Guardian | huge size | a living siege engine | Stomp (area stun), Shrug Off (cleanse and DEF up), Toss (throw a foe 3 tiles) |
 | **Trickster** | Skirmisher + Mystic | tiny size | slips past everything | Blink (teleport 4), Pilfer (steal a buff), Vanish (can't be targeted for a turn) |
 
-Size counts as a part: breed toward huge or tiny on purpose. Swimming comes from the body plan
+Size counts as a part: breed toward huge or tiny on purpose (an enormous beast counts as huge, a
+runt as tiny). Swimming comes from the body plan
 (serpent, aquatic), so a Leviathan line has to start from one.
 
 ## 3. Blood classes (advanced, need 2 base skills and a strain)

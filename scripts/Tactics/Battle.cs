@@ -446,7 +446,7 @@ public sealed partial class Battle
         int dmg = Math.Max(1, Mathf.RoundToInt((atk * 1.5f - t.DefNow * 0.75f) * mult));
         int hit = 85 + (a.SpdNow - t.SpdNow) * 3 + a.HitBonus + (heightDiff > 0 ? 5 : 0) - t.Mod(StatKind.Evade);
         if (t.Attitude == Attitude.Skittish) hit -= 15;
-        if (t.Creature.Size == SizeClass.Tiny && Map.TerrainAt(t.Pos) == Terrain.Grass) hit -= 10; // hides in the moss
+        if (t.Creature.Size <= SizeClass.Tiny && Map.TerrainAt(t.Pos) == Terrain.Grass) hit -= 10; // hides in the moss
         return (dmg, Math.Clamp(hit, 30, 98));
     }
 

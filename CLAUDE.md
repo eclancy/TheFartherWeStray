@@ -207,6 +207,29 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   two-vat breeding (one child per pair; parents rest until the next battle), and the
   ranch-battle-ranch loop. Bred species exist only in the save, so `CreatureRecord` stores the
   whole `Species`.
+- **Sizes (2026-11-07, the user's calls, built):** seven, runt, tiny, small, medium, large, huge,
+  enormous (`SizeClass`; `SizeInfo.Stats` holds each one's HP multiplier, ATK, SPD, MOVE, evasion,
+  sprite size and footprint).
+  - **What a size does:** HP swings x0.7 to x1.4; ATK runs -3 to +3 and SPD +3 to -3.
+    Tiny ones and runts are 10% harder to hit (in `Unit.Mod`). Huge and enormous ones get MOVE -1
+    and take 2x2 tiles. The sprite is re-sculpted at the size (30 to 102 px), never stretched.
+  - **Where sizes come from:** a species has a natural size, and each stray rolls one step either
+    side of it now and then, never past tiny or huge.
+  - **Runts and enormous beasts come only from breeding** (`Breeding.ChildSize`, `PastTheEnd`).
+    Two parents both huge or bigger can make an enormous child: about 9% for two huge parents,
+    30% with one enormous parent, 50% with two. Runts come the same way from parents both tiny
+    or smaller.
+  - **Size draughts at the lab** (`InfusionBook.Sizes`, `Lab.Resize`, a row on the Infuse tab):
+    Growth and Shrinking Draughts move a beast one size, using no infusion slot.
+    - They reach one size either way of the size it was born, and never make a runt or an
+      enormous beast.
+    - It steeps, and it's infused.
+    - `CreatureRecord.BirthSize` keeps the size it was born, which is what breeding reads.
+  - **Saves** store the size's name, so the enum can grow at either end; compare sizes by name
+    or with `SizeInfo.Step`, never a raw number. Old saves keep their sizes.
+  - `--sizetest` checks it all headless. `--sizes` writes `.shots/sizes.png` (six forms at every
+    size). `--sizedemo` puts a hound of every size in the pens (`--save=X --newranch`) or in your
+    squad (`--battle=N`).
 - Jobs (`scripts/Classes/Classes.cs`, `docs/classes-design.md`): 51 classes (9 base, 31 part,
   form, aura or temperament, 7 signature, 4 blood; the form and aura classes need a `Form` such as
   the hydra, or that form's ability spliced into a chimera (`ClassBook.HasForm`), or an `Aura` such
@@ -423,7 +446,9 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   (`Ranch.TiersFlag`).
   With species bonuses and chimera abilities (2026-11-02): rival duels 47% straight, 65% after a
   loss, 87% after two; captures proud 10/10, skittish 9, curious 10, aggressive 8, loyal 8; battles
-  3 to 9 rounds; no stalls.
+  3 to 9 rounds; no stalls. With the sizes' smaller HP swing and tiny evasion (2026-11-07): duels
+  45%, 66%, 87%; captures proud 9, skittish 9, curious 10, aggressive 8, loyal 8; autobattles 5 to
+  10 rounds; no stalls.
 - **Traits and augments (2026-11-02, built; the user's city/undercity split):** traits
   (`Classes/Traits.cs`) are biological, born with (`Creature.Traits`, rolled from the seed for
   wild ones) and passed down (`TraitBook.Inherit` in `Breeding`), each a passive merged into
@@ -555,7 +580,8 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
 - **Ranch and save file:** `--ranchtest` (headless) must report every creature identical after a
   save and load. Run it after touching `Species`, `Creature`, `PaletteSpec` or the painter's
   inputs. `--breeding=N` writes a sheet of parents and children. Use `--save=NAME` for anything
-  that saves, so the user's `user://ranch.json` is never touched.
+  that saves, so the user's `user://ranch.json` is never touched. After touching sizes, run
+  `--sizetest` too.
 - **Sprites:** `"$GODOT_BIN" --headless --path . -- --forms --medium` (every form, front and back,
   on board tiles; `--scale=4` for close-ups) or `--views=N` (sheet N), then look at `.shots/`.
   `--export=.shots/x.png --sheet=1` still writes the front views. `--only=Lung,Jelly` narrows

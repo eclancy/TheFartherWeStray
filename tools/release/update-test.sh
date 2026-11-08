@@ -121,7 +121,7 @@ try:
     from SimpleHTTPServer import SimpleHTTPRequestHandler
 except ImportError:
     from http.server import HTTPServer, SimpleHTTPRequestHandler
-root, port_file, log_file = sys.argv[1:4]
+root, port_file, log_file = [os.path.abspath(p) for p in sys.argv[1:4]]
 log = open(log_file, "a")
 class Handler(SimpleHTTPRequestHandler):
     def log_message(self, fmt, *args):

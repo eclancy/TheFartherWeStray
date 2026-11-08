@@ -1,9 +1,10 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
 using System.Text.Json;
-using System.Threading.Tasks;
+using System.Threading;
 using Godot;
 using HttpClient = System.Net.Http.HttpClient;
 
@@ -25,6 +26,12 @@ namespace TheFartherWeStray.UI;
 /// when it's done; nothing on the title takes input meanwhile. Every failure, from no internet
 /// onwards, just goes to the title. An update is never worth not being able to play. Android can't
 /// replace itself, so it has <see cref="UpdateBanner"/> instead.
+///
+/// The check runs on a thread of its own with blocking calls, never on .NET's shared thread pool:
+/// every creature on the title renders its frames in a long task there (<c>Actor</c>), and so does
+/// the music, and an async check queued behind them ran out its time (2026-11-07: a copy just
+/// updated from 0.3.0 to 0.4.0 timed out at five seconds where curl took one). Each check logs how
+/// long it took. <c>tools/release/update-test.sh</c> plays a whole update against a local server.
 /// </summary>
 public partial class UpdateScreen : Control
 {
@@ -35,6 +42,9 @@ public partial class UpdateScreen : Control
     public const string UrlOverrideVariable = "THEFARTHERWESTRAY_UPDATE_URL";
 
     public static string UserAgent => $"TheFartherWeStray/{CurrentVersion}";
+
+    /// <summary>How long the check may hold the title: version.json is three redirects away (ecec.dev, then GitHub's latest, then its file host), about a second on a good line.</summary>
+    const int CheckSeconds = 8;
 
     public static string CurrentVersion => ProjectSettings.GetSetting("application/config/version", "0.0.0").AsString();
 
@@ -114,7 +124,7 @@ public partial class UpdateScreen : Control
         _barFill = new ColorRect { Color = Ui.Cyan, Position = _barBack.Position, Size = new Vector2(0, BarHeight), Visible = false, MouseFilter = MouseFilterEnum.Ignore };
         AddChild(_barBack);
         AddChild(_barFill);
-        Task.Run(Work);
+        new Thread(Work) { IsBackground = true, Name = "Update check" }.Start();
     }
 
     Label Centred(Label l, float y, float width)
@@ -175,31 +185,36 @@ public partial class UpdateScreen : Control
 
     // ------------------------------------------------------------------ the worker
 
-    async Task Work()
+    readonly Stopwatch _clock = new();
+
+    void Work()
     {
+        _clock.Start();
         try
         {
-            _phase = await Update() ? Phase.Restart : Phase.Done;
+            _phase = Update() ? Phase.Restart : Phase.Done;
         }
         catch (Exception e)
         {
-            GD.Print($"UpdateScreen: no update ({e.GetType().Name}: {e.Message})");
+            GD.Print($"UpdateScreen: no update ({e.GetType().Name}: {e.Message}) after {Seconds}");
             _phase = Phase.Done;
         }
     }
 
+    string Seconds => $"{_clock.Elapsed.TotalSeconds:0.0} s";
+
     /// <summary>True when a new version is unpacked and the restart script is written.</summary>
-    async Task<bool> Update()
+    bool Update()
     {
         string test = TestArg();
         string url = OS.GetEnvironment(UrlOverrideVariable);
         if (string.IsNullOrEmpty(url)) url = VersionUrl;
-        using var doc = JsonDocument.Parse(test != null ? TestReleaseJson(test) : await FetchVersionJson(url));
+        using var doc = JsonDocument.Parse(test != null ? TestReleaseJson(test) : FetchVersionJson(url));
         var release = doc.RootElement;
         string latest = release.GetProperty("version").GetString() ?? "";
         if (!IsNewer(latest, CurrentVersion))
         {
-            GD.Print($"UpdateScreen: {CurrentVersion} is up to date");
+            GD.Print($"UpdateScreen: {CurrentVersion} is up to date (checked in {Seconds})");
             return false;
         }
         string installDir = Path.GetDirectoryName(OS.GetExecutablePath());
@@ -221,16 +236,17 @@ public partial class UpdateScreen : Control
         {
             GD.Print($"UpdateScreen: test release {latest}, nothing to download (--update-screen)");
             (_phase, _progress) = (Phase.Downloading, 0.6f); // as it looks part way, for screenshots
-            await Task.Delay(2500);
+            Thread.Sleep(2500);
             return false;
         }
+        GD.Print($"UpdateScreen: {latest} is out (checked in {Seconds}), getting the {(sameEngine ? "patch" : "full download")}");
         _phase = Phase.Downloading;
 
         string work = ProjectSettings.GlobalizePath("user://update");
         if (Directory.Exists(work)) Directory.Delete(work, true);
         Directory.CreateDirectory(work);
         string zip = Path.Combine(work, "update.zip");
-        await Download(url, zip);
+        Download(url, zip);
 
         _phase = Phase.Installing;
         string unpacked = Path.Combine(work, "files");
@@ -243,34 +259,38 @@ public partial class UpdateScreen : Control
         string from = Path.GetDirectoryName(pck);
         _applyScript = Path.Combine(work, "apply.cmd");
         File.WriteAllText(_applyScript, ApplyScript(from, installDir, OS.GetExecutablePath(), OS.GetProcessId()));
-        GD.Print($"UpdateScreen: {CurrentVersion} -> {latest} ready, restarting");
+        GD.Print($"UpdateScreen: {CurrentVersion} -> {latest} ready after {Seconds}, restarting");
         return true;
     }
 
-    static async Task<string> FetchVersionJson(string url)
+    // Blocking calls (HttpClient.Send), on the update's own thread: see the class's summary.
+    static string FetchVersionJson(string url)
     {
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(CheckSeconds) };
         http.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
-        return await http.GetStringAsync(url);
+        using var response = http.Send(new HttpRequestMessage(HttpMethod.Get, url));
+        response.EnsureSuccessStatusCode();
+        using var reader = new StreamReader(response.Content.ReadAsStream());
+        return reader.ReadToEnd();
     }
 
-    async Task Download(string url, string path)
+    void Download(string url, string path)
     {
-        // Its own client: the five seconds above are for the check, not for a full zip on a slow line.
+        // Its own client: the seconds above are for the check, not for a full zip on a slow line.
         using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
         http.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
-        using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+        using var response = http.Send(new HttpRequestMessage(HttpMethod.Get, url), HttpCompletionOption.ResponseHeadersRead);
         response.EnsureSuccessStatusCode();
         long total = response.Content.Headers.ContentLength ?? 0;
         _progress = 0;
-        using var source = await response.Content.ReadAsStreamAsync();
+        using var source = response.Content.ReadAsStream();
         using var target = File.Create(path);
         var buffer = new byte[81920];
         long done = 0;
         int read;
-        while ((read = await source.ReadAsync(buffer)) > 0)
+        while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
         {
-            await target.WriteAsync(buffer.AsMemory(0, read));
+            target.Write(buffer, 0, read);
             done += read;
             if (total > 0) _progress = done / (float)total;
         }

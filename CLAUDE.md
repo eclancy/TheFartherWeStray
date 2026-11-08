@@ -519,10 +519,15 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   (the user's ask): `UI/UpdateScreen.cs` over the title of an exported Windows build fetches
   `ecec.dev/the-farther-we-stray/version.json` (a redirect to the newest release's), downloads the
   patch (or the full zip on another engine) and restarts through `apply.cmd`; `UI/UpdateBanner.cs`
-  on Android shows a strip offering the APK. Every failure just goes to the title. `--no-update`,
-  `--update-screen=9.9.9`, `--update-banner=9.9.9`, `THEFARTHERWESTRAY_UPDATE_URL`. A release is
-  built from what's committed (docs aside). `tools/windows-build.sh` and `android-build.sh` stay
-  for one-off builds.
+  on Android shows a strip offering the APK (the APK must ask for the internet; 0.4.0 and older
+  didn't, so their phones never see one). Every failure just goes to the title. `--no-update`,
+  `--update-screen=9.9.9`, `--update-banner=9.9.9`, `THEFARTHERWESTRAY_UPDATE_URL`. **Every release
+  proves it** (the user's ask, 2026-11-07): `tools/release/update-test.sh` opens the newest
+  published release against the new build on a local server and it must update, restart and come
+  back byte-identical, before anything is committed; `--live=X.Y.Z` after publishing checks the
+  address every copy reads. Exported copies are run minimized, never headless (that crashes). A
+  release is built from what's committed (docs aside). `tools/windows-build.sh` and
+  `android-build.sh` stay for one-off builds.
 - **The game's page on ecec.dev** (`ecec.dev/games/the-farther-we-stray`, the user's ask 2026-11-03:
   its own style, like the other games' pages) is built from the game's own art: `--webkit[=DIR]`
   (`SpriteLab/WebKit.cs`, headless) writes a stray of every form (a strip of idle, strike, hurt and

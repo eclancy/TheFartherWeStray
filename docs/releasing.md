@@ -144,3 +144,11 @@ error), before or after its check. Windowed and minimized launches never did.
 
 Android isn't rehearsed: no phone is attached to the releasing machine. `release.sh` checks the APK
 asks for the internet, and `--live` that the APK the strip offers downloads.
+
+**Tested 2026-11-07.** Against the live address, unchanged: the published v0.3.0 portable zip, opened
+with a scratch `APPDATA`, updated itself to 0.4.0 and restarted, its `.pck` and DLL byte-identical to
+v0.4.0's patch. Then `release.sh --dry-run 0.4.1` from this branch: the published v0.4.0 took the
+0.4.1 patch from the local server, restarted and said `0.4.1 is up to date (checked in 1.5 s)`,
+byte-identical; the APK came out with `android.permission.INTERNET`, version code 401. Handing the
+test the 0.4.1 export itself as the old copy fails it (`0.4.1 is up to date`, nothing taken), and
+`--live=0.4.0` passed against the real address.

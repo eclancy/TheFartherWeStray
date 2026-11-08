@@ -61,29 +61,37 @@ public partial class StyleBoard : Control
         var head = Ui.Text("THE PENS", 26, UiSkin.Heading(Skin), 6);
         head.Position = new Vector2(30, 22);
         window.AddChild(head);
-        var squad = Encounter.StarterSquad().Select(x => x.Item1).Take(3).ToList();
-        for (int i = 0; i < squad.Count; i++)
+        // Four cards lit as the pens light them: the one chosen (gold), in the squad (cyan), in a vat (pink), out in the yard (green).
+        var squad = Encounter.StarterSquad().Select(x => x.Item1).ToList();
+        var lights = new (string tag, Color light, Color words)[]
         {
-            var state = i == 1 ? UiState.Focus : i == 2 ? UiState.Hover : UiState.Normal;
-            var card = Plate(UiPart.Button, state, new Vector2(186, 250));
-            card.Position = new Vector2(30 + i * 204, 72);
+            ("CHOSEN", Color.FromHtml("#f2c14e"), Ui.Gold), ("SQUAD", Color.FromHtml("#4fe3ff"), Ui.Cyan),
+            ("VAT A", Color.FromHtml("#ff4f9a"), Ui.Magenta), ("IN THE YARD", Color.FromHtml("#5fe08a"), Ui.Good),
+        };
+        for (int i = 0; i < lights.Length; i++)
+        {
+            var card = new Panel { Size = new Vector2(144, 250), Position = new Vector2(30 + i * 152, 72), MouseFilter = MouseFilterEnum.Ignore };
+            card.AddThemeStyleboxOverride("panel", UiSkin.Lit(UiPart.Button, lights[i].light, i == 0, Skin));
             window.AddChild(card);
+            var tag = Ui.Text(lights[i].tag, 13, lights[i].words, 4);
+            tag.Position = new Vector2(16, 12);
+            card.AddChild(tag);
             var pic = new TextureRect
             {
-                Texture = ImageTexture.CreateFromImage(CreaturePainter.Paint(squad[i], false)),
+                Texture = ImageTexture.CreateFromImage(CreaturePainter.Paint(squad[i % squad.Count], false)),
                 ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-                TextureFilter = TextureFilterEnum.Nearest, Size = new Vector2(150, 140), Position = new Vector2(18, 14), MouseFilter = MouseFilterEnum.Ignore,
+                TextureFilter = TextureFilterEnum.Nearest, Size = new Vector2(120, 120), Position = new Vector2(12, 36), MouseFilter = MouseFilterEnum.Ignore,
             };
             card.AddChild(pic);
-            var name = Ui.Text(squad[i].Name, 20, UiSkin.TextColor(state, Skin), 5);
-            name.Position = new Vector2(20, 158);
+            var name = Ui.Text(squad[i % squad.Count].Name, 18, Ui.Ink, 5);
+            name.Position = new Vector2(16, 160);
             card.AddChild(name);
-            var chips = Ui.Chips(new[] { new Chip("hp", (40 + i * 6).ToString()), new Chip("atk", (12 + i).ToString()), new Chip("spd", (6 - i).ToString()) }, 15, 2, 8);
-            chips.Position = new Vector2(18, 200);
-            chips.Size = new Vector2(160, 30);
+            var chips = Ui.Chips(new[] { new Chip("hp", (40 + i * 6).ToString()), new Chip("atk", (12 + i).ToString()) }, 15, 2, 8);
+            chips.Position = new Vector2(14, 200);
+            chips.Size = new Vector2(120, 30);
             card.AddChild(chips);
         }
-        var small = new[] { ("Join squad", UiState.Focus), ("Release", UiState.Normal), ("Name", UiState.Normal) };
+        var small = new[] { ("Join squad", UiState.Focus), ("Release", UiState.Normal), ("Name", UiState.Disabled) };
         float sx = 30;
         foreach (var (text, state) in small)
         {
@@ -146,6 +154,29 @@ public partial class StyleBoard : Control
             slot.AddChild(icon);
         }
         Put(Ui.Text("The skill bar: highlighted, pointed at, used up.", 16, Ui.Dim, 4), 80, vp.Y - 52);
+
+        // The words in each of the style's colours, on the glass and straight over the board.
+        var words = Plate(UiPart.Panel, UiState.Normal, new Vector2(660, 300));
+        Put(words, 700, 650);
+        float wy = 26;
+        var wordsHead = Ui.Text("THE WORDS", 24, UiSkin.Heading(Skin), 6);
+        wordsHead.Position = new Vector2(30, wy);
+        words.AddChild(wordsHead);
+        wy += 44;
+        foreach (var (text, color) in new (string, Color)[]
+        {
+            ("Blaze, a large biped from the Glowmire.", Ui.Ink), ("Secondary words: day 99, 2693 chem.", Ui.Dim),
+            ("Thoroughbred  ·  Hunter  ·  Gold", Ui.Gold), ("In the squad  ·  +3 DEF  ·  Recovered", Ui.Cyan),
+            ("Wild pack  ·  VAT A", Ui.Magenta), ("Healed 12  ·  Poison 3x2", Ui.Good), ("Fainted  ·  -18", Ui.Bad),
+        })
+        {
+            var l = Ui.Text(text, 17, color, 4);
+            l.Position = new Vector2(30, wy);
+            words.AddChild(l);
+            wy += 30;
+        }
+        Put(Ui.Text("Over the board: Lantern Row, day 99", 18, Ui.Ink, 5), 1400, 650);
+        Put(Ui.Text("Undercity Foundry. A pack of strays blocks the way.", 16, Ui.Dim, 4), 1400, 686);
     }
 
     void Put(Control c, float x, float y)

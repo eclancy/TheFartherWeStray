@@ -21,7 +21,9 @@ public partial class LabPanel : Control
     public static string StartTab; // --labtab=ID, for screenshots: the tab to open on
 
     static float ChamberHeight => Phone.On ? 230 : 290;
-    static readonly Color Ink = Ui.Ink, Dim = Ui.Dim, Cyan = Color.FromHtml("#4fe3ff");
+    static Color Ink => Ui.Ink;
+    static Color Dim => Ui.Dim;
+    static Color Cyan => Ui.Cyan;
 
     /// <summary>The tabs, least change first as the tiers go; the jargon (what it makes the beast) lives in the tooltip.</summary>
     static readonly (string Id, string Label, string Tip)[] Tabs =
@@ -80,6 +82,7 @@ public partial class LabPanel : Control
         var l = new Label { Text = text, CustomMinimumSize = new Vector2(width, 0), VerticalAlignment = VerticalAlignment.Center, ClipText = true };
         l.AddThemeFontSizeOverride("font_size", 15);
         l.AddThemeColorOverride("font_color", color);
+        if (UiSkin.PixelText) Ui.Dress(l, 15);
         return l;
     }
 
@@ -101,7 +104,7 @@ public partial class LabPanel : Control
         return flow;
     }
 
-    static Color TierColour(Classes.Tier t) => Color.FromHtml(Classes.TierBook.Hex(t));
+    static Color TierColour(Classes.Tier t) => Ui.Tone(Classes.TierBook.Hex(t));
 
     void Header(string text, Color color)
     {
@@ -295,7 +298,7 @@ public partial class LabPanel : Control
         if (_id == null || _preview == null) return;
         var rec = Ranch.Record(_id.Value);
         var font = GetThemeDefaultFont();
-        var glow = Color.FromHtml("#4ff0a0");
+        var glow = Ui.Good;
         var brass = Color.FromHtml("#b2873a");
         float h = ChamberHeight;
         // Its name, and its tier in its colour: what the work here would change.
@@ -303,8 +306,8 @@ public partial class LabPanel : Control
         string title = rec.Name, tierText = $"  ·  {tier}";
         float titleW = font.GetStringSize(title, HorizontalAlignment.Left, -1, 17).X, tierW = font.GetStringSize(tierText, HorizontalAlignment.Left, -1, 17).X;
         float x0 = (Size.X - titleW - tierW) / 2;
-        DrawString(font, new Vector2(x0, 18), title, HorizontalAlignment.Left, -1, 17, glow);
-        DrawString(font, new Vector2(x0 + titleW, 18), tierText, HorizontalAlignment.Left, -1, 17, Color.FromHtml(Classes.TierBook.Hex(tier)));
+        Ui.Draw(this, new Vector2(x0, 18), title, HorizontalAlignment.Left, -1, 17, glow);
+        Ui.Draw(this, new Vector2(x0 + titleW, 18), tierText, HorizontalAlignment.Left, -1, 17, Ui.Tone(Classes.TierBook.Hex(tier)));
 
         // A wide tank of chem with brass bands, the beast suspended inside.
         var glass = new Rect2(40, 34, Size.X - 80, h - 54);

@@ -31,8 +31,12 @@ public partial class CountryScreen : Control
     static int Scale => Phone.On ? 2 : 4;
     static Vector2 MapAt => Phone.On ? new(24, 112) : new(40, 112);
     float _panelX, _panelW, _overY;   // the right-hand panel, and where the shop and the chooser open
-    static readonly Color Gold = Color.FromHtml("#f2c14e"), Ink = Color.FromHtml("#e8e2f4"), Dim = Color.FromHtml("#9a91b4");
-    static readonly Color Pink = Color.FromHtml("#ff4f9a"), Green = Color.FromHtml("#4ff0a0"), Cyan = Color.FromHtml("#4fe3ff");
+    static Color Gold => Ui.Gold;
+    static Color Ink => Ui.Ink;
+    static Color Dim => Ui.Dim;
+    static Color Pink => Ui.Magenta;
+    static Color Green => Ui.Good;
+    static Color Cyan => Ui.Cyan;
 
     string _selected, _hover;
     Vector2 _token;

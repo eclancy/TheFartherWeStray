@@ -78,21 +78,42 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   stat glyphs. `scripts/UI/`: `Glyphs` (12x12 art, outlined, drawn at 2x+), `SkillIcons` (every
   skill gets a framed glyph: frame colour = attack/heal/boost/control/move, corner marks = shape and
   stat up/down), `Ui.Chips` (glyph + number). A glyph before every stat; full text only in
-  tooltips; colour only as a second cue. New skills need an entry in `SkillIcons.SkillGlyph`;
+  tooltips; colour only as a second cue; words shadowed so they read over the board. New skills need an entry in `SkillIcons.SkillGlyph`;
   check `--icons` (writes `.shots/icons.png`).
-- **Menu style: Gilt and neon** (the user's pick, 2026-11-03; research, rules and the other three
-  candidates in `docs/ui-style.md`). The city's gold line with stepped Art Deco corners round smoked
-  violet glass, an undercity neon tube inside it: unlit, glowing faintly under the pointer, lit cyan
-  for the pad's focus, pink when pressed. Frames are pixel nine-slices painted in code
-  (`UI/UiSkin.cs`; a frame pixel is the board's 3x, small buttons' 2x) and go on Godot's default
-  theme at start, so every button, panel, tooltip and slider takes them. Screens that draw their own
-  boxes use `UiSkin.Box(part, state)`; a box whose light means something uses `UiSkin.Lit` (pens
-  cards: gold chosen, pink in a vat, cyan in the squad; the turn order by side; the skill being
-  aimed); `UiSkin.Tight` gives an icon or portrait less room. A button whose words are 16 points or
-  less takes the small frame (`UiSkin.Adapt`). The phone pad is drawn in it too (`PaintRings`). New
-  boxes go through `UiSkin`, never a fresh `StyleBoxFlat`. The game icon (`icon/icon.png`, `--icon`)
-  is Blaze in the frame. `--ui=plain|gilded|neon|iron` puts another style on for comparing;
-  `--uiboard=NAME --shot=30` shows a style's parts side by side (`UI/StyleBoard.cs`).
+- **Menu style: Dusk, the gilt frame softened after FFTA** (the user's pick, 2026-11-07, after
+  "the menu contrast is too drastic"; Gilt and neon was picked 2026-11-03; the research, FFTA notes
+  and candidates are in `docs/ui-style.md`). The city's gold line with stepped Art Deco corners,
+  antique and lit from the top left, round dusky plum glass lifted off black, an undercity neon tube
+  inside it: unlit, glowing faintly under the pointer, lit sea-glass for the pad's focus, rose when
+  pressed. **The player picks the look in Settings** (Menu look: Dusk, Lamplight, Verdigris or Gilt
+  and neon; `Settings.Look`, saved in `settings.cfg`): it goes on at once and the screen in view is
+  made again (`UiSkin.Restyle`; a battle or a scene keeps its panels until it ends). Each look's
+  colours are a `Look` (`UI/Looks.cs`): frame, glass, lights and words; `Look.Soften` turns a
+  screen's own bright colours (a squad card's cyan) into the look's. Frames are pixel nine-slices
+  painted in code (`UI/UiSkin.cs`; a frame pixel is the board's 3x, small buttons' 2x) and go on
+  Godot's default theme, so every button, panel, tooltip and slider takes them. Screens that draw
+  their own boxes use `UiSkin.Box(part, state)`; a box whose light means something uses
+  `UiSkin.Lit` (pens cards: gold chosen, pink in a vat, cyan in the squad; the turn order by side;
+  the skill being aimed); `UiSkin.Tight` gives an icon or portrait less room. A button whose words
+  are 16 points or less takes the small frame (`UiSkin.Adapt`). The phone pad is drawn in it too
+  (`PaintRings`, painted again for a new look). New boxes go through `UiSkin`, never a fresh
+  `StyleBoxFlat`; new colours for words come from `Ui` (`Ui.Ink`, `Dim`, `Faint`, `Gold`, `Cyan`,
+  `Magenta`, `Good`, `Bad`, `Pink`, or `Ui.Tone(hex)` for any other), read each time, never copied
+  into a `static readonly` (the look can change). The game icon (`icon/icon.png`, `--icon`) is
+  Blaze in the Gilt and neon frame. `--ui=NAME` puts another look on (lamplight, verdigris,
+  giltneon; plain, gilded, neon, iron for comparing); a run with flags shows Dusk unless `--ui` or
+  `--settings=NAME` (settings in `user://NAME.cfg`) says otherwise. `--uiboard=NAME --shot=30`
+  shows a look's parts side by side (`UI/StyleBoard.cs`).
+- **The game's own type** (the user's pick, 2026-11-07: "a more signature text style", after
+  FFTA): `UI/PixelFont.cs`, a pixel font drawn in code (capitals 7 pixels, lower case 5, 2 below the
+  line), the theme's font everywhere. Godot scales it by whole pixels, so 14-22 point words draw at
+  2x, 23-31 at 3x: nearly every word is one size, as in FFTA, and words under 14 come up to it
+  (`Ui.Fit`). Outlines don't draw on a bitmap font: words have a one-font-pixel shadow down and
+  right in the look's dark (`Ui.Dress` on labels, `Ui.Draw` for words a screen draws itself, which
+  also ends text too long for its width in "…"). Battle popups draw at 1x on the board. The pixel
+  font runs wider than the sans did: give words room (wrap a row in an `HFlowContainer`, measure
+  before drawing into a fixed width) and check with `--phone`. Characters it lacks come from the
+  sans. `--typesheet --shot=20` shows it all; `--font=sans` brings the old words back to compare.
 
 ## Status
 
@@ -184,7 +205,7 @@ FFTA-style isometric tactics with procedurally generated creature units. Godot 4
   Quit). Three slots (`Ranch.Slots`, `SlotPath`, `Peek`, `Summary`, `DeleteSlot`): slot 1 is the
   old `user://ranch.json`, so saves from before slots are slot 1; overwriting or deleting asks
   twice. `UI/Settings.cs` keeps music and effects volume, mute, cutscene text speed, the battle
-  turn timer, fullscreen and the last slot in `user://settings.cfg`, applied at start
+  turn timer, fullscreen, the menu look and the last slot in `user://settings.cfg`, applied at start
   (`Settings.Apply`); `SettingsPanel` edits them on the title and in the pause menu. N saves the
   mute. Test and screenshot flags (`--save`, `--newranch`, `--autoplay`, `--station`, `--scene`,
   `--mapmode`...) skip the title; `--title[=new|load|settings]` opens it anyway, `--slots=NAME`

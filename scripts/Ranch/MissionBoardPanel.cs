@@ -70,8 +70,8 @@ public partial class MissionBoardPanel : Control
 
     public override void _Draw()
     {
-        DrawString(GetThemeDefaultFont(), new Vector2(0, 18), Heading ?? "",
-            HorizontalAlignment.Left, Size.X, 16, Color.FromHtml("#f2c14e"));
+        Ui.Draw(this, new Vector2(0, 18), Heading ?? "",
+            HorizontalAlignment.Left, Size.X, 16, Ui.Gold);
     }
 
     /// <summary>A small picture of a map, painted once.</summary>
@@ -134,13 +134,13 @@ public partial class MissionCard : Control
         DrawTextureRect(thumb, new Rect2(new Vector2(12, (Size.Y - ts.Y) / 2), ts), false);
 
         var font = GetThemeDefaultFont();
-        var ink = Color.FromHtml("#e8e2f4");
-        var dim = Color.FromHtml("#9a91b4");
-        var gold = Color.FromHtml("#f2c14e");
+        var ink = Ui.Ink;
+        var dim = Ui.Dim;
+        var gold = Ui.Gold;
         float x = thumbW + 30, w = Size.X - x - 12;
         // Title behind the objective's glyph; then difficulty stars, pack size and reward as glyphs and numbers.
         DrawTexture(Glyphs.Get(Goal(m), 2), new Vector2(x - 4, 8));
-        DrawString(font, new Vector2(x + 26, 32), m.Title, HorizontalAlignment.Left, w - 26, 20, ink);
+        Ui.Draw(this, new Vector2(x + 26, 32), m.Title, HorizontalAlignment.Left, w - 26, 20, ink);
         float cx = x;
         if (m.Dispatch == null)
         {
@@ -153,44 +153,44 @@ public partial class MissionCard : Control
         foreach (var (glyph, text) in counts)
         {
             DrawTexture(Glyphs.Get(glyph, 2), new Vector2(cx, 40));
-            DrawString(font, new Vector2(cx + 28, 61), text, HorizontalAlignment.Left, 60, 17, gold);
+            Ui.Draw(this, new Vector2(cx + 28, 61), text, HorizontalAlignment.Left, 60, 17, gold);
             cx += 72;
         }
-        DrawString(font, new Vector2(x, 90), m.Brief(), HorizontalAlignment.Left, w, 15, ink);
+        Ui.Draw(this, new Vector2(x, 90), m.Brief(), HorizontalAlignment.Left, w, 15, ink);
         string line = m.Dispatch != null ? $"No battle: one creature goes, and is away {m.Dispatch.Days} {(m.Dispatch.Days == 1 ? "day" : "days")}."
             : m.Flavor ?? m.Rival?.Ideal ?? BattleMap.ByName(m.MapName).Blurb;
-        DrawString(font, new Vector2(x, 114), line, HorizontalAlignment.Left, w, 14, dim);
+        Ui.Draw(this, new Vector2(x, 114), line, HorizontalAlignment.Left, w, 14, dim);
         // Whose work it is, in the corner: the city's or the undercity's (the wilds are nobody's).
         if (m.Location != null && World.Standing.ClientOf(m.Location) is { } client && m.Dispatch == null && m.Rival == null && m.Roamer == 0)
-            DrawString(font, new Vector2(x, 32), client == World.Side.City ? "for the city" : "for the undercity", HorizontalAlignment.Right, w, 13,
-                Color.FromHtml(client == World.Side.City ? "#f2c14e" : "#ff4f9a"));
+            Ui.Draw(this, new Vector2(x, 32), client == World.Side.City ? "for the city" : "for the undercity", HorizontalAlignment.Right, w, Ui.Fit(13),
+                client == World.Side.City ? Ui.Gold : Ui.Magenta);
         if (m.Story is { } story)
         {
             // A main mission: what it opens on the country map, or the ending it is.
             var main = World.StoryBook.Get(story);
             DrawTexture(Glyphs.Get("star", 2), new Vector2(x - 4, 128));
             string what = main.Ending != null ? $"An ending  ·  {main.Ending}" : $"Main mission  ·  opens {World.Country.Get(main.Opens).Name}";
-            DrawString(font, new Vector2(x + 26, 150), what, HorizontalAlignment.Left, w - 26, 15, gold);
+            Ui.Draw(this, new Vector2(x + 26, 150), what, HorizontalAlignment.Left, w - 26, 15, gold);
         }
         else if (m.Rumour != null)
         {
             DrawTexture(Glyphs.Get("eye", 2), new Vector2(x - 4, 128));
-            DrawString(font, new Vector2(x + 26, 150), "Rumour  ·  a rare creature, heard of on your path only", HorizontalAlignment.Left, w - 26, 15, Color.FromHtml("#c79bff"));
+            Ui.Draw(this, new Vector2(x + 26, 150), "Rumour  ·  a rare creature, heard of on your path only", HorizontalAlignment.Left, w - 26, 15, Ui.Tone("#c79bff"));
         }
         else if (m.Roamer != 0)
         {
             DrawTexture(Glyphs.Get("paw", 2), new Vector2(x - 4, 128));
-            DrawString(font, new Vector2(x + 26, 150), "Roaming pack  ·  moves on each day; cross its path and it attacks", HorizontalAlignment.Left, w - 26, 15, Color.FromHtml("#ff6a5a"));
+            Ui.Draw(this, new Vector2(x + 26, 150), "Roaming pack  ·  moves on each day; cross its path and it attacks", HorizontalAlignment.Left, w - 26, 15, Ui.Tone("#ff6a5a"));
         }
         else if (m.Cup is { } cup)
         {
             DrawTexture(Glyphs.Get("crown", 2), new Vector2(x - 4, 128));
-            DrawString(font, new Vector2(x + 26, 150), $"Three duels in a row  ·  the cup pays {World.CupBook.Get(cup).Prize} chem", HorizontalAlignment.Left, w - 26, 15, gold);
+            Ui.Draw(this, new Vector2(x + 26, 150), $"Three duels in a row  ·  the cup pays {World.CupBook.Get(cup).Prize} chem", HorizontalAlignment.Left, w - 26, 15, gold);
         }
         else if (m.Dispatch is { } job)
         {
             DrawTexture(Glyphs.Get("check", 2), new Vector2(x - 4, 128));
-            DrawString(font, new Vector2(x + 26, 150), "Suits: " + string.Join(", ", job.Suits.Select(s => s.hint)), HorizontalAlignment.Left, w - 26, 15, Color.FromHtml("#4fe3ff"));
+            Ui.Draw(this, new Vector2(x + 26, 150), "Suits: " + string.Join(", ", job.Suits.Select(s => s.hint)), HorizontalAlignment.Left, w - 26, 15, Ui.Tone("#4fe3ff"));
         }
         else if (m.Rival is { } rival)
         {
@@ -198,20 +198,20 @@ public partial class MissionCard : Control
             DrawTexture(Glyphs.Get(rival.Tamer.Glyph, 2), new Vector2(x - 4, 128));
             string record = (m.RivalWins > 0 ? $"beaten {m.RivalWins}x  ·  " : "")
                 + (Party.RivalBook.Fewer(m.RivalLosses) is > 0 and var fewer ? $"cocky: {fewer} fewer  ·  " : "");
-            DrawString(font, new Vector2(x + 26, 150), $"{record}{rival.Tamer.Text}", HorizontalAlignment.Left, w - 26, 15, Color.FromHtml("#ff7aa8"));
+            Ui.Draw(this, new Vector2(x + 26, 150), $"{record}{rival.Tamer.Text}", HorizontalAlignment.Left, w - 26, 15, Ui.Tone("#ff7aa8"));
             // What beating them can win: a prize every time, drawn by rarity.
             DrawTexture(Glyphs.Get("sparkle", 2), new Vector2(x - 4, 156));
-            DrawString(font, new Vector2(x + 26, 176), Party.RivalBook.PrizeHint(rival, Board.Ranch.Titles), HorizontalAlignment.Left, w - 26, 14, gold);
+            Ui.Draw(this, new Vector2(x + 26, 176), Party.RivalBook.PrizeHint(rival, Board.Ranch.Titles), HorizontalAlignment.Left, w - 26, 14, gold);
         }
         else if (m.Repeatable)
         {
             DrawTexture(Glyphs.Get("cooldown", 2), new Vector2(x - 4, 128));
-            DrawString(font, new Vector2(x + 26, 150), "Regular job  ·  always on offer here", HorizontalAlignment.Left, w - 26, 15, Color.FromHtml("#4ff0a0"));
+            Ui.Draw(this, new Vector2(x + 26, 150), "Regular job  ·  always on offer here", HorizontalAlignment.Left, w - 26, 15, Ui.Tone("#4ff0a0"));
         }
         else if (m.Sighting != null)
         {
             DrawTexture(Glyphs.Get("eye", 2), new Vector2(x - 4, 128));
-            DrawString(font, new Vector2(x + 26, 150), $"{m.Sighting}  ·  new to your codex", HorizontalAlignment.Left, w - 26, 15, Color.FromHtml("#4ff0a0"));
+            Ui.Draw(this, new Vector2(x + 26, 150), $"{m.Sighting}  ·  new to your codex", HorizontalAlignment.Left, w - 26, 15, Ui.Tone("#4ff0a0"));
         }
     }
 }

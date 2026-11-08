@@ -20,7 +20,10 @@ public partial class PartyPanel : Control
     int? _picked;   // a beast picked to swap with one of the other tamer's
     string _keep;   // the pad: the button to put the focus back on after the panel is rebuilt ("beast:ID", "tamer:ID")
 
-    static readonly Color Ink = Ui.Ink, Dim = Ui.Dim, Gold = Ui.Gold, Cyan = Color.FromHtml("#4fe3ff");
+    static Color Ink => Ui.Ink;
+    static Color Dim => Ui.Dim;
+    static Color Gold => Ui.Gold;
+    static Color Cyan => Ui.Cyan;
 
     public override void _Ready()
     {

@@ -7,7 +7,7 @@ namespace TheFartherWeStray.UI;
 /// <summary>
 /// The player's settings (the title screen's and the pause menu's), kept in user://settings.cfg and
 /// applied as the game starts: music and effects volume, mute, how fast cutscene lines type out, the
-/// battle turn timer, fullscreen, the save slot played last, and how often each key hint has shown
+/// battle turn timer, fullscreen, the menus' look, the save slot played last, and how often each key hint has shown
 /// (<see cref="Hints"/>).
 /// </summary>
 public static class Settings
@@ -18,8 +18,21 @@ public static class Settings
     public static int TextSpeed = 1;          // index into Speeds
     public static int TurnTimer;              // seconds a turn in battle; 0 for none
     public static int LastSlot = 1;
+    public static Skin Look = Skin.Dusk;      // the menus' look (UiSkin): Dusk, or another of Looks
 
     public static readonly string[] Speeds = { "Slow", "Normal", "Fast", "Instant" };
+
+    /// <summary>The menu looks a player can pick (the user's call, 2026-11-07: Dusk, the others as options).</summary>
+    public static readonly Skin[] Looks = { Skin.Dusk, Skin.Lamplight, Skin.Verdigris, Skin.GiltNeon };
+
+    /// <summary>A look's name in the settings.</summary>
+    public static string LookName(Skin s) => s switch
+    {
+        Skin.Lamplight => "Lamplight",
+        Skin.Verdigris => "Verdigris",
+        Skin.GiltNeon => "Gilt and neon",
+        _ => "Dusk",
+    };
     public static readonly int[] Timers = { 0, 15, 30, 60 };
 
     /// <summary>Cutscene lines type out at this many characters a second.</summary>
@@ -36,6 +49,7 @@ public static class Settings
             TextSpeed = Math.Clamp((int)cf.GetValue("game", "text_speed", TextSpeed), 0, Speeds.Length - 1);
             TurnTimer = (int)cf.GetValue("game", "turn_timer", TurnTimer);
             Fullscreen = (bool)cf.GetValue("display", "fullscreen", Fullscreen);
+            if (UiSkin.TryParse((string)cf.GetValue("display", "look", Look.ToString()), out var look) && Array.IndexOf(Looks, look) >= 0) Look = look;
             LastSlot = Math.Clamp((int)cf.GetValue("game", "last_slot", LastSlot), 1, Ranching.Ranch.Slots);
             Hints.Seen.Clear();
             if (cf.HasSection("hints"))
@@ -54,6 +68,7 @@ public static class Settings
         cf.SetValue("game", "turn_timer", TurnTimer);
         cf.SetValue("game", "last_slot", LastSlot);
         cf.SetValue("display", "fullscreen", Fullscreen);
+        cf.SetValue("display", "look", Look.ToString());
         foreach (var (id, n) in Hints.Seen) cf.SetValue("hints", id, n);
         cf.Save(Path);
     }
@@ -69,13 +84,22 @@ public static class Settings
     }
 }
 
-/// <summary>The settings, as a panel: sliders and switches that take effect and save as they change.</summary>
+/// <summary>
+/// The settings, as a panel: sliders and switches that take effect and save as they change. A new menu look
+/// goes on at once: the panel paints itself again in it, and the screen behind is made again as the panel
+/// closes (<see cref="UiSkin.Restyle"/>; a battle or a scene keeps its own panels until it ends).
+/// </summary>
 public partial class SettingsPanel : PanelContainer
 {
     public Action Closed;
 
-    public override void _Ready()
+    bool _restyled;
+
+    public override void _Ready() => Build(false);
+
+    void Build(bool onLook)
     {
+        foreach (var child in GetChildren()) { RemoveChild(child); child.QueueFree(); }
         AddThemeStyleboxOverride("panel", UiSkin.Box(UiPart.Panel, UiState.Normal));
         CustomMinimumSize = new Vector2(640, 0);
         var col = new VBoxContainer();
@@ -89,13 +113,33 @@ public partial class SettingsPanel : PanelContainer
         Cycle(col, "clock", "Cutscene text", () => Settings.Speeds[Settings.TextSpeed], () => Settings.TextSpeed = (Settings.TextSpeed + 1) % Settings.Speeds.Length);
         Cycle(col, "cooldown", "Battle turn timer", () => Settings.TurnTimer == 0 ? "Off" : $"{Settings.TurnTimer} s",
             () => Settings.TurnTimer = Settings.Timers[(Array.IndexOf(Settings.Timers, Settings.TurnTimer) + 1) % Settings.Timers.Length]);
+        var look = Cycle(col, "sparkle", "Menu look", () => Settings.LookName(Settings.Look), NextLook,
+            "How the menus look: Dusk, Lamplight (warm), Verdigris (teal) or Gilt and neon (the first look). A battle or a scene takes it once it ends.");
         if (!Phone.On) Toggle(col, "area", "Fullscreen", Settings.Fullscreen, v => Settings.Fullscreen = v);
 
         var done = new Button { Text = "Done", CustomMinimumSize = new Vector2(200, 46) };
         done.AddThemeFontSizeOverride("font_size", 18);
         done.Pressed += () => Closed?.Invoke();
         col.AddChild(done);
-        done.GrabFocus();
+        (onLook ? look : done).CallDeferred(Control.MethodName.GrabFocus);
+    }
+
+    /// <summary>However the panel closes (Done, Esc, B), a new look makes the screen behind again once it's gone.</summary>
+    public override void _ExitTree()
+    {
+        if (!_restyled) return;
+        _restyled = false;
+        Callable.From(() => UiSkin.Restyle?.Invoke()).CallDeferred();
+    }
+
+    /// <summary>The next menu look: on at once, the panel painted again in it.</summary>
+    void NextLook()
+    {
+        Settings.Look = Settings.Looks[(Array.IndexOf(Settings.Looks, Settings.Look) + 1) % Settings.Looks.Length];
+        UiSkin.Use(Settings.Look);
+        _restyled = true;
+        Settings.Save();
+        Callable.From(() => Build(true)).CallDeferred();
     }
 
     static void Changed()
@@ -134,12 +178,13 @@ public partial class SettingsPanel : PanelContainer
         row.AddChild(check);
     }
 
-    void Cycle(VBoxContainer col, string glyph, string label, Func<string> shown, Action next)
+    Button Cycle(VBoxContainer col, string glyph, string label, Func<string> shown, Action next, string tip = null)
     {
         var row = Row(col, glyph, label);
-        var b = new Button { Text = shown(), CustomMinimumSize = new Vector2(160, 40) };
+        var b = new Button { Text = shown(), CustomMinimumSize = new Vector2(200, 40), TooltipText = tip ?? "" };
         b.AddThemeFontSizeOverride("font_size", 17);
         b.Pressed += () => { next(); b.Text = shown(); Changed(); };
         row.AddChild(b);
+        return b;
     }
 }

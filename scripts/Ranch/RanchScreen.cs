@@ -26,8 +26,11 @@ public partial class RanchScreen : Control
     public Action ToTitle;                // the pause menu's way back to the title
     public bool DemoBuildUp;              // --buildup: open on the station's Build up panel (screenshots)
 
-    static readonly Color Cyan = Color.FromHtml("#4fe3ff"), Magenta = Color.FromHtml("#ff4f9a"), Gold = Color.FromHtml("#f2c14e");
-    static readonly Color Ink = Color.FromHtml("#e8e2f4"), Dim = Color.FromHtml("#9a91b4");
+    static Color Cyan => Ui.Cyan;
+    static Color Magenta => Ui.Magenta;
+    static Color Gold => Ui.Gold;
+    static Color Ink => Ui.Ink;
+    static Color Dim => Ui.Dim;
 
     GridContainer _grid;
     float _right, _top;   // where the right-hand panel starts, and where the screen's body begins
@@ -195,11 +198,12 @@ public partial class RanchScreen : Control
     Label Text(int size, Color color, Vector2 pos, Vector2 boxSize)
     {
         var l = new Label { Position = pos, Size = boxSize, MouseFilter = MouseFilterEnum.Ignore };
-        l.AddThemeFontSizeOverride("font_size", size);
+        l.AddThemeFontSizeOverride("font_size", Ui.Fit(size));
         l.AddThemeColorOverride("font_color", color);
         l.AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0.8f));
         l.AddThemeConstantOverride("shadow_offset_x", 2);
         l.AddThemeConstantOverride("shadow_offset_y", 2);
+        if (UiSkin.PixelText) Ui.Dress(l, size);
         AddChild(l);
         return l;
     }
@@ -337,8 +341,11 @@ public partial class RanchScreen : Control
             .Concat(next != null ? new[] { new Chip("lock", $"{next}", Dim, "JP to the next skill") } : Array.Empty<Chip>()), 15));
         _training.AddChild(head);
 
-        // Everything else it brings: secondary skills, an inherited skill, the two passives.
-        var extras = Row();
+        // Everything else it brings: secondary skills, an inherited skill, the two passives. It wraps, so a long
+        // list (or the wider pixel type) takes a second line rather than running off the screen.
+        var extras = new HFlowContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Pass };
+        extras.AddThemeConstantOverride("h_separation", 8);
+        extras.AddThemeConstantOverride("v_separation", 4);
         if (t.Secondary != null)
         {
             extras.AddChild(Ui.ChipView(new Chip(SkillIcons.ClassEmblem(t.Secondary), t.Secondary, Ink, "secondary skill set"), 15));
@@ -356,8 +363,9 @@ public partial class RanchScreen : Control
         var natural = TierBook.PassiveOf(c, tierNow);
         foreach (var p in new[] { ClassBook.Passive(t.Passive), shine, gear, natural, ClassBook.Passive(t.Reaction) }.Where(p => p != null))
         {
-            extras.AddChild(Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p == shine ? "shiny, its own" : p == gear ? "gear" : p == natural ? (tierNow == Tier.Thoroughbred ? "thoroughbred, its species' own" : "chimera, other species' abilities") : p.Kind == PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"));
-            extras.AddChild(Ui.Text(p.Name, 14, p == shine || p == gear ? Gold : p == natural ? Color.FromHtml(TierBook.Hex(tierNow == Tier.Thoroughbred ? Tier.Thoroughbred : Tier.Chimera)) : p.Kind == PassiveKind.Reaction ? Ui.Pink : Ui.Good, 4));
+            // Each passive's icon and name together, so the wrap never parts them.
+            extras.AddChild(Row(Ui.Picture(SkillIcons.Passive(p, 2), $"{p.Name} ({(p == shine ? "shiny, its own" : p == gear ? "gear" : p == natural ? (tierNow == Tier.Thoroughbred ? "thoroughbred, its species' own" : "chimera, other species' abilities") : p.Kind == PassiveKind.Reaction ? "reaction" : "support")})\n{p.Text}"),
+                Ui.Text(p.Name, 14, p == shine || p == gear ? Gold : p == natural ? Ui.Tone(TierBook.Hex(tierNow == Tier.Thoroughbred ? Tier.Thoroughbred : Tier.Chimera)) : p.Kind == PassiveKind.Reaction ? Ui.Pink : Ui.Good, 4)));
         }
         if (extras.GetChildCount() > 0) _training.AddChild(extras);
     }
@@ -488,15 +496,15 @@ public partial class RanchScreen : Control
             + (s.Origin != null ? $" · from {s.Origin}" : "");
         var head = Row(Ui.Text(c.Name, 22, Ink), Ui.Text(what, 15, Dim, 4));
         var tier = TierBook.Of(c);
-        head.AddChild(Ui.ChipView(new Chip(TierBook.Glyph(tier), tier.ToString(), Color.FromHtml(TierBook.Hex(tier)), TierBook.Describe(c, tier)), 15));
+        head.AddChild(Ui.ChipView(new Chip(TierBook.Glyph(tier), tier.ToString(), Ui.Tone(TierBook.Hex(tier)), TierBook.Describe(c, tier)), 15));
         if (c.Shiny) head.AddChild(Ui.ChipView(new Chip("sparkle", "shiny", Gold), 15));
         if (c.Mutation != null) head.AddChild(Ui.ChipView(new Chip("swirl", c.Mutation.ToString().ToLowerInvariant(), Ui.Pink, "mutation"), 15));
         _detail.AddChild(head);
         // What it was born with (natural, passed down), and what's bolted on (neon and brass, not).
-        var born = c.Traits.Select(ClassBook.Passive).Where(p => p != null).Select(p => new Chip("paw", p.Name, Color.FromHtml("#9ac25a"), $"Trait: {p.Text} Passed down when bred."));
+        var born = c.Traits.Select(ClassBook.Passive).Where(p => p != null).Select(p => new Chip("paw", p.Name, Ui.Tone("#9ac25a"), $"Trait: {p.Text} Passed down when bred."));
         var fitted = c.Augments.Select(AugmentBook.Get).Where(a => a != null).Select(a => new Chip(a.Chem ? "flask" : "gear", a.Name, Color.FromHtml(a.Chem ? "#4ff0a0" : "#4fe3ff"), AugmentBook.Text(a)));
-        var tuned = c.Infusions.Select(InfusionBook.Get).Where(p => p != null).Select(p => new Chip("flask", p.Name, Color.FromHtml(TierBook.Hex(Tier.Infused)), $"Infusion: {p.Text} Not passed down."));
-        var spliced = (c.Species.Spliced ?? Array.Empty<Form>()).Select(f => new Chip("helix", TierBook.Ability(f), Color.FromHtml(TierBook.Hex(Tier.Chimera)),
+        var tuned = c.Infusions.Select(InfusionBook.Get).Where(p => p != null).Select(p => new Chip("flask", p.Name, Ui.Tone(TierBook.Hex(Tier.Infused)), $"Infusion: {p.Text} Not passed down."));
+        var spliced = (c.Species.Spliced ?? Array.Empty<Form>()).Select(f => new Chip("helix", TierBook.Ability(f), Ui.Tone(TierBook.Hex(Tier.Chimera)),
             $"Spliced in from a {f.ToString().ToLowerInvariant()}: {TierBook.AbilityText(f)}. Passed down."));
         var marks = born.Concat(spliced).Concat(tuned).Concat(fitted).ToList();
         if (marks.Count > 0) _detail.AddChild(Ui.Chips(marks, 15));
@@ -521,8 +529,8 @@ public partial class RanchScreen : Control
         var tags = new List<Chip>();
         if (c.Generation > 0) tags.Add(new Chip("paw", $"gen {c.Generation}: {c.ParentA} + {c.ParentB}", Dim, "bred in the vats"));
         if (!rec.Rested) tags.Add(new Chip("clock", "resting", Gold, "can breed again after the next battle"));
-        if (rec.Steeping) tags.Add(new Chip("flask", "steeping", Color.FromHtml(TierBook.Hex(Tier.Infused)), "a new infusion is taking: it sits out the next battle"));
-        if (rec.Recovering) tags.Add(new Chip("skull", "recovering", Color.FromHtml(TierBook.Hex(Tier.Abomination)), "an abomination's episode: it sits out the next battle"));
+        if (rec.Steeping) tags.Add(new Chip("flask", "steeping", Ui.Tone(TierBook.Hex(Tier.Infused)), "a new infusion is taking: it sits out the next battle"));
+        if (rec.Recovering) tags.Add(new Chip("skull", "recovering", Ui.Tone(TierBook.Hex(Tier.Abomination)), "an abomination's episode: it sits out the next battle"));
         if (TierBook.GrowthRate(c) < 1) tags.Add(new Chip("down", $"learns at {TierBook.GrowthRate(c) * 100:0}%", Dim, "its rigs slow how fast it learns (JP)"));
         if (tags.Count > 0) _detail.AddChild(Ui.Chips(tags, 14));
     }
@@ -610,20 +618,23 @@ public partial class RanchCard : Control
         DrawTextureRect(_tex, new Rect2(new Vector2(Mathf.Round(Size.X / 2 - ts.X / 2), ground - ts.Y), ts), false, modulate);
 
         var font = GetThemeDefaultFont();
-        DrawString(font, new Vector2(0, ground + 24), c.Name, HorizontalAlignment.Center, Size.X, 17, Color.FromHtml("#e8e2f4"));
-        DrawString(font, new Vector2(0, ground + 44), $"{c.Size} {c.Species.Plan}", HorizontalAlignment.Center, Size.X, 13, Color.FromHtml("#9a91b4"));
+        Ui.Draw(this, new Vector2(0, ground + 24), c.Name, HorizontalAlignment.Center, Size.X, 17, Ui.Ink);
+        // Its size and body; the size cut short ("Med.") when the two don't fit the card.
+        string what = $"{c.Size} {c.Species.Plan}";
+        if (font.GetStringSize(what, HorizontalAlignment.Left, -1, Ui.Fit(13)).X > Size.X - 2 * UiSkin.Px * 4) what = $"{c.Size.ToString()[..3]}. {c.Species.Plan}";
+        Ui.Draw(this, new Vector2(0, ground + 44), what, HorizontalAlignment.Center, Size.X, Ui.Fit(13), Ui.Dim);
 
         // Marks in the top corners.
-        if (squad) DrawString(font, new Vector2(18, 30), Screen.LeaderTag(Id), HorizontalAlignment.Left, -1, 13, Color.FromHtml("#4fe3ff"));
-        if (yard) DrawString(font, new Vector2(18, 30), "IN THE YARD", HorizontalAlignment.Left, -1, 13, Color.FromHtml("#5fe08a"));
+        if (squad) Ui.Draw(this, new Vector2(18, 30), Screen.LeaderTag(Id), HorizontalAlignment.Left, -1, Ui.Fit(13), Ui.Cyan);
+        if (yard) Ui.Draw(this, new Vector2(18, 30), "IN THE YARD", HorizontalAlignment.Left, -1, Ui.Fit(13), Ui.Good);
         if (Screen.Ranch.Away.TryGetValue(Id, out var away))
-            DrawString(font, new Vector2(18, 30), $"AWAY {Math.Max(0, away.BackOn - Screen.Ranch.Day)}d", HorizontalAlignment.Left, -1, 13, Color.FromHtml("#ff4f9a"));
-        if (pen >= 0) DrawString(font, new Vector2(18, squad || yard ? 48 : 30), pen == 0 ? "VAT A" : "VAT B", HorizontalAlignment.Left, -1, 13, Color.FromHtml("#ff4f9a"));
+            Ui.Draw(this, new Vector2(18, 30), $"AWAY {Math.Max(0, away.BackOn - Screen.Ranch.Day)}d", HorizontalAlignment.Left, -1, Ui.Fit(13), Ui.Magenta);
+        if (pen >= 0) Ui.Draw(this, new Vector2(18, squad || yard ? 48 : 30), pen == 0 ? "VAT A" : "VAT B", HorizontalAlignment.Left, -1, Ui.Fit(13), Ui.Magenta);
         string tag = Screen.IsNew(Id) ? "NEW" : c.Generation > 0 ? $"GEN {c.Generation}" : "";
-        if (tag != "") DrawString(font, new Vector2(0, 30), tag, HorizontalAlignment.Right, Size.X - 18, 13, Color.FromHtml("#f2c14e"));
-        if (rec.Steeping) DrawString(font, new Vector2(0, 48), "steeping", HorizontalAlignment.Right, Size.X - 18, 12, Color.FromHtml("#4ff0a0"));
-        else if (rec.Recovering) DrawString(font, new Vector2(0, 38), "recovering", HorizontalAlignment.Right, Size.X - 8, 12, Color.FromHtml("#ff5a6a"));
-        else if (!rec.Rested) DrawString(font, new Vector2(0, 38), "resting", HorizontalAlignment.Right, Size.X - 8, 12, Color.FromHtml("#9a91b4"));
+        if (tag != "") Ui.Draw(this, new Vector2(0, 30), tag, HorizontalAlignment.Right, Size.X - 18, Ui.Fit(13), Ui.Gold);
+        if (rec.Steeping) Ui.Draw(this, new Vector2(0, 48), "steeping", HorizontalAlignment.Right, Size.X - 18, Ui.Fit(12), Ui.Good);
+        else if (rec.Recovering) Ui.Draw(this, new Vector2(0, 38), "recovering", HorizontalAlignment.Right, Size.X - 8, Ui.Fit(12), Ui.Bad);
+        else if (!rec.Rested) Ui.Draw(this, new Vector2(0, 38), "resting", HorizontalAlignment.Right, Size.X - 8, Ui.Fit(12), Ui.Dim);
     }
 }
 
@@ -640,18 +651,18 @@ public partial class VatPanel : Control
         Creature A = pen.Count > 0 ? Screen.Ranch.Get(pen[0]) : null;
         Creature B = pen.Count > 1 ? Screen.Ranch.Get(pen[1]) : null;
         float h = Size.Y - 50;
-        Vat(new Rect2(0, 30, 220, h), "VAT A", A, Color.FromHtml("#ff4f9a"));
-        Vat(new Rect2(250, 30, 220, h), "VAT B", B, Color.FromHtml("#ff4f9a"));
-        Vat(new Rect2(500, 30, 220, h), "OFFSPRING", Screen.ChildShown, Color.FromHtml("#4fe3ff"));
-        DrawString(font, new Vector2(226, 30 + h / 2), "+", HorizontalAlignment.Left, -1, 28, Color.FromHtml("#e8e2f4"));
-        DrawString(font, new Vector2(474, 30 + h / 2), "=", HorizontalAlignment.Left, -1, 28, Color.FromHtml("#e8e2f4"));
+        Vat(new Rect2(0, 30, 220, h), "VAT A", A, Ui.Magenta);
+        Vat(new Rect2(250, 30, 220, h), "VAT B", B, Ui.Magenta);
+        Vat(new Rect2(500, 30, 220, h), "OFFSPRING", Screen.ChildShown, Ui.Cyan);
+        Ui.Draw(this, new Vector2(226, 30 + h / 2), "+", HorizontalAlignment.Left, -1, 28, Ui.Ink);
+        Ui.Draw(this, new Vector2(474, 30 + h / 2), "=", HorizontalAlignment.Left, -1, 28, Ui.Ink);
     }
 
     void Vat(Rect2 r, string label, Creature c, Color glow)
     {
         var font = GetThemeDefaultFont();
         var brass = Color.FromHtml("#b2873a");
-        DrawString(font, r.Position + new Vector2(0, -8), label, HorizontalAlignment.Center, r.Size.X, 15, glow);
+        Ui.Draw(this, r.Position + new Vector2(0, -8), label, HorizontalAlignment.Center, r.Size.X, 15, glow);
         // Glass, chem, brass caps.
         var glass = new Rect2(r.Position + new Vector2(14, 24), r.Size - new Vector2(28, 48));
         DrawRect(glass, new Color(0.08f, 0.1f, 0.14f, 0.85f));
@@ -679,7 +690,7 @@ public partial class VatPanel : Control
         var ts = tex.GetSize() * z;
         var pos = new Vector2(glass.Position.X + glass.Size.X / 2 - ts.X / 2, glass.End.Y - 20 - ts.Y);
         DrawTextureRect(tex, new Rect2(pos.Round(), ts), false);
-        DrawString(font, new Vector2(r.Position.X, r.End.Y + 20), c.Name, HorizontalAlignment.Center, r.Size.X, 17, Color.FromHtml("#e8e2f4"));
+        Ui.Draw(this, new Vector2(r.Position.X, r.End.Y + 20), c.Name, HorizontalAlignment.Center, r.Size.X, 17, Ui.Ink);
     }
 
     public override void _Process(double delta) => QueueRedraw();

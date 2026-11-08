@@ -158,8 +158,12 @@ public partial class Pad : Control
     public Action<Key, bool, bool> Send;
     public (Rect2 left, Rect2 right) Columns;
 
-    static readonly Color Ink = Ui.Ink, Dim = Ui.Dim, Gold = Ui.Gold, Edge = new(0.95f, 0.76f, 0.31f, 0.35f);
-    static readonly Color Violet = Color.FromHtml("#a98bff"), Cyan = Color.FromHtml("#4fe3ff");
+    static Color Ink => Ui.Ink;
+    static Color Dim => Ui.Dim;
+    static Color Gold => Ui.Gold;
+    static Color Edge => new(Ui.Gold, 0.35f);
+    static Color Violet => Ui.Tone("#a98bff");
+    static Color Cyan => Ui.Cyan;
 
     /// <summary>The pad's art is in the menus' frame pixels, each this many of the window's units.</summary>
     const int P = 2;
@@ -271,6 +275,7 @@ public partial class Pad : Control
 
     // The pad's art, painted once for its size (UI/UiSkin.cs): the cross, each arm lit, and A and B lit.
     float _builtArm = -1, _builtR = -1;
+    Skin? _builtLook; // the menu look it was painted in: a new one (Settings) paints it again
     Texture2D _cross, _a, _aOn, _b, _bOn;
     readonly Dictionary<Key, Texture2D> _armOn = new();
 
@@ -283,6 +288,7 @@ public partial class Pad : Control
     void Build()
     {
         _builtArm = Arm;
+        _builtLook = UiSkin.Current;
         _builtR = ButtonR;
         int hl = Mathf.RoundToInt(Arm / P), hw = Mathf.RoundToInt(Arm * 0.31f / P), n = hl * 2 + 1;
         int Cross(int x, int y) => Math.Max(UiSkin.Inset(x - (hl - hw), y, hw * 2 + 1, n, 1), UiSkin.Inset(x, y - (hl - hw), n, hw * 2 + 1, 1));
@@ -310,7 +316,7 @@ public partial class Pad : Control
     public override void _Draw()
     {
         if (Columns.left.Size.X <= 0) return; // not laid out yet
-        if (!Mathf.IsEqualApprox(_builtArm, Arm) || !Mathf.IsEqualApprox(_builtR, ButtonR)) Build();
+        if (!Mathf.IsEqualApprox(_builtArm, Arm) || !Mathf.IsEqualApprox(_builtR, ButtonR) || _builtLook != UiSkin.Current) Build();
         var font = GetThemeDefaultFont();
         foreach (var (col, edgeX) in new[] { (Columns.left, Columns.left.End.X), (Columns.right, Columns.right.Position.X) })
         {
@@ -341,7 +347,7 @@ public partial class Pad : Control
             if (Pressed(key)) DrawArt(on, at);
             int size = Mathf.RoundToInt(r * 0.9f);
             DrawString(font, at + new Vector2(-r, size * 0.36f), letter, HorizontalAlignment.Center, r * 2, size, Pressed(key) ? Colors.White : tint);
-            DrawString(font, at + new Vector2(-r * 1.6f, r + 16), word, HorizontalAlignment.Center, r * 3.2f, 11, Dim);
+            DrawString(font, at + new Vector2(-r * 1.6f, r + 16), word, HorizontalAlignment.Center, r * 3.2f, Ui.Fit(11), Dim);
         }
         Round(ACentre, "A", "select", Key.Enter, _a, _aOn, Gold);
         Round(BCentre, "B", "cancel", Key.Escape, _b, _bOn, Violet);
@@ -352,6 +358,6 @@ public partial class Pad : Control
         if (Pressed(Phone.Start)) DrawStyleBox(UiSkin.Box(UiPart.Small, UiState.Focus), s);
         DrawString(font, new Vector2(s.Position.X, s.Position.Y + s.Size.Y * 0.68f), "START", HorizontalAlignment.Center, s.Size.X, Mathf.RoundToInt(s.Size.Y * 0.46f),
             Pressed(Phone.Start) ? Colors.White : Ink);
-        DrawString(font, new Vector2(s.Position.X - 10, s.End.Y + 16), "menu", HorizontalAlignment.Center, s.Size.X + 20, 11, Dim);
+        DrawString(font, new Vector2(s.Position.X - 10, s.End.Y + 16), "menu", HorizontalAlignment.Center, s.Size.X + 20, Ui.Fit(11), Dim);
     }
 }

@@ -37,9 +37,14 @@ public partial class BaseScreen : Control
     public string DemoMachine;           // --machine=ID: walk to that machine and open it (screenshots)
     public static Vector2I? Standing;    // where you were, for coming back from a station
 
+    /// <summary>Keeps where you stand, for the home made again (a new menu look).</summary>
+    public void Remember() => Standing = _you.Tile;
+
     const int Scale = 3;
     Vector2 Focus => GetViewportRect().Size * new Vector2(0.5f, 0.463f);
-    static readonly Color Gold = Ui.Gold, Ink = Ui.Ink, Dim = Ui.Dim;
+    static Color Gold => Ui.Gold;
+    static Color Ink => Ui.Ink;
+    static Color Dim => Ui.Dim;
 
     BattleMap _map;
     IsoArt _art;

@@ -36,8 +36,13 @@ public partial class JobsPanel : Control
         ("blood", "Blood", k => k.Advanced && k.Requires.Length == 1, "Blood classes: one base class mastered, and the strain"),
     };
 
-    static readonly Color Ink = Color.FromHtml("#e8e2f4"), Dim = Color.FromHtml("#6f6788"), Gold = Color.FromHtml("#f2c14e"),
-        Cyan = Color.FromHtml("#4fe3ff"), Red = Color.FromHtml("#b0546a"), Green = Color.FromHtml("#4ff0a0"), Pink = Color.FromHtml("#ff8ac0");
+    static Color Ink => Ui.Ink;
+    static Color Dim => Ui.Faint;
+    static Color Gold => Ui.Gold;
+    static Color Cyan => Ui.Cyan;
+    static Color Red => Ui.Tone("#b0546a");
+    static Color Green => Ui.Good;
+    static Color Pink => Ui.Pink;
 
     public override void _Ready()
     {
@@ -85,14 +90,16 @@ public partial class JobsPanel : Control
         return l;
     }
 
-    /// <summary>A class button: its emblem, its name, and its mastery stars at the right.</summary>
+    const int ClassWidth = 222;
+
+    /// <summary>A class button: its emblem, its name, and its mastery stars in the top right corner.</summary>
     Button ClassButton(ClassDef k, ClassBook.Standing standing, Creature c, Training t)
     {
         var id = k.Id;
-        var b = Btn(k.Name, () => { _shown = id; Build(); }, true, 168, "class:" + id);
+        var b = Btn(k.Name, () => { _shown = id; Build(); }, true, ClassWidth, "class:" + id);
         b.Icon = SkillIcons.Class(k.Id, standing, 2);
         b.Alignment = HorizontalAlignment.Left;
-        b.CustomMinimumSize = new Vector2(168, 40);
+        b.CustomMinimumSize = new Vector2(ClassWidth, 40);
         b.TooltipText = $"{k.Name}: {k.Blurb}" + (standing == ClassBook.Standing.Open ? "" : "\nNeeds: " + ClassBook.Hint(k, c, t));
         b.Modulate = k.Id == t.Class ? Gold : k.Id == t.Secondary ? Cyan : standing switch
         {
@@ -102,7 +109,8 @@ public partial class JobsPanel : Control
         };
         if (k.Id == _shown) b.AddThemeColorOverride("font_color", Cyan);
         int stars = t.Stars(k.Id);
-        if (stars > 0) b.AddChild(new TextureRect { Texture = SkillIcons.Stars(stars, 2), Position = new Vector2(126, 26), MouseFilter = MouseFilterEnum.Ignore, TextureFilter = TextureFilterEnum.Nearest });
+        if (stars > 0 && SkillIcons.Stars(stars, 2) is { } starTex)
+            b.AddChild(new TextureRect { Texture = starTex, Position = new Vector2(ClassWidth - starTex.GetWidth() - 10, 4), MouseFilter = MouseFilterEnum.Ignore, TextureFilter = TextureFilterEnum.Nearest });
         return b;
     }
 
@@ -146,7 +154,8 @@ public partial class JobsPanel : Control
         var classes = ClassBook.Classes.Where(group.Has).Select(k => (k, st: ClassBook.StandingOf(k, c, t))).ToList();
         var open = classes.Where(x => x.st == ClassBook.Standing.Open).OrderBy(x => x.k.Id == t.Class ? 0 : x.k.Id == t.Secondary ? 1 : 2).ToList();
         var shut = classes.Where(x => x.st != ClassBook.Standing.Open).OrderBy(x => x.st == ClassBook.Standing.Never ? 1 : 0).ToList();
-        var grid = new GridContainer { Columns = 4 };
+        // Three across: the pixel type's class names want the room, with the mastery stars in the corner.
+        var grid = new GridContainer { Columns = 3 };
         grid.AddThemeConstantOverride("h_separation", 5);
         grid.AddThemeConstantOverride("v_separation", 5);
         foreach (var (k, standing) in open.Concat(_showLocked ? shut : Enumerable.Empty<(ClassDef, ClassBook.Standing)>()))

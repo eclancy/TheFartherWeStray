@@ -24,7 +24,9 @@ public partial class CutsceneScreen : Control
     public System.Action Done;
 
     const int Scale = 3;  // closer in than a battle's 2x: scenes are about who's in them
-    static readonly Color Gold = Ui.Gold, Ink = Ui.Ink, Dim = Ui.Dim;
+    static Color Gold => Ui.Gold;
+    static Color Ink => Ui.Ink;
+    static Color Dim => Ui.Dim;
     Vector2 Focus => GetViewportRect().Size * new Vector2(0.5f, 0.37f); // where the camera puts what it looks at
 
     BattleMap _map;

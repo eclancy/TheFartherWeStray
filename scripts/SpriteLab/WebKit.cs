@@ -158,7 +158,7 @@ public static class WebKit
         {
             // As the game makes its nine-slices (UiSkin.Painted): corner 6 frame pixels, at 3x (2x for small).
             int px = part == UiPart.Small ? 2 : UiSkin.Px, m = 6, size = m * 2 + 2;
-            var img = UiSkin.Paint(UI.Skin.GiltNeon, part, state, size, size, lit, light);
+            var img = UiSkin.Paint(UI.Skin.Dusk, part, state, size, size, lit, light); // the game's look (Dusk, 2026-11-07)
             img.Resize(size * px, size * px, Image.Interpolation.Nearest);
             img.SavePng(Path.Combine(dir, name + ".png"));
         }
